@@ -1,8 +1,10 @@
 # ClipRail
 
-**Verifiable pay-per-view clipping campaigns on Stellar.**
+**Verifiable pay-per-reach content campaigns on Stellar — any platform, any content format.**
 
-A brand locks a USDC budget in a Soroban escrow with rules that cannot change after launch. Clippers who are registered in a per-campaign humanity registry post campaign clips on their own social accounts, tagged with a personal campaign code. View counts are proven with zkTLS (Reclaim), and the proof is checked **inside the contract**: the attestor signature, the exact API URL, the extraction regexes, and the clipper's code in the video description. Each epoch the budget is split pro-rata over proven view growth, under a per-1k rate ceiling and per-human caps. Payout transactions cost well under a cent on testnet (measured below), so there is no minimum payout, and clippers in any country can be paid.
+A brand publishes a brief or an asset and locks a USDC budget in a Soroban escrow with rules that cannot change after launch. Participants who are registered in a per-campaign humanity registry publish **their own content** — a short video, an image, a thread, a plain text post — on **their own social accounts**, with a personal campaign code in the caption or description. The agreed reach metric (views, plays, likes — whatever the campaign pays for) is proven with zkTLS (Reclaim), and the proof is checked **inside the contract**: the attestor signature, the exact URL for that platform, the extraction regexes, and the participant's code in the extracted caption text. Each epoch the budget is split pro-rata over proven metric growth, under a per-1k rate ceiling and per-human caps. Payout transactions cost well under a cent on testnet (measured below), so there is no minimum payout, and participants in any country can be paid.
+
+The first market we go after is **clipping campaigns**, and the on-chain naming still carries that history: the contract functions are `register_clip` and `submit_proof`, and a "clip" on-chain simply means *a registered post*. Nothing in the contract is video-specific or platform-specific — see [Platforms](#platforms).
 
 > **The number is real** (zkTLS, verified on-chain) · **One human, once** (per-campaign nullifier) · **The rules can't change** (Soroban escrow)
 
@@ -11,7 +13,7 @@ A brand locks a USDC budget in a Soroban escrow with rules that cannot change af
 What is and is not proven today:
 
 - **A live Reclaim zkTLS proof is verified on-chain.** A real zkFetch proof signed by Reclaim's production attestor (`0x2448…9072`, `attestor.reclaimprotocol.org`, epoch 1) was accepted by the `cliprail` contract on testnet: [`register_clip` with a live opening proof](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) (clip 3, baseline 1200) and [`submit_proof` with a live closing proof](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69) (5200 views → weight 4000). The canonical `parameters` / `context` bytes matched our documented format exactly.
-- **In-contract proof verification** is also tested against Reclaim's reference vector (`contracts/reclaim-verify`), against a saved live proof (`fixtures/reclaim/demo-live-proof.json`, offline regression tests in `services/verifier/test/live-proof.test.ts` that recompute the identifier and the EIP-191 digest and recover the live attestor address), and in a full testnet lifecycle run (create → join → clips → proofs → dispute → settle → claim → holdback → refund).
+- **In-contract proof verification** is also tested against Reclaim's reference vector (`contracts/reclaim-verify`), against a saved live proof (`fixtures/reclaim/demo-live-proof.json`, offline regression tests in `services/verifier/test/live-proof.test.ts` that recompute the identifier and the EIP-191 digest and recover the live attestor address), and in a full testnet lifecycle run (create → join → posts → proofs → dispute → settle → claim → holdback → refund).
 - **Humanity is verified on-chain.** `humanity.register_zk` checks an Anon Aadhaar Groth16 proof (BN254) inside Soroban, bound to the campaign (nullifier seed) and to the submitting wallet (signal hash), for ~30.8M CPU instructions (~0.034 XLM fee on testnet). The demo uses UIDAI **test** data signed with the Anon Aadhaar test key, proven server-side by the verifier; production pins the real UIDAI key and proves in the browser. A relayer `register` path remains as a fallback.
 - **Funding and cash-out are live on testnet.** A brand can fund a campaign with XLM in one transaction (`create_campaign_with_swap` through the Soroswap router, tested: 47.37 XLM → 5 USDC escrow), and a clipper can cash out USDC to TRY through a SEP-6 anchor (tested: 5 USDC → 242.70 TL; 5000 TL → 101.98 USDC on the way in).
 
@@ -21,12 +23,12 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 
 - [x] **Integration (load-bearing): Soroswap.** `cliprail.create_campaign_with_swap` calls the Soroswap router from inside the contract, swaps the brand's XLM (or any asset with a pool) into exactly `budget` of Circle USDC and escrows it atomically. See [Stellar integrations](#stellar-integrations).
 - [x] **Anchor / local currency: TRY via SEP-6.** SEP-1 discovery, SEP-10 auth, SEP-12 KYC, SEP-38 quotes and SEP-6 `deposit-exchange` / `withdraw-exchange` against the testnet anchor `tr-mock-anchor.fly.dev` (brand funds in TL, clipper cashes out to TL).
-- [x] **Core feature:** verifiable pay-per-view escrow: in-contract zkTLS proof verification (a **live Reclaim attestor-signed proof** accepted on testnet — [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69)), on-chain Anon Aadhaar humanity (`register_zk`), pro-rata settle, holdback, bonded disputes, refund. [Full product lifecycle run](#full-product-lifecycle-run-testnet) on the demo deployment.
+- [x] **Core feature:** verifiable pay-per-reach escrow, platform- and content-agnostic: in-contract zkTLS proof verification (a **live Reclaim attestor-signed proof** accepted on testnet — [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69)), on-chain Anon Aadhaar humanity (`register_zk`), pro-rata settle, holdback, bonded disputes, refund. [Full product lifecycle run](#full-product-lifecycle-run-testnet) on the demo deployment.
 - [x] **Architecture diagram (Mermaid):** [Architecture](#architecture).
 - [x] **SCF roadmap:** [Roadmap → SCF / InstAward](#roadmap--scf--instaward).
 - [x] **Stellar skills cited:** [Stellar skills used](#stellar-skills-used).
 
-**Jump to:** [How to evaluate](#how-to-evaluate) · [Architecture](#architecture) · [Stellar integrations](#stellar-integrations) · [Stellar skills used](#stellar-skills-used) · [Design decisions & trade-offs](#design-decisions--trade-offs) · [Challenges](#challenges) · [Honest limits](#honest-limits) · [Roadmap → SCF / InstAward](#roadmap--scf--instaward)
+**Jump to:** [How to evaluate](#how-to-evaluate) · [Platforms](#platforms) · [Architecture](#architecture) · [Stellar integrations](#stellar-integrations) · [Stellar skills used](#stellar-skills-used) · [Design decisions & trade-offs](#design-decisions--trade-offs) · [Challenges](#challenges) · [Honest limits](#honest-limits) · [Roadmap → SCF / InstAward](#roadmap--scf--instaward)
 
 ## How to evaluate
 
@@ -51,7 +53,7 @@ pnpm --filter e2e run e2e                                    # full lifecycle on
 pnpm --filter e2e run seed -- --mode local                       # demo seed; --mode real requires Reclaim credentials
 ```
 
-A fresh e2e instance is needed per run because the video registry is global. Code worth reading: `contracts/reclaim-verify/src/lib.rs` (in-contract zkTLS), `contracts/humanity/src/groth16.rs` (BN254 Groth16), `contracts/cliprail/src/test/attacks.rs` (A1–A17).
+A fresh e2e instance is needed per run because the post registry (`(platform, post id)`) is global. Code worth reading: `contracts/reclaim-verify/src/lib.rs` (in-contract zkTLS), `contracts/humanity/src/groth16.rs` (BN254 Groth16), `contracts/cliprail/src/test/attacks.rs` (A1–A17).
 
 ---
 
@@ -59,7 +61,7 @@ A fresh e2e instance is needed per run because the video registry is global. Cod
 
 | Layer | Guarantee | How |
 |---|---|---|
-| **The number is real** | The view count and description the platform served reach the contract unmodified | Reclaim zkTLS proof. Secp256k1 attestor signature, URL template, `responseMatches` and extracted `views`/`desc` are all verified in the `cliprail` contract (`contracts/reclaim-verify`), not by a backend |
+| **The number is real** | The reach metric and the caption text the platform served reach the contract unmodified | Reclaim zkTLS proof. Secp256k1 attestor signature, URL template, `responseMatches` and the extracted metric / caption fields (`views`/`desc`) are all verified in the `cliprail` contract (`contracts/reclaim-verify`), not by a backend |
 | **One human, once** | A registered nullifier joins a campaign at most once, and caps apply per nullifier, not per account | `humanity` registry: `(campaign, nullifier)` and `(campaign, wallet)` are each unique. The nullifier is scoped per campaign and the proof is bound to the wallet. Anon Aadhaar Groth16 verified on-chain (`register_zk`); relayer `register` as fallback |
 | **The rules can't change** | Rate, caps, windows, holdback, bond and arbiter are fixed at creation. There are no discretionary rejections | Budget sits in a Soroban escrow. Every payout is a formula over proven numbers. Disputes are bonded and time-boxed |
 
@@ -71,26 +73,65 @@ Clipping is now a real market: brands and creators pay "clippers" per view to re
 - **Bot fraud.** Bot views are cheap. The StreamAlive founder described (blog post, September 2025) paying for a clipping campaign whose views turned out to be mostly bots. Nobody can prove what was counted.
 - **Payout rails exclude the workforce.** Many clippers are in India, the Philippines and Latin America, where PayPal is unavailable or impractical.
 
-Competitors advertise "verified views" but cannot show the verification. ClipRail makes it checkable: the count comes from a proof, the payout from immutable code.
+Competitors advertise "verified views" but cannot show the verification. ClipRail makes it checkable: the number comes from a proof, the payout from immutable code. Clipping is the first market, not the boundary — the same escrow pays any content campaign on any platform, because all the protocol needs is a configured URL template and a metric to extract.
 
 ## How it works
 
 ```
-create ─▶ humanity ─▶ join (CR code) ─▶ register clip (opening proof = baseline)
+create ─▶ humanity ─▶ join (CR code) ─▶ register post (opening proof = baseline)
       ─▶ [ epoch e: closing proof ─▶ bonded dispute ─▶ settle (pro-rata, rate ceiling) ─▶ claim ] × E
       ─▶ holdback released by next-epoch liveness ─▶ refund
 ```
 
 1. **Create.** The brand calls `create_campaign` and the budget moves into escrow. Parameters are validated (`epoch_len ≥ proof + dispute + arbiter windows`, `claim_grace ≥ epoch_len`, `bond > 0`, arbiter ≠ brand) and are then immutable.
 2. **Humanity.** The clipper submits an Anon Aadhaar Groth16 proof to `humanity.register_zk`. The contract recomputes the bound public inputs itself (UIDAI pubkey hash from config, `nullifierSeed = keccak256("cliprail:" ‖ campaign_id) >> 3`, `signalHash = keccak256(wallet ed25519 key) >> 3`), checks the QR timestamp against `max_age`, and runs the BN254 pairing check. A second wallet with the same nullifier is rejected.
-3. **Join.** `join` checks `humanity.is_verified` and returns a code `CR-XXXXXX` derived from `sha256(campaign_id ‖ participant)`. The clipper puts it in the video description.
-4. **Register clip.** The clipper submits the video link. The verifier produces an **opening proof**: the description contains the code, and the current views are N. The contract verifies it and records `baseline = N`, so only growth after registration counts. Each `(platform, video_id)` can be registered only once, globally.
-5. **Closing proofs.** In every epoch's window `[content_end, proof_end)` anyone can submit a fresh proof. If the same clip is re-proven in the window, the higher view count wins. The verifier's keeper does this automatically.
-6. **Bonded disputes.** Anyone can challenge a clip-epoch by posting a bond. The clipper responds for free. The arbiter rules on responded disputes only. An unanswered challenge excludes the clip. An arbiter who misses the deadline loses by default: the clipper wins. Excluded weight is redistributed to other clippers through the rate. It does not return to the brand.
+3. **Join.** `join` checks `humanity.is_verified` and returns a code `CR-XXXXXX` derived from `sha256(campaign_id ‖ participant)`. The participant puts it in the caption or description of the post.
+4. **Register the post.** The participant submits the post link. The verifier produces an **opening proof**: the extracted caption contains the code, and the current metric value is N. The contract verifies it and records `baseline = N`, so only growth after registration counts. Each `(platform, post id)` pair can be registered only once, globally. (The on-chain function is `register_clip`, and the registry key is `(platform, video_id)` — historical naming for "a registered post".)
+5. **Closing proofs.** In every epoch's window `[content_end, proof_end)` anyone can submit a fresh proof. If the same post is re-proven in the window, the higher metric value wins. The verifier's keeper does this automatically.
+6. **Bonded disputes.** Anyone can challenge a post-epoch by posting a bond. The clipper responds for free. The arbiter rules on responded disputes only. An unanswered challenge excludes the post. An arbiter who misses the deadline loses by default: the clipper wins. Excluded weight is redistributed to other clippers through the rate. It does not return to the brand.
 7. **Settle.** After `settle_at(e)`, with no open disputes, `settle_epoch` fixes the epoch rate (see below). Unspent budget carries over to the next epoch.
-8. **Claim.** `claim` pays each clip-epoch its share, O(1). Part of it (`holdback_bps`) is held back.
-9. **Holdback.** Epoch e's held share is released only to clips that are still live, meaning they got a closing proof in epoch e+1. Deleted videos forfeit their share to the survivors. The last epoch has no holdback.
+8. **Claim.** `claim` pays each post-epoch its share, O(1). Part of it (`holdback_bps`) is held back.
+9. **Holdback.** Epoch e's held share is released only to posts that are still live, meaning they got a closing proof in epoch e+1. Deleted posts forfeit their share to the survivors. The last epoch has no holdback.
 10. **Refund.** After `refund_at = settle_at(last) + claim_grace`, the remaining campaign balance returns to the brand.
+
+## Platforms
+
+The contract is **platform-agnostic and content-agnostic**. It stores a `platform` symbol and a post id, and for every proof it checks three things and nothing else:
+
+1. the proof's root `url` equals the configured template for that platform with the registered post id in it,
+2. the extracted caption/description field contains the participant's campaign code,
+3. the reach metric is the number extracted by that platform's configured regex from the attestor-signed response.
+
+Whether the post is a short video, an image, a thread or a plain text update never reaches the protocol. Neither does the content itself: the contract sees a signed response, a URL, a code and a number.
+
+| Platform | How the proof is fetched | Metric | Status |
+|---|---|---|---|
+| `demo` — `/demo/videos/:id` on our own verifier | Server-side: public endpoint, no login | `viewCount` — **views** | **Configured** — used for the live demo, so the number can move while you watch |
+| `youtube` — YouTube Data API v3 | Server-side: public, login-free JSON endpoint (API key sent in a redacted header) | `viewCount` — **views** | **Configured** — chosen first *only* because it exposes an endpoint a server-side prover can read |
+| `x` — X (Twitter), `cdn.syndication.twimg.com/tweet-result` | Server-side: public syndication endpoint, no login | `favorite_count` — **likes** (`"metric": "likes"`), so a campaign on `x` pays per like, not per view | **Configured** in `config/providers.json`; `set_platform` for it goes out with the next deploy |
+| X impressions/views, TikTok, Instagram | Device-side: the participant's own Reclaim app / browser extension fetches from their logged-in session | plays / views / impressions, whichever the provider entry extracts | **Next** — production path, see below |
+
+**Adding a platform is a config change, not a contract change.** One entry in `config/providers.json` — a URL template plus the two regexes that extract the metric and the caption — and one `set_platform` admin call. That is the whole integration; `cliprail` is not redeployed and not modified. The `x` platform is exactly that — one entry:
+
+```json
+"x": {
+  "metric": "likes",
+  "urlPrefix": "https://cdn.syndication.twimg.com/tweet-result?lang=en&token=a&id=",
+  "urlSuffix": "",
+  "responseMatches": [
+    { "type": "regex", "value": "\"favorite_count\":\\s*(?<views>\\d+)" },
+    { "type": "regex", "value": "\"id_str\":\"\\d+\",\"text\":\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\"" }
+  ]
+}
+```
+
+The two capture groups are named `views` and `desc` because those are the contract's fixed extraction keys: `views` is "the number this platform pays on" and `desc` is "the text that must contain the campaign code". The `metric` field says what the number actually is — for `x` it is **likes**, and the dashboard and the campaign brief say likes, not views.
+
+`fixtures/required-substrings.json` is regenerated from `config/providers.json`, and `scripts/deploy.sh` feeds those exact byte strings to `set_platform(platform, url_prefix, url_suffix, required)`. From then on the contract enforces URL equality and the presence of exactly those `responseMatches` for every proof under that platform.
+
+**The metric is part of the provider config, not of the contract.** A campaign can pay per views, per plays, or per another agreed metric — the rate `r_max` is simply "USDC per 1k of that metric". Because the required `responseMatches` are pinned per platform, a proof produced with a *different* regex is rejected: a likes regex cannot be passed off as a views regex (attack [A5](#threat--mitigation)).
+
+**Why TikTok, Instagram and X's view counts take the device-side flow.** Their pages do not reliably serve those numbers to a datacenter IP without a login — the response depends on a logged-in session, which a server-side prover does not have. X's public syndication endpoint is the exception that proves the point: it is readable without a session, but it carries `favorite_count` and not the impression count, which is why `x` pays on likes today. Reclaim's device-side flow solves this at the fetch layer: the participant's own Reclaim mobile app or browser extension makes the request from their already-logged-in session, the session cookies stay private through the ZK redaction, and the attestor signs **the same claim shape** the contract already verifies. Neither the contract nor the proof pipeline changes — only *who runs the fetch* does. That is why the login-free platforms came first and why the device-side flow is the production path to the platforms and metrics clippers actually work with, not a workaround.
 
 ## Architecture
 
@@ -116,7 +157,8 @@ flowchart LR
   end
 
   AT["Reclaim attestor (TEE)<br/>attestor.reclaimprotocol.org<br/>live proof verified on-chain"]
-  SP[("Social platforms<br/>YouTube Data API")]
+  SP[("Social platforms<br/>YouTube · X · TikTok · Instagram<br/>post URL + reach metric + caption")]
+  DEV["Participant device — next<br/>Reclaim app / browser extension<br/>fetch from the logged-in session<br/>(TikTok · Instagram · X view counts)"]
   AN["TRY anchor (tr-mock-anchor)<br/>SEP-1 · 10 · 12 · 38 · 6<br/>TL ⇄ USDC"]
   SE["stellar.expert"]
 
@@ -127,7 +169,9 @@ flowchart LR
   Web -- "POST /proof · /humanity/*" --> ZK
   Arbiter -- resolve --> CR
 
-  ZK -- "TLS via attestor (live proof)" --> AT
+  ZK -- "server-side fetch: public, login-free endpoints<br/>TLS via attestor (live proof)" --> AT
+  Clipper -. "device-side fetch: logged-in session, cookies redacted" .-> DEV
+  DEV -. "same claim shape, same attestor signature" .-> AT
   AT --> SP
   AT --> DM
   KP --> ZK
@@ -145,7 +189,7 @@ flowchart LR
   Web -- "tx and contract links" --> SE
 ```
 
-Solid edges are live on testnet. The dashed edge is the relayer fallback for humanity.
+Solid edges are live on testnet. Dashed edges are the relayer fallback for humanity and the device-side proof path (next) — the latter changes only who performs the fetch; the attestor, the claim shape and the in-contract verification stay identical.
 
 ### Campaign lifecycle
 
@@ -165,16 +209,16 @@ sequenceDiagram
   C->>H: register_zk(Anon Aadhaar Groth16 proof)
   Note over H: BN254 pairing check, (campaign, nullifier) ↔ wallet
   C->>CR: join → code CR-XXXXXX (checks is_verified)
-  C->>V: POST /proof (video link)
-  V->>CR: register_clip(opening proof) → baseline = views
+  C->>V: POST /proof (post link: platform + post id)
+  V->>CR: register post — register_clip(opening proof) → baseline = metric
   loop every epoch
-    V->>CR: submit_proof(closing proof) in proof window (keeper)
+    V->>CR: close proof — submit_proof(fresh metric) in proof window (keeper)
     Note over B,CR: dispute window: bonded challenge, free response, arbiter deadline
     V->>CR: finalize_dispute, settle_epoch (pro-rata, rate ceiling)
     C->>CR: claim
     CR->>T: payout to clipper (minus holdback)
   end
-  C->>CR: claim holdback (clip proven live next epoch)
+  C->>CR: claim holdback (post proven live next epoch)
   B->>CR: refund after refund_at
   CR->>T: remaining balance to brand
 ```
@@ -183,26 +227,26 @@ The verifier has **no authority over funds**. It cannot change a count because t
 
 ## Mechanism
 
-Per epoch `e`, for clip `c` of participant `p`:
+Per epoch `e`, for registered post `c` (a `clip` on-chain) of participant `p`. The parameter names say `views` because that is the metric of the platforms configured today; the formulas apply to whatever metric the platform's provider entry extracts:
 
 ```
 w_c   = min(max(views_c − baseline_c, 0), cap_views_clip) ;  w_c < min_views ⇒ 0
-raw_p = Σ w_c                         (participant's clips this epoch)
+raw_p = Σ w_c                         (participant's posts this epoch)
 w_p   = min(raw_p, cap_views_human)   (per-human cap)
 W_e   = Σ w_p
 
 B_e      = budget/E (+ remainder in last epoch) + carry_e
-r_eff    = W_e == 0 ? 0 : min(r_max, 1000 · B_e / W_e)      (USDC per 1k views)
+r_eff    = W_e == 0 ? 0 : min(r_max, 1000 · B_e / W_e)      (USDC per 1k of the metric)
 spent_e  = r_eff · W_e / 1000 ;   carry_{e+1} = B_e − spent_e
 
 pay_c    = r_eff · w_p · w_c / (raw_p · 1000)
 held_c   = pay_c · holdback_bps / 10000   (0 in the last epoch) ;  immediate_c = pay_c − held_c
 ```
 
-- **High-water mark baseline.** A clip-epoch's baseline is pinned to the clip's `hwm` (the highest proven views so far) at the first closing proof. Views that drop and rise again are never paid twice.
-- **No race.** With few views, clippers earn `r_max`. When demand exceeds the budget, the rate falls and everyone shares proportionally. `Σ payouts ≤ budget` always holds.
+- **High-water mark baseline.** A post-epoch's baseline is pinned to the post's `hwm` (the highest proven metric value so far) at the first closing proof. A number that drops and rises again is never paid twice.
+- **No race.** While proven reach is low, clippers earn `r_max`. When demand exceeds the budget, the rate falls and everyone shares proportionally. `Σ payouts ≤ budget` always holds.
 - **Holdback survivors share:**
-  `held_total_e = spent_e · bps / 10000`, `held_survived_e = Σ held_i` over clips proven alive in e+1, and `holdback_claim_i = held_i · held_total_e / held_survived_e`.
+  `held_total_e = spent_e · bps / 10000`, `held_survived_e = Σ held_i` over posts proven alive in e+1, and `holdback_claim_i = held_i · held_total_e / held_survived_e`.
 - **Accounting invariant.** Every campaign has its own `balance` ledger, and every outflow is clamped to it. The contract's token balance equals `Σ campaign.balance + open bonds`.
 
 ## Security model
@@ -210,21 +254,22 @@ held_c   = pay_c · holdback_bps / 10000   (0 in the last epoch) ;  immediate_c 
 | Trusted party | What it could do | Mitigation |
 |---|---|---|
 | Reclaim attestor (single key today) | Sign a false count | Attestor allowlist in contract. Reclaim runs it in a TEE. Multi-attestor on the roadmap |
-| Platform (YouTube) | Count bot views | Per-clip and per-human caps, `min_views`, bonded disputes, pro-rata dilution |
+| The platform itself (whichever is configured) | Serve an inflated metric (bot views) | Per-post and per-human caps, `min_views`, bonded disputes, pro-rata dilution |
 | Humanity relayer (fallback path) | Register fake nullifiers | The primary path `register_zk` needs no relayer: the Groth16 proof is verified on-chain and bound to the wallet. The relayer role is admin-set (`set_relayer`) and can be retired in production |
 | Admin (UIDAI key config) | Accept proofs under a wrong key | `pubkey_hash` is pinned in `AadhaarConfig`. The demo uses the Anon Aadhaar test key (`test_key: true`); production pins the real UIDAI key |
 | Brand | Challenge in bad faith | Bond goes to the clipper if the challenge fails. Excluded weight never returns to the brand |
 | Arbiter | Rule with bias | Only rules on disputes the clipper answered. Missing the deadline means the clipper wins |
-| Verifier / relayer | Withhold a proof (censor a clip) | Cannot touch funds or counts. Anyone can submit in the window, and the higher count wins |
+| Verifier / relayer | Withhold a proof (censor a post) | Cannot touch funds or numbers. Anyone can submit in the window, and the higher value wins |
 | Admin | Change attestors, owners, platform config | Campaign rules are immutable. Production would use a timelock and multisig |
 
 ### Honest limits
 
-- **zkTLS proves the count the platform displays, not that viewers are human.** We mitigate bot views with caps, disputes and pro-rata dilution. We do not claim to solve them.
+- **zkTLS proves the number the platform serves, not that the audience is human.** We mitigate bot-inflated metrics with caps, disputes and pro-rata dilution. We do not claim to solve them.
+- **Only platforms with a login-free endpoint can be proven server-side today.** `demo`, `youtube` and `x` are configured because a datacenter prover can read those endpoints without a session — and on `x` that endpoint exposes likes, not impressions. TikTok, Instagram and X view counts need Reclaim's device-side flow (participant's app or extension, logged-in session, cookies redacted). The contract already accepts those proofs — the claim shape is identical — but the device-side client is not shipped yet, so those platforms are not configured.
 - **One Reclaim attestor key.** The live address we allowlist (`0x244897572368eadf65bfbc5aec98d8e5443a9072`, `attestor.reclaimprotocol.org`) is confirmed by a [live on-chain proof](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69), but it is still a single key. Trust moves from "our server" to "a third-party, signed, TEE-backed attestor". That is better, but not trustless. Multi-attestor threshold verification is on the roadmap.
 - **Humanity uses UIDAI test data in the demo.** `register_zk` verifies a real Anon Aadhaar Groth16 proof on-chain, but the demo proof is generated by the verifier (`/humanity/aadhaar/prove`) from the official UIDAI test QR under the Anon Aadhaar **test** key. Production proves in the user's browser from their own Aadhaar QR and pins the real UIDAI key. Aadhaar covers India only until more identity sources are added. Identities can be rented, which raises the Sybil cost to the price of a real identity without eliminating it.
 - **The TRY anchor is a testnet sandbox** (`tr-mock-anchor.fly.dev`): the SEP-6/10/12/38 flow is real, but the bank leg (TL in and out) is simulated and no real money moves. A licensed Turkish anchor is needed for production.
-- **The live demo uses a platform endpoint we control** (`/demo/videos/:id`) so viewers can watch the count grow within minutes. The proof over it is a **real zkTLS proof** signed by Reclaim's attestor and verified in-contract, but the count it attests comes from an endpoint we host, so numbers can move during a live demo. The YouTube path uses the same verifier and the same proof format.
+- **The live demo uses a platform endpoint we control** (`/demo/videos/:id`) so viewers can watch the count grow within minutes. The proof over it is a **real zkTLS proof** signed by Reclaim's attestor and verified in-contract, but the number it attests comes from an endpoint we host, so counts can move during a live demo. The `youtube` platform uses the same verifier, the same proof format and the same in-contract checks — only the provider entry differs.
 - **Two attestor modes.** The verifier runs in `reclaim` mode (live attestor) or `simulated` mode (a clearly labeled local test key) — the latter for rehearsals, so the free Reclaim quota is not burned. Both keys are allowlisted on the demo deployment, and the dashboard shows a badge when a proof came from the simulated attestor.
 - The proof `timestampS` is chosen by the prover, so freshness relies on the allowlisted `owner` (our zkFetch app).
 
@@ -235,22 +280,22 @@ Every row has a dedicated test in [`contracts/cliprail/src/test/attacks.rs`](con
 | # | Attack | Mitigation | Test |
 |---|---|---|---|
 | A1 | Replay the same proof | Replay set keyed by `keccak(identifier ‖ timestampS)` | `a01_proof_reuse` |
-| A2 | Register one video in two campaigns (or `id=a,b` tricks) | Global `(platform, video_id)` registry and video-id charset check | `a02_video_twice` |
-| A3 | Add a code to an already viral video | Baseline from the opening proof | `a03_code_added_to_viral_video` |
-| A4 | Proof for another URL or video | URL template equality on root `url` | `a04_proof_for_other_video` |
-| A5 | Proof with a different regex (e.g. likes) | Required `responseMatches` checked | `a05_other_regex` |
-| A6 | Code missing, or someone else's code | Code search inside extracted `desc` only | `a06_code_missing_or_foreign` |
+| A2 | Register one post in two campaigns (or `id=a,b` tricks) | Global `(platform, post id)` registry and post-id charset check | `a02_video_twice` |
+| A3 | Add a code to an already viral post | Baseline from the opening proof | `a03_code_added_to_viral_video` |
+| A4 | Proof for another URL or another post | URL template equality on root `url` | `a04_proof_for_other_video` |
+| A5 | Proof with a different regex (e.g. likes instead of the campaign's metric) | Required `responseMatches` checked, per platform config | `a05_other_regex` |
+| A6 | Code missing, or someone else's code | Code search inside the extracted caption field (`desc`) only | `a06_code_missing_or_foreign` |
 | A7 | Stale or future timestamp | Freshness and window checks | `a07_stale_or_future_timestamp` |
 | A8 | Unauthorized attestor, owner, or tampered payload | Recovered-address allowlist and owner allowlist | `a08_unknown_attestor_or_owner` |
 | A9 | Sybil: same person, second wallet | Per-campaign nullifier in `humanity` | `a09_sybil_second_wallet` |
-| A10 | Many clips to exceed caps | Per-clip cap and per-human cap | `a10_caps_many_clips` |
+| A10 | Many posts to exceed caps | Per-post cap and per-human cap | `a10_caps_many_clips` |
 | A11 | Budget exhaustion | Pro-rata rate and balance clamp | `a11_budget_exhaustion` |
-| A12 | Views drop then rise again | High-water mark | `a12_views_drop_then_rise` |
+| A12 | The metric drops then rises again | High-water mark | `a12_views_drop_then_rise` |
 | A13 | Double claim | `claimed` flag | `a13_double_claim` |
 | A14 | Claim while disputed | Settle blocked by open disputes, and claim blocked by status | `a14_claim_while_disputed` |
 | A15 | Non-arbiter resolves | `arbiter.require_auth()` | `a15_non_arbiter_resolve` |
 | A16 | Early refund | `refund_at` | `a16_early_refund` |
-| A17 | Video deleted after payout | No next-epoch proof, so its holdback goes to survivors | `a17_deleted_video_forfeits_holdback` |
+| A17 | Post deleted after payout | No next-epoch proof, so its holdback goes to survivors | `a17_deleted_video_forfeits_holdback` |
 
 ## Demo deployment (testnet)
 
@@ -308,7 +353,7 @@ Totals: clipper1 earned 2.6666663 USDC, clipper2 1.3333331 USDC (2:1, matching t
 ```
 contracts/
   reclaim-verify/   no_std lib: identifier, EIP-191 digest, secp256k1 recover, root-level JSON scanner
-  cliprail/         campaigns, global video registry, epochs, pro-rata settle, claims, holdback, disputes, refund
+  cliprail/         campaigns, global post registry (platform + post id), epochs, pro-rata settle, claims, holdback, disputes, refund
   humanity/         per-campaign nullifier registry: register_zk (on-chain Anon Aadhaar Groth16, BN254), register (relayer fallback)
 services/verifier/  Node/TS: zkFetch proofs, relay, keeper, demo platform endpoint, Anon Aadhaar demo prover, rate limits
 packages/
@@ -317,7 +362,7 @@ packages/
   humanity-client/  generated TS bindings
   shared/           @cliprail/shared: timeline, payout, errors, video-id parsing, formatting (mirrors the contract)
 apps/web/           Next.js dashboard (brand, clipper, arbiter views; Stellar Wallets Kit)
-config/             providers.json (URL templates + regexes per platform)
+config/             providers.json (per platform: URL template + metric and caption regexes; one entry adds a platform)
 fixtures/           Reclaim reference vector, saved live attestor proof (reclaim/demo-live-proof.json), required substrings
 scripts/            setup-accounts.sh, deploy.sh, bindings.sh
   e2e/              testnet lifecycle run (deploy.ts, run.ts), simulated attestor (proofgen.ts), demo seeding (seed-demo.ts)
@@ -417,7 +462,7 @@ Each integration below carries weight in the protocol; none is decorative.
 | **Soroswap** (router) | Live, contract-level | `create_campaign_with_swap`: the `cliprail` contract calls the Soroswap router (`swap_tokens_for_exact_tokens`) and escrows exactly `budget` USDC in the same brand-signed transaction, with a slippage cap and deadline; the client quotes via `router_get_amounts_in`. Tested on testnet: 47.37 XLM → 5 USDC escrow |
 | **Soroban host crypto: secp256k1 + keccak256** | Live | Recover the Reclaim attestor address and hash the claim identifier, so a zkTLS proof is verified fully in-contract (~3–10M instructions) |
 | **Soroban host crypto: BN254 pairing + G1 MSM** | Live | Groth16 verification of Anon Aadhaar proofs in `humanity.register_zk` (~30.8M CPU instructions, ~0.034 XLM fee on testnet) |
-| **Reclaim Protocol zkTLS** (zkFetch, attestor) | Live (attestor-signed proof verified on-chain) | Produces signed proofs of the view count and description the platform served, verified inside `cliprail`. A live attestor-signed proof was accepted on testnet: [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69). Tests and the e2e run use a simulated attestor that signs in the exact Reclaim format, so the free quota is not burned |
+| **Reclaim Protocol zkTLS** (zkFetch, attestor) | Live (attestor-signed proof verified on-chain) | Produces signed proofs of the reach metric and the caption text the platform served, verified inside `cliprail` — the same claim shape for every configured platform. A live attestor-signed proof was accepted on testnet: [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69). Tests and the e2e run use a simulated attestor that signs in the exact Reclaim format, so the free quota is not burned |
 | **Anon Aadhaar circuits (PSE)** v2 | Live (`register_zk` on-chain verify); demo uses UIDAI test data, proven server-side | Proof of a unique Aadhaar holder with a per-campaign nullifier, bound to the Stellar wallet via the signal hash |
 | **TRY anchor: SEP-1 + SEP-10 + SEP-12 + SEP-38 + SEP-6** (`tr-mock-anchor.fly.dev`) | Live via SEP-6 (testnet sandbox) | Brand buys USDC with TL (`deposit-exchange`), clipper cashes out USDC to TL (`withdraw-exchange`) with a firm SEP-38 quote. Tested: 5000 TL → 101.98 USDC; 5 USDC → 242.70 TL. The escrow needs no change for this |
 | **Stellar RPC + stellar.expert** | Live | The dashboard, keeper and e2e scripts read contract state and simulate/submit transactions via Stellar RPC; every transaction and contract is linked on stellar.expert |
@@ -447,6 +492,7 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 - **Bonded, time-boxed disputes with a default in the clipper's favor.** The arbiter can only rule on answered disputes, and a missed deadline cannot be used to stall payouts.
 - **Per-campaign nullifiers.** A person's identity cannot be linked across campaigns, and a nullifier is spent only within one campaign.
 - **Token-agnostic escrow.** The token is a campaign parameter, so USDC today and anchor-issued local stablecoins later need no contract change.
+- **Platforms and metrics live in config, not in the contract.** `cliprail` stores a platform symbol, a URL template and the required `responseMatches`; it never learns what a post contains or which network it is on. Adding X, TikTok or a non-video format is one provider entry plus one `set_platform` call, so the audited verification path stays the same for every platform. See [Platforms](#platforms).
 - **Relayer kept as a fallback for humanity.** It keeps the demo usable if a device cannot generate a proof, while the trustless `register_zk` path is primary.
 
 ## Challenges
@@ -462,10 +508,10 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 
 | Milestone | Timeline | Deliverables |
 |---|---|---|
-| **M1: Production-ready testnet** | 2–4 weeks | Live Reclaim zkFetch proofs in the default flow for every clip and epoch (the first live proof is already verified on-chain; next is a paid tier so the keeper is not quota-bound, plus a full multi-clip, multi-epoch live run); TRY cash-out moved from the testnet sandbox anchor to a licensed Turkish anchor (SEP-6/SEP-24); verifier and keeper hosted on Hetzner behind HTTPS with monitoring; in-browser Anon Aadhaar proving; external security review of `cliprail`, `humanity` and `reclaim-verify` |
-| **M2: Mainnet pilot** | +1–2 months | Mainnet deployment with real UIDAI key pinned; pilot campaigns with 2–3 brands (crypto projects, music labels); passkey smart accounts and fee sponsorship so clippers need no seed phrase or XLM; device-side zkTLS for TikTok, X and Instagram; admin timelock and multisig |
+| **M1: Production-ready testnet** | 2–4 weeks | **Device-side zkTLS (Reclaim app / browser extension) for TikTok, Instagram and X view counts**, which unlocks the platforms and metrics clippers actually use: the fetch runs in the participant's logged-in session with cookies redacted, the attestor signs the same claim shape, and each platform lands as one `config/providers.json` entry plus one `set_platform` call — no contract change; live Reclaim zkFetch proofs in the default flow for every post and epoch (the first live proof is already verified on-chain; next is a paid tier so the keeper is not quota-bound, plus a full multi-post, multi-epoch live run); TRY cash-out moved from the testnet sandbox anchor to a licensed Turkish anchor (SEP-6/SEP-24); verifier and keeper hosted on Hetzner behind HTTPS with monitoring; in-browser Anon Aadhaar proving; external security review of `cliprail`, `humanity` and `reclaim-verify` |
+| **M2: Mainnet pilot** | +1–2 months | Mainnet deployment with real UIDAI key pinned; pilot campaigns with 2–3 brands (crypto projects, music labels); passkey smart accounts and fee sponsorship so clippers need no seed phrase or XLM; more platforms and metrics added purely through provider config (each one entry + one `set_platform` call); admin timelock and multisig |
 | **M3: SCF Build Award** | +3 months | SCF Build application backed by pilot metrics; Self / zkPassport identity alongside Aadhaar; SDK and dashboard for agencies running many campaigns; multi-attestor threshold verification; Stellar Disbursement Platform integration for large payouts |
 
-**Success metrics** (reported publicly from on-chain data): campaigns launched, USDC escrowed and paid out, clips verified, unique verified humans, dispute rate and outcome split, median time from epoch end to payout, share of clippers cashing out through an anchor.
+**Success metrics** (reported publicly from on-chain data): campaigns launched, USDC escrowed and paid out, posts verified (by platform), unique verified humans, dispute rate and outcome split, median time from epoch end to payout, share of clippers cashing out through an anchor.
 
 **Funding ask.** We plan to apply for an SCF InstAward to finish M1, then an SCF Build Award (up to $150k) paid in tranches against M1–M3, with each tranche tied to the deliverables and metrics above.
