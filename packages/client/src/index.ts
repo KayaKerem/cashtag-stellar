@@ -9,6 +9,7 @@ export * from "./proof";
 export * from "./token";
 export * from "./anchor";
 export * from "./humanity-zk";
+export * from "./swap";
 export { runWrite, isRetryable, simulatedResult, unwrapResult, mapLimit, type TxLike, type WriteResult } from "./tx";
 export type { CliprailApi } from "@cliprail/shared";
 

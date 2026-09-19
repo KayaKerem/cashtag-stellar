@@ -102,3 +102,13 @@ pub struct Refunded {
     pub brand: Address,
     pub amount: i128,
 }
+
+/// Campaign funded through a swap: `amount_in` of `token_in` became exactly `budget` of the
+/// campaign token (see `CampaignCreated`).
+#[contractevent(topics = ["swapfund"], data_format = "vec")]
+pub struct SwapFunded {
+    #[topic]
+    pub id: u64,
+    pub token_in: Address,
+    pub amount_in: i128,
+}

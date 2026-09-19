@@ -19,6 +19,7 @@ pub enum DataKey {
     CampaignCount,
     ClipCount,
     DisputeCount,
+    Router,
     // persistent
     Campaign(u64),
     Epoch(u64, u32),

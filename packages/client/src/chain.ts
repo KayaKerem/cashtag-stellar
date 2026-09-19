@@ -13,12 +13,14 @@ import {
 } from "@cliprail/shared";
 import { Client as CliprailClient, type CampaignParams as RawParams } from "cliprail-client";
 import { Client as HumanityClient } from "humanity-client";
-import { toCliprailError, type ErrorContext } from "./errors";
+import { toCliprailError, tokenError, type ErrorContext } from "./errors";
 import { postJson } from "./http";
 import { proofJsonToReclaimProof, type ProofJson } from "./proof";
 import { defaultBuildTx, registerZkArgs, registerZkTxOptions, type AadhaarProveResponse, type BuildTx } from "./humanity-zk";
 import { ensureTokenBalance, rpcTokenReader, type TokenReader } from "./token";
 import { mapLimit, runWrite, simulatedResult, unwrapResult, type TxLike } from "./tx";
+import { quoteSwap, rpcSwapQuoter, swapFundArgs, swapFundTxOptions, type SwapQuoter } from "./swap";
+import { SOROSWAP_TESTNET, SWAP_DEADLINE_SECS } from "@cliprail/shared";
 
 /** Wallet signer; @creit.tech/stellar-wallets-kit and Freighter both fit (see README). */
 export interface Signer {
@@ -46,6 +48,12 @@ export interface ChainApiOptions {
   fetch?: typeof fetch;
   /** Raw contract-call builder (tests); default AssembledTransaction.build. */
   buildTx?: BuildTx;
+  /** Soroswap router for createCampaignWithSwap / quoteSwapFunding (default: testnet router). */
+  soroswapRouter?: string;
+  /** Override the router quote reader (tests). */
+  swapQuoter?: SwapQuoter;
+  /** Unix seconds (tests); default Date.now(). Used for the swap deadline. */
+  nowSecs?: () => number;
 }
 
 const big = (x: unknown) => (typeof x === "bigint" ? x : BigInt(x as number | string));
@@ -168,6 +176,13 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
   const verifier = <T>(path: string, body: unknown) =>
     postJson<T>(opts.verifierUrl, path, body, { token: opts.writeToken, fetch: opts.fetch });
 
+  const router = opts.soroswapRouter ?? SOROSWAP_TESTNET.router;
+  const swapQuoter = opts.swapQuoter ?? rpcSwapQuoter(base);
+  const defaultToken = () => {
+    if (!opts.usdcSac) throw new Error("quoteSwapFunding: token missing (pass usdcSac option)");
+    return opts.usdcSac;
+  };
+
   const getCampaign = async (id: bigint) => normalizeCampaign(await read(reader.get_campaign({ id })));
 
   return {
@@ -199,6 +214,40 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
       await preflight(params.token, from, params.budget);
       const r = await write<bigint>((c, brand) => c.create_campaign({ brand, params }), { from, tokenIds: [params.token] });
       return { id: big(r.result), txHash: r.txHash };
+    },
+    async quoteSwapFunding(budget, tokenIn, token) {
+      return quoteSwap(swapQuoter, router, big(budget), tokenIn, token ?? defaultToken());
+    },
+    async createCampaignWithSwap(p, o) {
+      const params = toRawParams(p, opts.usdcSac);
+      const quote = await quoteSwap(swapQuoter, router, params.budget, o.tokenIn, params.token, o.slippageBps);
+      const amountInMax = o.amountInMax ?? quote.amountInMax;
+      const from = await me();
+      await preflight(o.tokenIn, from, amountInMax);
+      // the swap output lands on the brand's account first: a G-account needs a trustline for it
+      if (opts.preflight !== false) {
+        try {
+          await tokenReader.balance(params.token, from);
+        } catch (e) {
+          const te = tokenError(e, { tokenIds: [params.token] });
+          if (te?.code === "no_trustline") throw te;
+        }
+      }
+      const deadline = BigInt(Math.floor(opts.nowSecs?.() ?? Date.now() / 1000) + SWAP_DEADLINE_SECS);
+      const r = await runWrite<bigint>(
+        () => {
+          const args = swapFundArgs(from, params, o.tokenIn, amountInMax, quote.path, deadline);
+          const txOpts = swapFundTxOptions({ ...base, contractId: opts.cliprailId, publicKey: from, signTransaction }, args);
+          return (opts.buildTx ?? defaultBuildTx)(txOpts) as Promise<TxLike<unknown>>;
+        },
+        {
+          retries: 2,
+          delayMs: opts.retryDelayMs ?? 1000,
+          // the router's own errors are caught by cliprail (→ SwapFailed #38), so it counts as "own"
+          errorContext: { tokenIds: [o.tokenIn, params.token], ownIds: [...ownIds, router] },
+        },
+      );
+      return { id: big(r.result), txHash: r.txHash, amountInMax, quote };
     },
     async registerHuman(id) {
       const wallet = await opts.signer.getAddress();

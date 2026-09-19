@@ -39,6 +39,9 @@ export const CLIPRAIL_ERRORS: Record<number, { name: string; message: string }> 
   33: { name: "AlreadyRefunded", message: "Kampanya zaten iade edilmiş." },
   34: { name: "PrevEpochNotSettled", message: "Önceki dönem henüz kapatılmadı." },
   35: { name: "ProofTooLarge", message: "Kanıt çok büyük." },
+  36: { name: "RouterNotSet", message: "Takasla fonlama bu kontratta yapılandırılmamış." },
+  37: { name: "BadPath", message: "Takas yolu geçersiz (ilk varlık ödenen, son varlık kampanya tokenı olmalı)." },
+  38: { name: "SwapFailed", message: "Takas başarısız (fiyat kaydı limiti, süre ya da likidite). Yeni teklif alıp tekrar dene." },
 };
 
 export const HUMANITY_ERRORS: Record<number, { name: string; message: string }> = {

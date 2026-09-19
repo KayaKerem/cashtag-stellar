@@ -19,6 +19,9 @@
 //!   `e+1`, but its epoch-`e` share (immediate and held) is forfeited.
 //! - `init` is replaced by `__constructor(admin, humanity)` (deploy-time args); code 1 is reserved.
 //! - Participant code = "CR-" + base36(u32_be(sha256(campaign_id_be ‖ xdr(address))[0..4]) mod 36^6).
+//! - `create_campaign_with_swap` funds a campaign with any asset: the brand's `token_in` is swapped
+//!   through the Soroswap router (`swap_tokens_for_exact_tokens`, `to = brand`) into exactly
+//!   `budget` of the campaign token, which is then escrowed as in `create_campaign`, atomically.
 
 use soroban_sdk::{
     contract, contractclient, contractimpl, panic_with_error, token, xdr::ToXdr, Address, Bytes,
@@ -43,6 +46,21 @@ use storage::DataKey;
 #[contractclient(name = "HumanityClient")]
 pub trait HumanityInterface {
     fn is_verified(env: Env, campaign_id: u64, wallet: Address) -> bool;
+}
+
+/// Minimal client for the Soroswap router (only what `create_campaign_with_swap` needs).
+/// Pulls up to `amount_in_max` of `path[0]` from `to` (`to.require_auth()`) and sends exactly
+/// `amount_out` of `path[last]` to `to`; returns the amounts along the path.
+#[contractclient(name = "SoroswapRouterClient")]
+pub trait SoroswapRouterInterface {
+    fn swap_tokens_for_exact_tokens(
+        env: Env,
+        amount_out: i128,
+        amount_in_max: i128,
+        path: Vec<Address>,
+        to: Address,
+        deadline: u64,
+    ) -> Vec<i128>;
 }
 
 #[contract]
@@ -124,6 +142,35 @@ fn clip_pay(env: &Env, c: &Campaign, clip: &Clip, e: u32, ce: &ClipEpoch, rate: 
     epoch::clip_pay(rate, &pe, ce.weight)
 }
 
+/// Pulls `params.budget` from the brand and stores the new campaign (params already validated).
+fn escrow(env: &Env, brand: Address, params: CampaignParams) -> Result<u64, Error> {
+    token::Client::new(env, &params.token).transfer(
+        &brand,
+        env.current_contract_address(),
+        &params.budget,
+    );
+    let id = storage::next_id(env, &DataKey::CampaignCount);
+    let c = Campaign {
+        id,
+        brand: brand.clone(),
+        balance: params.budget,
+        settled_epochs: 0,
+        refunded: false,
+        participants: 0,
+        clips: 0,
+        params,
+    };
+    storage::set_campaign(env, &c);
+    events::CampaignCreated {
+        id,
+        brand,
+        budget: c.params.budget,
+        epochs: c.params.epochs,
+    }
+    .publish(env);
+    Ok(id)
+}
+
 #[contractimpl]
 impl Cliprail {
     // ------------------------------------------------------------------ admin
@@ -168,6 +215,18 @@ impl Cliprail {
         Ok(())
     }
 
+    /// Soroswap router used by `create_campaign_with_swap`.
+    pub fn set_router(env: Env, router: Address) -> Result<(), Error> {
+        storage::admin(&env)?.require_auth();
+        storage::inst_set(&env, &DataKey::Router, &router);
+        storage::bump_instance(&env);
+        Ok(())
+    }
+
+    pub fn router(env: Env) -> Option<Address> {
+        storage::inst_get(&env, &DataKey::Router)
+    }
+
     // ------------------------------------------------------------------ campaign
 
     pub fn create_campaign(env: Env, brand: Address, params: CampaignParams) -> Result<u64, Error> {
@@ -175,28 +234,64 @@ impl Cliprail {
         storage::admin(&env)?;
         storage::bump_instance(&env);
         epoch::validate_params(&env, &brand, &params)?;
-        token::Client::new(&env, &params.token).transfer(
-            &brand,
-            env.current_contract_address(),
-            &params.budget,
-        );
-        let id = storage::next_id(&env, &DataKey::CampaignCount);
-        let c = Campaign {
+        escrow(&env, brand, params)
+    }
+
+    /// Funds a campaign with any asset: swaps at most `amount_in_max` of `token_in` into exactly
+    /// `params.budget` of `params.token` via the Soroswap router (`path` = `[token_in, …, params.token]`,
+    /// output to the brand), then escrows the budget like `create_campaign`. All or nothing.
+    pub fn create_campaign_with_swap(
+        env: Env,
+        brand: Address,
+        params: CampaignParams,
+        token_in: Address,
+        amount_in_max: i128,
+        path: Vec<Address>,
+        deadline: u64,
+    ) -> Result<u64, Error> {
+        brand.require_auth();
+        storage::admin(&env)?;
+        storage::bump_instance(&env);
+        epoch::validate_params(&env, &brand, &params)?;
+        let router: Address =
+            storage::inst_get(&env, &DataKey::Router).ok_or(Error::RouterNotSet)?;
+        let n = path.len();
+        if n < 2
+            || path.get_unchecked(0) != token_in
+            || path.get_unchecked(n - 1) != params.token
+            || token_in == params.token
+        {
+            return Err(Error::BadPath);
+        }
+        if amount_in_max <= 0 {
+            return Err(Error::InvalidParams);
+        }
+        let out = token::Client::new(&env, &params.token);
+        let before = out.balance(&brand);
+        let amounts = SoroswapRouterClient::new(&env, &router)
+            .try_swap_tokens_for_exact_tokens(
+                &params.budget,
+                &amount_in_max,
+                &path,
+                &brand,
+                &deadline,
+            )
+            .map_err(|_| Error::SwapFailed)?
+            .map_err(|_| Error::SwapFailed)?;
+        // never trust the router's bookkeeping: the brand must have received the full budget
+        let amount_in = amounts.first().unwrap_or(0);
+        if amounts.len() != n
+            || amount_in <= 0
+            || amount_in > amount_in_max
+            || out.balance(&brand) - before < params.budget
+        {
+            return Err(Error::SwapFailed);
+        }
+        let id = escrow(&env, brand, params)?;
+        events::SwapFunded {
             id,
-            brand: brand.clone(),
-            balance: params.budget,
-            settled_epochs: 0,
-            refunded: false,
-            participants: 0,
-            clips: 0,
-            params,
-        };
-        storage::set_campaign(&env, &c);
-        events::CampaignCreated {
-            id,
-            brand,
-            budget: c.params.budget,
-            epochs: c.params.epochs,
+            token_in,
+            amount_in,
         }
         .publish(&env);
         Ok(id)

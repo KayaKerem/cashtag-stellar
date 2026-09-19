@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "smoke": "tsx test/chain.smoke.ts",
     "smoke:write": "tsx test/chain.write-smoke.ts",
-    "smoke:flow": "tsx test/chain.flow-smoke.ts"
+    "smoke:flow": "tsx test/chain.flow-smoke.ts",
+    "smoke:zk": "tsx test/chain.zk-smoke.ts"
   },
   "dependencies": {
     "@cliprail/shared": "workspace:*",

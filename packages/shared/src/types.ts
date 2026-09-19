@@ -123,6 +123,21 @@ export type CampaignParamsInput = Omit<CampaignParams, "token" | "platforms"> & 
   platforms: Platform[];
 };
 
+/** Soroswap quote for swap funding (amounts in base units, 7 decimals for SACs). */
+export interface SwapQuote {
+  tokenIn: string;
+  tokenOut: string;
+  /** Swap route `[tokenIn, …, tokenOut]`. */
+  path: string[];
+  /** Exact output (= campaign budget). */
+  amountOut: bigint;
+  /** Input needed at the current pool price. */
+  amountIn: bigint;
+  /** `amountIn` + default slippage (1%); what the brand signs as the maximum. */
+  amountInMax: bigint;
+  router: string;
+}
+
 export interface CliprailApi {
   listCampaigns(): Promise<CampaignView[]>;
   getCampaign(id: bigint): Promise<CampaignView>;
@@ -133,6 +148,20 @@ export interface CliprailApi {
   listDisputes(id: bigint): Promise<Dispute[]>;
   // writes → txHash
   createCampaign(p: CampaignParamsInput): Promise<{ id: bigint; txHash: string }>;
+  /**
+   * Price of funding `budget` (campaign token base units) with `tokenIn` via Soroswap
+   * (`router_get_amounts_in`, simulation only). `token` defaults to the testnet USDC SAC.
+   */
+  quoteSwapFunding(budget: bigint, tokenIn: string, token?: string): Promise<SwapQuote>;
+  /**
+   * createCampaign funded with any asset: the contract swaps at most `amountInMax` of `tokenIn`
+   * (default: fresh quote + `slippageBps`, default 100 = 1%) into exactly `budget` of the campaign
+   * token via the Soroswap router and escrows it, atomically, in one brand-signed tx.
+   */
+  createCampaignWithSwap(
+    p: CampaignParamsInput,
+    o: { tokenIn: string; amountInMax?: bigint; slippageBps?: number },
+  ): Promise<{ id: bigint; txHash: string; amountInMax: bigint; quote: SwapQuote }>;
   registerHuman(id: bigint): Promise<{ txHash: string }>;
   /**
    * Anon Aadhaar ZK registration: the verifier builds a Groth16 proof (TEST mode: UIDAI test data,

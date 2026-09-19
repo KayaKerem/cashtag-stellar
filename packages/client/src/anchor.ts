@@ -1,6 +1,7 @@
 // Anchor-agnostic fiat on/off-ramp: SEP-1 (stellar.toml) discovery, SEP-10 web auth,
-// SEP-24 hosted deposit/withdraw, and the classic-side helpers (trustline, withdraw payment).
-// Works with any SEP-24 anchor; defaults to the SDF test anchor on testnet.
+// SEP-24 hosted deposit/withdraw, SEP-6 programmatic deposit/withdraw (+ SEP-12 KYC, SEP-38 quotes),
+// and the classic-side helpers (trustline, withdraw payment).
+// Works with any SEP-24 or SEP-6 anchor; SEP-24 defaults to the SDF test anchor on testnet.
 import {
   Asset,
   BASE_FEE,
@@ -13,10 +14,13 @@ import {
   type MemoType,
 } from "@stellar/stellar-sdk";
 import {
+  TRY_SEP38_ASSET,
   anchorErrorMessage,
   isSep24Final,
   sep24StatusLabel,
+  sep6StatusLabel,
   type AnchorErrorCode,
+  type Sep12Status,
   type Sep24Status,
 } from "@cliprail/shared";
 import { CliprailError } from "./errors";
@@ -59,12 +63,21 @@ export interface Sep24Info {
 export interface AnchorInfo {
   homeDomain: string;
   webAuthEndpoint: string;
-  transferServerSep24: string;
+  /** SEP-24 TRANSFER_SERVER_SEP0024 (undefined: the anchor only speaks SEP-6). */
+  transferServerSep24?: string;
+  /** SEP-6 TRANSFER_SERVER (undefined: the anchor only speaks SEP-24). */
+  transferServer?: string;
+  /** SEP-12 KYC_SERVER (falls back to TRANSFER_SERVER per SEP-12). */
+  kycServer?: string;
+  /** SEP-38 ANCHOR_QUOTE_SERVER. */
+  quoteServer?: string;
   signingKey: string;
   networkPassphrase: string;
   currencies: AnchorCurrency[];
-  /** SEP-24 `/info` (null when `skipInfo` or the call failed). */
+  /** SEP-24 `/info` (null when `skipInfo`, unsupported or the call failed). */
   sep24: Sep24Info | null;
+  /** SEP-6 `/info` (null when `skipInfo`, unsupported or the call failed). */
+  sep6?: Sep6Info | null;
   toml: Record<string, unknown>;
 }
 
@@ -204,11 +217,11 @@ export interface DiscoverOptions {
   fetch?: Fetch;
   /** Expected network (default testnet); a different NETWORK_PASSPHRASE throws `anchor_wrong_network`. */
   networkPassphrase?: string;
-  /** Skip the SEP-24 `/info` call. */
+  /** Skip the SEP-24 / SEP-6 `/info` calls. */
   skipInfo?: boolean;
 }
 
-/** SEP-1: read `https://<homeDomain>/.well-known/stellar.toml` and the SEP-24 `/info`. */
+/** SEP-1: read `https://<homeDomain>/.well-known/stellar.toml` and the SEP-24 / SEP-6 `/info`. */
 export async function discoverAnchor(homeDomain: string = DEFAULT_ANCHOR_HOME_DOMAIN, opts: DiscoverOptions = {}): Promise<AnchorInfo> {
   const f = opts.fetch ?? globalThis.fetch;
   const expected = opts.networkPassphrase ?? Networks.TESTNET;
@@ -222,9 +235,10 @@ export async function discoverAnchor(homeDomain: string = DEFAULT_ANCHOR_HOME_DO
   }
   const webAuthEndpoint = str(toml.WEB_AUTH_ENDPOINT);
   const signingKey = str(toml.SIGNING_KEY);
-  const transferServerSep24 = str(toml.TRANSFER_SERVER_SEP0024);
+  const transferServerSep24 = str(toml.TRANSFER_SERVER_SEP0024)?.replace(/\/+$/, "");
+  const transferServer = str(toml.TRANSFER_SERVER)?.replace(/\/+$/, "");
   if (!webAuthEndpoint || !signingKey) throw anchorError("anchor_toml_invalid", "WEB_AUTH_ENDPOINT / SIGNING_KEY");
-  if (!transferServerSep24) throw anchorError("anchor_sep24_unsupported");
+  if (!transferServerSep24 && !transferServer) throw anchorError("anchor_sep24_unsupported");
   const networkPassphrase = str(toml.NETWORK_PASSPHRASE) ?? expected;
   if (networkPassphrase !== expected) throw anchorError("anchor_wrong_network", networkPassphrase);
 
@@ -242,14 +256,25 @@ export async function discoverAnchor(homeDomain: string = DEFAULT_ANCHOR_HOME_DO
   const info: AnchorInfo = {
     homeDomain: bareDomain(homeDomain),
     webAuthEndpoint: webAuthEndpoint.replace(/\/+$/, ""),
-    transferServerSep24: transferServerSep24.replace(/\/+$/, ""),
+    transferServerSep24,
+    transferServer,
+    kycServer: str(toml.KYC_SERVER)?.replace(/\/+$/, "") ?? transferServer,
+    quoteServer: str(toml.ANCHOR_QUOTE_SERVER)?.replace(/\/+$/, ""),
     signingKey,
     networkPassphrase,
     currencies,
     sep24: null,
+    sep6: null,
     toml,
   };
-  if (!opts.skipInfo) info.sep24 = await sep24Info(info, f).catch(() => null);
+  if (!opts.skipInfo) {
+    const [s24, s6] = await Promise.all([
+      transferServerSep24 ? sep24Info(info, f).catch(() => null) : null,
+      transferServer ? sep6Info(info, f).catch(() => null) : null,
+    ]);
+    info.sep24 = s24;
+    info.sep6 = s6;
+  }
   return info;
 }
 
@@ -268,7 +293,7 @@ const assetInfoMap = (o: unknown): Record<string, Sep24AssetInfo> => {
 
 /** SEP-24 `GET /info`: which assets can be deposited / withdrawn. */
 export async function sep24Info(anchor: Pick<AnchorInfo, "transferServerSep24">, f: Fetch = globalThis.fetch): Promise<Sep24Info> {
-  const res = await anchorFetch(f, `${anchor.transferServerSep24}/info`);
+  const res = await anchorFetch(f, `${sep24Server(anchor)}/info`);
   const body = await readJson(res);
   if (!res.ok) throw httpError(res, body, "anchor_request_failed");
   return { deposit: assetInfoMap(body.deposit), withdraw: assetInfoMap(body.withdraw), raw: body };
@@ -282,6 +307,11 @@ export function anchorAsset(anchor: Pick<AnchorInfo, "currencies">, code: string
   if (!iss) throw anchorError("anchor_asset_unsupported", code);
   return new Asset(code, iss);
 }
+
+const sep24Server = (a: Pick<AnchorInfo, "transferServerSep24">): string => {
+  if (!a.transferServerSep24) throw anchorError("anchor_sep24_unsupported");
+  return a.transferServerSep24;
+};
 
 // ------------------------------------------------------------------ SEP-10
 
@@ -367,7 +397,7 @@ export async function startInteractive(o: StartInteractiveOptions): Promise<{ id
   const body: Record<string, string> = { asset_code: o.assetCode, account: o.account, lang: o.lang ?? "tr", ...o.extra };
   if (o.assetIssuer) body.asset_issuer = o.assetIssuer;
   if (o.amount) body.amount = o.amount;
-  const res = await anchorFetch(f, `${o.anchor.transferServerSep24}/transactions/${o.kind}/interactive`, {
+  const res = await anchorFetch(f, `${sep24Server(o.anchor)}/transactions/${o.kind}/interactive`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${o.jwt}` },
     body: JSON.stringify(body),
@@ -397,11 +427,27 @@ export interface AnchorTransaction {
   withdrawMemoType?: "text" | "id" | "hash";
   stellarTransactionId?: string;
   message?: string;
+  /** SEP-38 / SEP-6 asset ids of the amounts, e.g. "iso4217:TRY", "stellar:USDC:G...". */
+  amountInAsset?: string;
+  amountOutAsset?: string;
+  amountFeeAsset?: string;
+  /** Off-chain reference: deposit transfer reference (açıklama) / withdrawal bank payout reference. */
+  externalTransactionId?: string;
+  /** Deposit settled as a claimable balance (account had no trustline). */
+  claimableBalanceId?: string;
+  quoteId?: string;
+  /** Deposit: destination G...; withdrawal: destination IBAN. */
+  to?: string;
+  from?: string;
+  /** Deposit waits for a trustline to the asset. */
+  needsTrustline?: boolean;
+  /** SEP-6 deposit instructions (SEP-9 fields: bank_name, bank_account_number, external_transfer_memo). */
+  instructions?: Record<string, { value: string; description?: string }>;
   raw: Record<string, unknown>;
 }
 
-/** Raw SEP-24 transaction object → AnchorTransaction. */
-export function mapAnchorTransaction(t: Record<string, unknown>): AnchorTransaction {
+/** Raw SEP-24 / SEP-6 transaction object → AnchorTransaction (`protocol` picks the status wording). */
+export function mapAnchorTransaction(t: Record<string, unknown>, protocol: AnchorProtocol = "sep24"): AnchorTransaction {
   const status = str(t.status) ?? "incomplete";
   const kind = str(t.kind) ?? "";
   const memoType = str(t.withdraw_memo_type);
@@ -410,7 +456,7 @@ export function mapAnchorTransaction(t: Record<string, unknown>): AnchorTransact
     id: String(t.id ?? ""),
     kind,
     status,
-    statusLabel: sep24StatusLabel(status),
+    statusLabel: protocol === "sep6" ? sep6StatusLabel(status, kind) : sep24StatusLabel(status),
     final: isSep24Final(status),
     needsUserPayment: kind.startsWith("withdraw") && status === "pending_user_transfer_start",
     moreInfoUrl: str(t.more_info_url),
@@ -422,25 +468,54 @@ export function mapAnchorTransaction(t: Record<string, unknown>): AnchorTransact
     withdrawMemoType: memoType === "id" || memoType === "hash" || memoType === "text" ? memoType : undefined,
     stellarTransactionId: str(t.stellar_transaction_id),
     message: str(t.message),
+    amountInAsset: str(t.amount_in_asset),
+    amountOutAsset: str(t.amount_out_asset),
+    amountFeeAsset: str(t.amount_fee_asset) ?? str((t.fee_details as { asset?: unknown } | undefined)?.asset),
+    externalTransactionId: str(t.external_transaction_id),
+    claimableBalanceId: str(t.claimable_balance_id),
+    quoteId: str(t.quote_id),
+    to: str(t.to),
+    from: str(t.from),
+    needsTrustline: status === "pending_trust",
+    instructions: sep9Instructions(t.instructions),
     raw: t,
   };
 }
+
+/** SEP-6 `instructions` map → `{ field: { value, description } }` (undefined when absent). */
+function sep9Instructions(v: unknown): Record<string, { value: string; description?: string }> | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const out: Record<string, { value: string; description?: string }> = {};
+  for (const [k, e] of Object.entries(v as Record<string, unknown>)) {
+    const o = (e ?? {}) as Record<string, unknown>;
+    const value = str(o.value) ?? (typeof e === "string" ? e : undefined);
+    if (value) out[k] = { value, description: str(o.description) };
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** "sep24" (TRANSFER_SERVER_SEP0024) or "sep6" (TRANSFER_SERVER). */
+export type AnchorProtocol = "sep24" | "sep6";
 
 export interface PollOptions {
   anchor: AnchorInfo;
   jwt: string;
   id: string;
+  /** Which transfer server to ask (default: SEP-24 when the anchor has it, else SEP-6). */
+  protocol?: AnchorProtocol;
   fetch?: Fetch;
 }
 
-/** SEP-24 `GET /transaction?id=`. */
-export async function pollTransaction({ anchor, jwt, id, fetch: f = globalThis.fetch }: PollOptions): Promise<AnchorTransaction> {
-  const res = await anchorFetch(f, `${anchor.transferServerSep24}/transaction?id=${encodeURIComponent(id)}`, {
+/** SEP-24 / SEP-6 `GET /transaction?id=`. */
+export async function pollTransaction({ anchor, jwt, id, protocol, fetch: f = globalThis.fetch }: PollOptions): Promise<AnchorTransaction> {
+  const proto: AnchorProtocol = protocol ?? (anchor.transferServerSep24 ? "sep24" : "sep6");
+  const base = proto === "sep6" ? sep6Server(anchor) : sep24Server(anchor);
+  const res = await anchorFetch(f, `${base}/transaction?id=${encodeURIComponent(id)}`, {
     headers: { authorization: `Bearer ${jwt}` },
   });
   const body = await readJson(res);
   if (!res.ok || !body.transaction || typeof body.transaction !== "object") throw httpError(res, body, "anchor_tx_not_found");
-  return mapAnchorTransaction(body.transaction as Record<string, unknown>);
+  return mapAnchorTransaction(body.transaction as Record<string, unknown>, proto);
 }
 
 export interface WaitOptions extends PollOptions {

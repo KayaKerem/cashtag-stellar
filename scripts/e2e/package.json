@@ -10,7 +10,9 @@
     "set-demo-host": "tsx set-demo-host.ts",
     "e2e": "tsx deploy.ts && tsx run.ts",
     "typecheck": "tsc --noEmit",
-    "anchor-smoke": "tsx anchor-smoke.ts"
+    "anchor-smoke": "tsx anchor-smoke.ts",
+    "soroswap-pool": "tsx soroswap-pool.ts",
+    "swap-fund-smoke": "tsx swap-fund-smoke.ts"
   },
   "dependencies": {
     "@cliprail/client": "workspace:*",

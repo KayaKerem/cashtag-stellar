@@ -39,4 +39,10 @@ pub enum Error {
     AlreadyRefunded = 33,
     PrevEpochNotSettled = 34,
     ProofTooLarge = 35,
+    /// `create_campaign_with_swap` before the admin configured a swap router.
+    RouterNotSet = 36,
+    /// Swap path must be `[token_in, …, params.token]` with at least two distinct ends.
+    BadPath = 37,
+    /// Router call failed (slippage over `amount_in_max`, deadline, liquidity) or delivered too little.
+    SwapFailed = 38,
 }

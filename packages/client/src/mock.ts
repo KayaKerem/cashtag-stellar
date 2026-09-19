@@ -29,6 +29,10 @@ import {
   type Dispute,
   type EpochState,
   type Participant,
+  type SwapQuote,
+  DEFAULT_SWAP_SLIPPAGE_BPS,
+  SOROSWAP_TESTNET,
+  withSlippage,
 } from "@cliprail/shared";
 import { CliprailError } from "./errors";
 
@@ -41,6 +45,23 @@ export const MOCK_ACCOUNTS = {
 } as const;
 const USDC_SAC = "CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E";
 const USDC = 10_000_000n;
+
+/** Mock Soroswap pool: 5 tokenIn per campaign token, 0.3% fee (like the seeded testnet XLM/USDC pool). */
+export const MOCK_SWAP_PRICE = 5n;
+function mockQuote(budget: bigint, tokenIn: string, token: string, slippageBps = DEFAULT_SWAP_SLIPPAGE_BPS): SwapQuote {
+  if (budget <= 0n) throw err(3);
+  if (tokenIn === token) throw err(37);
+  const amountIn = (budget * MOCK_SWAP_PRICE * 1000n) / 997n + 1n;
+  return {
+    tokenIn,
+    tokenOut: token,
+    path: [tokenIn, token],
+    amountOut: budget,
+    amountIn,
+    amountInMax: withSlippage(amountIn, slippageBps),
+    router: SOROSWAP_TESTNET.router,
+  };
+}
 
 export interface MockApiOptions {
   /** Connected wallet; a function lets the UI switch accounts. Default: clipper1. */
@@ -333,6 +354,15 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
 
     createCampaign: (p) =>
       write((_t, who) => ({ id: createCampaignS(who, { ...p, token: p.token ?? USDC_SAC, platforms: [...p.platforms] }) })),
+    quoteSwapFunding: (budget, tokenIn, token) => read(() => mockQuote(budget, tokenIn, token ?? USDC_SAC)),
+    createCampaignWithSwap: (p, o) =>
+      write((_t, who) => {
+        const token = p.token ?? USDC_SAC;
+        const quote = mockQuote(p.budget, o.tokenIn, token, o.slippageBps);
+        const amountInMax = o.amountInMax ?? quote.amountInMax;
+        if (amountInMax < quote.amountIn) throw err(38);
+        return { id: createCampaignS(who, { ...p, token, platforms: [...p.platforms] }), amountInMax, quote };
+      }),
     registerHuman: (id) =>
       write((_t, who) => {
         camp(id);

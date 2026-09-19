@@ -5,3 +5,4 @@ export * from "./errors";
 export * from "./format";
 export * from "./video";
 export * from "./anchor";
+export * from "./soroswap";

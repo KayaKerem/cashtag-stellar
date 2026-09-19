@@ -29,6 +29,7 @@ pub struct T {
     pub sac: StellarAssetClient<'static>,
     pub brand: Address,
     pub arbiter: Address,
+    pub admin: Address,
     nonce: Cell<u8>,
 }
 
@@ -84,6 +85,7 @@ impl T {
             sac,
             brand,
             arbiter,
+            admin,
             nonce: Cell::new(0),
         }
     }
