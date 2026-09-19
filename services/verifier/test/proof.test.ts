@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { transformForOnchain } from "@reclaimprotocol/js-sdk";
 import { extractValues, splitSignature, toProofJson } from "../src/proof.js";
 import { addressOf, claimDigest, makeProof, TEST_ATTESTOR } from "./helpers.js";
 
@@ -31,10 +30,6 @@ describe("toProofJson", () => {
     const pub = secp256k1.recoverPublicKey(sig, digest, { prehash: false });
     const pub65 = secp256k1.Point.fromBytes(pub).toBytes(false);
     expect(addressOf(pub65)).toBe(TEST_ATTESTOR);
-  });
-
-  it("gives the same result for transformForOnchain output", () => {
-    expect(toProofJson(transformForOnchain(raw as any) as any)).toEqual(pj);
   });
 
   it("lowercases owner", () => {

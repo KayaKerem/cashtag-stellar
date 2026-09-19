@@ -20,6 +20,8 @@ export const challengeEnd = (p: TimelineParams, e: number) => proofEnd(p, e) + M
 export const disputeEnd = (p: TimelineParams, e: number) => proofEnd(p, e) + n(p.dispute_window);
 export const settleAt = (p: TimelineParams, e: number) => disputeEnd(p, e) + n(p.arbiter_window);
 export const refundAt = (p: TimelineParams) => settleAt(p, n(p.epochs) - 1) + n(p.claim_grace);
+/** Holdback of epoch e (< last) is claimable when now >= proof_end(e+1). */
+export const holdbackReleaseEnd = (p: TimelineParams, e: number) => proofEnd(p, e + 1);
 
 /** Content epoch index at `now`: 0 before start, `epochs` after the last content window. */
 export function currentEpoch(p: TimelineParams, now: number): number {
@@ -29,10 +31,11 @@ export function currentEpoch(p: TimelineParams, now: number): number {
 
 export type EpochPhase = "content" | "proof" | "challenge" | "response" | "arbiter" | "settleable";
 
-/** Phase of epoch e at `now` (before content_end it's "content"). */
+/** Phase of epoch e at `now`. Windows are half-open: proof = [content_end, proof_end),
+ *  challenge = [proof_end, challenge_end), response = [challenge_end, dispute_end), arbiter = [dispute_end, settle_at). */
 export function epochPhase(p: TimelineParams, e: number, now: number): EpochPhase {
   if (now < contentEnd(p, e)) return "content";
-  if (now <= proofEnd(p, e)) return "proof";
+  if (now < proofEnd(p, e)) return "proof";
   if (now < challengeEnd(p, e)) return "challenge";
   if (now < disputeEnd(p, e)) return "response";
   if (now < settleAt(p, e)) return "arbiter";

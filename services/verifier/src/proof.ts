@@ -32,15 +32,6 @@ export interface ZkProof {
   witnesses?: unknown[];
 }
 
-/** Output of js-sdk transformForOnchain(). */
-export interface OnchainProof {
-  claimInfo: { provider: string; parameters: string; context: string };
-  signedClaim: {
-    claim: { identifier: string; owner: string; timestampS: number; epoch: number };
-    signatures: string[];
-  };
-}
-
 /** Canonical (JCS) form of claimData.context, as used in the identifier preimage. */
 export const canonicalContext = (ctx: string) => (ctx ? (canonicalize(JSON.parse(ctx)) ?? "") : "");
 
@@ -57,36 +48,25 @@ export function splitSignature(sig: string): { signature: string; recoveryId: nu
   return { signature: hex.slice(0, 128), recoveryId };
 }
 
-/** Accepts either a raw zkFetch proof or the transformForOnchain() output. */
-export function toProofJson(p: ZkProof | OnchainProof): ProofJson {
-  const o: OnchainProof =
-    "claimInfo" in p
-      ? p
-      : {
-          claimInfo: { provider: p.claimData.provider, parameters: p.claimData.parameters, context: p.claimData.context },
-          signedClaim: {
-            claim: {
-              identifier: p.claimData.identifier ?? p.identifier ?? "",
-              owner: p.claimData.owner,
-              timestampS: p.claimData.timestampS,
-              epoch: p.claimData.epoch,
-            },
-            signatures: p.signatures,
-          },
-        };
-  const { claim, signatures } = o.signedClaim;
-  if (!signatures?.length) throw new Error("proof has no signatures");
-  const { signature, recoveryId } = splitSignature(signatures[0]);
+/** Raw zkFetch proof -> ProofJson. */
+export function toProofJson(p: ZkProof): ProofJson {
+  const c = p.claimData;
+  if (!p.signatures?.length) throw new Error("proof has no signatures");
+  const { signature, recoveryId } = splitSignature(p.signatures[0]);
   return {
-    parameters: utf8Hex(o.claimInfo.parameters),
-    context: utf8Hex(canonicalContext(o.claimInfo.context)),
-    owner: utf8Hex(claim.owner.toLowerCase()),
-    timestampS: Number(claim.timestampS),
-    epoch: Number(claim.epoch),
+    parameters: utf8Hex(c.parameters),
+    context: utf8Hex(canonicalContext(c.context)),
+    owner: utf8Hex(c.owner.toLowerCase()),
+    timestampS: Number(c.timestampS),
+    epoch: Number(c.epoch),
     signature,
     recoveryId,
   };
 }
+
+/** Attestor address that signed (witnesses[0].id), lowercase, or undefined. */
+export const attestorOf = (p: ZkProof): string | undefined =>
+  (p.witnesses?.[0] as { id?: string } | undefined)?.id?.toLowerCase();
 
 /** views/desc from extractedParameterValues, falling back to context.extractedParameters. */
 export function extractValues(p: ZkProof): Extracted {

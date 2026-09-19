@@ -42,6 +42,11 @@ export const config = {
   port: Number(str("PORT", "8787")),
   corsOrigin: str("CORS_ORIGIN", "*"),
   dataDir: resolve(SERVICE_DIR, str("DATA_DIR", ".data")),
+  writeToken: str("WRITE_TOKEN"),
+  attestors: str("RECLAIM_ATTESTORS", "0x244897572368eadf65bfbc5aec98d8e5443a9072")
+    .split(",")
+    .map((a) => a.trim().toLowerCase())
+    .filter(Boolean),
   proofFixtureDir: str("PROOF_FIXTURE_DIR") ? resolve(SERVICE_DIR, str("PROOF_FIXTURE_DIR")) : "",
 };
 

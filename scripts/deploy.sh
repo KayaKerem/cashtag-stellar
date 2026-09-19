@@ -7,8 +7,10 @@
 #   DEMO_PUBLIC_BASE    demo platformunun public HTTPS tabanı (ör. https://verifier.example.com)
 #   RECLAIM_ATTESTORS   virgülle ayrılmış attestor adresleri (varsayılan Reclaim attestor'u)
 #   SKIP_BUILD=1        stellar contract build atla
-#   SKIP_DEPLOY=1       deploy etme; scripts/.accounts/deploy.env'deki ID'lerle sadece config çağrılarını tekrarla
-#                       (ör. DEMO_PUBLIC_BASE değişince set_platform demo'yu güncellemek için)
+#   Varsayılan: scripts/.accounts/deploy.env'de ID'ler varsa deploy ATLANIR, sadece config çağrıları tekrarlanır
+#               (ör. DEMO_PUBLIC_BASE değişince set_platform demo'yu güncellemek için).
+#   FORCE_DEPLOY=1      yine de yeni kontratlar deploy et (yeni ID'ler)
+#   SKIP_DEPLOY=1       deploy.env yoksa bile deploy etme (hata verir)
 # Çıktı: scripts/.accounts/deploy.env (CLIPRAIL_ID, HUMANITY_ID, ...)
 set -euo pipefail
 
@@ -47,6 +49,10 @@ invoke() { # contract fn args...
 }
 
 # ---------- build + deploy ----------
+if [ "${FORCE_DEPLOY:-}" != "1" ] && [ -n "$(envfile_get CLIPRAIL_ID "$OUT_DIR/deploy.env")" ] \
+   && [ -n "$(envfile_get HUMANITY_ID "$OUT_DIR/deploy.env")" ]; then
+  SKIP_DEPLOY=1
+fi
 if [ "${SKIP_DEPLOY:-}" = "1" ]; then
   [ -f "$OUT_DIR/deploy.env" ] || die "SKIP_DEPLOY=1 ama deploy.env yok"
   CLIPRAIL_ID=$(envfile_get CLIPRAIL_ID "$OUT_DIR/deploy.env")

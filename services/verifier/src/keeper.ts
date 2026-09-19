@@ -1,20 +1,14 @@
-// Keeper: per campaign, (a) sends close proofs in the proof window, (b) finalizes expired disputes,
-// (c) settles epochs. Idempotent (chain state is the source of truth), errors are logged and retried.
+// Keeper, per campaign and tick, in this order:
+//   1) finalize expired disputes  2) settle due epochs (in order)  3) close proofs in the proof window.
+// Chain state is the source of truth; close-proof dedupe/retry lives in Ops.jobs (shared with /proof/submit).
 import { u32, u64 } from "./scval.js";
-import type { Ops } from "./ops.js";
+import { MAX_FETCHES, PROOF_MARGIN, SLACK, tag, type Ops } from "./ops.js";
 import { contentEnd, disputeEnd, proofEnd, refundAt, settleAt, type TimelineParams } from "./timeline.js";
-
-const SLACK = 6; // s: ledger time lags wall clock a little
-const PROOF_MARGIN = 30; // s: don't start a proof this close to proof_end
-const MAX_SUBMIT_ATTEMPTS = 2; // protects the zkFetch quota
-
-const tag = (v: unknown) => (Array.isArray(v) ? String(v[0]) : String(v)); // enum -> "Name"
 
 export class Keeper {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
-  private inflight = new Set<string>();
-  private attempts = new Map<string, number>();
+  private busy = new Set<string>();
   private lastErr = new Map<string, string>();
 
   constructor(
@@ -32,25 +26,23 @@ export class Keeper {
   }
 
   private fail(key: string, e: any) {
-    const msg = String(e?.message ?? e);
+    const msg = `${e?.code ?? ""} ${e?.message ?? e}`.trim();
     if (this.lastErr.get(key) !== msg) this.log(`${key} failed: ${msg}`);
     this.lastErr.set(key, msg);
   }
 
-  /** Runs `fn` once at a time per key; never throws. */
+  /** One run at a time per key; logs tx hash; never throws. */
   private async act(key: string, fn: () => Promise<{ txHash: string }>) {
-    if (this.inflight.has(key)) return;
-    this.inflight.add(key);
+    if (this.busy.has(key)) return;
+    this.busy.add(key);
     try {
       const { txHash } = await fn();
       this.lastErr.delete(key);
       this.log(`${key} ok tx=${txHash}`);
-      return true;
     } catch (e) {
       this.fail(key, e);
-      return false;
     } finally {
-      this.inflight.delete(key);
+      this.busy.delete(key);
     }
   }
 
@@ -67,6 +59,8 @@ export class Keeper {
           this.fail(`campaign ${id}`, e);
         }
       }
+      this.ops.prune();
+      if (this.lastErr.size > 1000) this.lastErr.clear();
     } catch (e) {
       this.fail("tick", e);
     } finally {
@@ -80,43 +74,52 @@ export class Keeper {
     const p: TimelineParams = c.params;
     const epochs = Number(p.epochs);
     const now = Date.now() / 1000;
-    if (c.refunded || now > refundAt(p) + 60) return;
+    if (c.refunded || now >= refundAt(p)) return; // finished
 
-    // (a) close proofs
-    for (let e = 0; e < epochs; e++) {
-      if (now < contentEnd(p, e) + SLACK || now > proofEnd(p, e) - PROOF_MARGIN) continue;
-      const views: any[] = await chain.read(cfg.cliprailId, "get_clips", [u64(id)]);
-      for (const { clip, epochs: ce } of views ?? []) {
-        if (Number(clip.first_epoch) > e || Number(clip.registered_at) >= contentEnd(p, e)) continue;
-        const st = ce?.[e];
-        if (st && tag(st.status) === "Excluded") continue;
-        const key = `submit c${id} clip${clip.id} e${e}`;
-        const n = this.attempts.get(key) ?? 0;
-        if (n >= MAX_SUBMIT_ATTEMPTS || this.inflight.has(key)) continue;
-        this.attempts.set(key, n + 1);
-        // detached: proofs take 5–30 s; other actions shouldn't wait
-        void this.act(key, () => this.ops.submitClose(id, BigInt(clip.id), e)).then((ok) => {
-          if (ok) this.attempts.set(key, MAX_SUBMIT_ATTEMPTS);
-        });
-      }
-    }
-
-    // (b) expired disputes
+    // 1) expired disputes
     const disputes: any[] = (await chain.read(cfg.cliprailId, "list_disputes", [u64(id)])) ?? [];
     for (const d of disputes) {
       const st = tag(d.status);
       const e = Number(d.epoch);
-      const due = (st === "Open" && now >= disputeEnd(p, e) + SLACK) || (st === "Responded" && now >= settleAt(p, e) + SLACK);
-      if (due)
-        await this.act(`finalize dispute ${d.id}`, () => chain.invoke(cfg.cliprailId, "finalize_dispute", [u64(d.id)]));
+      if ((st === "Open" && now >= disputeEnd(p, e) + SLACK) || (st === "Responded" && now >= settleAt(p, e) + SLACK)) {
+        await this.act(`finalize dispute ${d.id}`, async () => {
+          const r = await chain.invoke(cfg.cliprailId, "finalize_dispute", [u64(d.id)]);
+          d.status = ["Finalized"]; // don't block the settle below in this tick
+          return r;
+        });
+      }
     }
 
-    // (c) settle next epoch in order
-    const e = Number(c.settled_epochs);
-    if (e < epochs && now >= settleAt(p, e) + SLACK) {
+    // 2) settle due epochs, in order
+    for (let e = Number(c.settled_epochs); e < epochs && now >= settleAt(p, e) + SLACK; e++) {
       const open = disputes.some((d) => Number(d.epoch) === e && ["Open", "Responded"].includes(tag(d.status)));
-      if (!open)
-        await this.act(`settle c${id} e${e}`, () => chain.invoke(cfg.cliprailId, "settle_epoch", [u64(id), u32(e)]));
+      if (open) break;
+      let ok = false;
+      await this.act(`settle c${id} e${e}`, async () => {
+        const r = await chain.invoke(cfg.cliprailId, "settle_epoch", [u64(id), u32(e)]);
+        ok = true;
+        return r;
+      });
+      if (!ok) break;
+    }
+
+    // 3) close proofs (only epochs whose proof window is open)
+    const live: number[] = [];
+    for (let e = 0; e < epochs; e++) if (now >= contentEnd(p, e) + SLACK && now < proofEnd(p, e)) live.push(e);
+    if (!live.length) return;
+    const views: any[] = (await chain.read(cfg.cliprailId, "get_clips", [u64(id)])) ?? [];
+    for (const e of live) {
+      for (const { clip, epochs: ce } of views) {
+        const clipId = BigInt(clip.id);
+        if (Number(clip.first_epoch) > e) continue;
+        const st = ce?.[e];
+        if (st && (tag(st.status) !== "Active" || BigInt(st.views) > 0n)) continue; // excluded/disputed/already proven
+        const job = this.ops.jobState(clipId, e);
+        if (job?.done || job?.failed || job?.running) continue;
+        // a fresh zkFetch needs PROOF_MARGIN; a kept proof may be re-sent until proof_end
+        if (!job?.proof && (now >= proofEnd(p, e) - PROOF_MARGIN || (job?.fetches ?? 0) >= MAX_FETCHES)) continue;
+        void this.act(`submit c${id} clip${clipId} e${e}`, () => this.ops.submitClose(id, clipId, e));
+      }
     }
   }
 }

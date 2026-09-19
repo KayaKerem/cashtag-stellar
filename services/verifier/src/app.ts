@@ -1,5 +1,8 @@
-import { Hono, type Context } from "hono";
+import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import { timingSafeEqual } from "node:crypto";
+import { TokenBucket } from "./limit.js";
 import type { Config, Platform } from "./config.js";
 import { PLATFORMS } from "./config.js";
 import type { DemoStore } from "./demo.js";
@@ -55,9 +58,38 @@ async function body(c: Context): Promise<unknown> {
   }
 }
 
+export const PROOF_REUSE_S = 120; // /proof reuses a cached proof at most this old
+export const PROOF_RATE = { perMin: 5 }; // /proof per client IP
+
+/** Client IP: first X-Forwarded-For hop (Caddy in front), else the socket address. */
+function clientIp(c: Context): string {
+  const xff = c.req.header("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  try {
+    return getConnInfo(c).remote.address ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/** When WRITE_TOKEN is set, require `Authorization: Bearer <token>`. */
+function requireToken(token: string): MiddlewareHandler {
+  const want = Buffer.from(`Bearer ${token}`);
+  return async (c, next) => {
+    if (token) {
+      const got = Buffer.from(c.req.header("authorization") ?? "");
+      if (got.length !== want.length || !timingSafeEqual(got, want)) throw new HttpError(401, "missing or invalid bearer token", "unauthorized");
+    }
+    await next();
+  };
+}
+
 export function createApp({ cfg, demo, proofs, ops }: Deps) {
   const app = new Hono();
+  // CORS_ORIGIN: "*" (default) or comma-separated origins, e.g. "https://cliprail.app,http://localhost:3000"
   app.use("*", cors({ origin: cfg.corsOrigin === "*" ? "*" : cfg.corsOrigin.split(",").map((s) => s.trim()) }));
+  const auth = requireToken(cfg.writeToken);
+  const bucket = new TokenBucket(PROOF_RATE.perMin, 60_000);
 
   app.onError((err, c) => {
     if (err instanceof HttpError) return c.json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, err.status as any);
@@ -72,11 +104,13 @@ export function createApp({ cfg, demo, proofs, ops }: Deps) {
 
   app.post("/proof", async (c) => {
     const { platform, videoId } = parseProofReq(await body(c));
-    const r = await proofs.get(platform, videoId, { preferCached: c.req.query("cached") === "1" });
+    if (!bucket.take(clientIp(c))) throw new HttpError(429, "too many proof requests, try again in a minute", "rate_limited");
+    const maxAgeS = c.req.query("cached") === "1" ? Infinity : PROOF_REUSE_S;
+    const r = await proofs.get(platform, videoId, { maxAgeS, purpose: "open" });
     return c.json({ proof: r.proof, extracted: r.extracted, cached: r.cached });
   });
 
-  app.post("/proof/submit", async (c) => {
+  app.post("/proof/submit", auth, async (c) => {
     const { campaignId, clipId, epoch } = parseSubmitReq(await body(c));
     return c.json(await ops.submitClose(campaignId, clipId, epoch));
   });
@@ -87,7 +121,7 @@ export function createApp({ cfg, demo, proofs, ops }: Deps) {
     return c.json(demo.youtubeShape(id));
   });
 
-  app.post("/demo/videos/:id/bump", async (c) => {
+  app.post("/demo/videos/:id/bump", auth, async (c) => {
     const b = await body(c);
     if (!isObj(b)) throw new HttpError(400, "JSON body required", "bad_request");
     try {
@@ -97,7 +131,7 @@ export function createApp({ cfg, demo, proofs, ops }: Deps) {
     }
   });
 
-  app.post("/humanity/demo-register", async (c) => {
+  app.post("/humanity/demo-register", auth, async (c) => {
     if (!cfg.demoMode) throw new HttpError(403, "demo registration disabled (DEMO_MODE!=1)", "disabled");
     const { campaignId, wallet } = parseDemoRegisterReq(await body(c));
     return c.json(await ops.demoRegister(campaignId, wallet));

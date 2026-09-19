@@ -8,7 +8,7 @@ import { DemoStore } from "../src/demo.js";
 import { ProofService, proofUrl, secretOptions } from "../src/zkfetch.js";
 import { toProofJson } from "../src/proof.js";
 import { ProofCache } from "../src/cache.js";
-import { makeProof } from "./helpers.js";
+import { makeProof, TEST_ATTESTOR } from "./helpers.js";
 
 const tmp = mkdtempSync(join(tmpdir(), "verifier-test-"));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -187,8 +187,68 @@ describe("zkFetch request building", () => {
 import { chainError } from "../src/chain.js";
 describe("chainError", () => {
   it("maps contract error codes", () => {
-    const e = chainError("HostError: Error(Contract, #8)", { 8: "WrongPhase" });
+    const e = chainError("HostError: Error(Contract, #8)", { names: { 8: "WrongPhase" }, prefix: "contract" });
     expect([e.status, e.code, e.message]).toEqual([409, "contract_8", "contract error #8 WrongPhase"]);
+    expect(chainError("x Error(Contract, #2)", { names: {}, prefix: "humanity" }).code).toBe("humanity_2");
     expect(chainError("boom").code).toBe("chain_error");
+  });
+});
+
+describe("abuse protection", () => {
+  it("WRITE_TOKEN guards write endpoints", async () => {
+    const { app } = mk({ writeToken: "s3cret", demoMode: true });
+    expect((await post(app, "/demo/videos/a/bump", { views: 1 })).status).toBe(401);
+    expect((await post(app, "/proof/submit", { campaignId: 1, clipId: 1, epoch: 0 })).status).toBe(401);
+    expect((await post(app, "/humanity/demo-register", { campaignId: 1, wallet: "G" })).status).toBe(401);
+    const ok = await app.request("/demo/videos/a/bump", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer s3cret" },
+      body: JSON.stringify({ views: 1 }),
+    });
+    expect(ok.status).toBe(200);
+    expect((await app.request("/demo/videos/a")).status).toBe(200); // reads stay public
+  });
+
+  it("/proof is rate limited per IP (5/min)", async () => {
+    const { app } = mk();
+    const req = (ip: string) =>
+      app.request("/proof", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": ip },
+        body: JSON.stringify({ platform: "demo", videoId: "v" }),
+      });
+    for (let i = 0; i < 5; i++) expect((await req("1.1.1.1")).status).toBe(503);
+    expect((await req("1.1.1.1")).status).toBe(429);
+    expect((await req("2.2.2.2")).status).toBe(503);
+  });
+
+  it("demo caps", async () => {
+    const { app, demo } = mk();
+    expect((await post(app, "/demo/videos/c/bump", { views: 1_000_000_001 })).status).toBe(400);
+    expect((await post(app, "/demo/videos/c/bump", { delta: 100_000_001 })).status).toBe(400);
+    expect((await post(app, "/demo/videos/c/bump", { desc: "x".repeat(1001) })).status).toBe(400);
+    for (let i = 0; i < 200; i++) demo.state.videos[`v${i}`] = { views: 0, desc: "" };
+    expect((await post(app, "/demo/videos/new-one/bump", { views: 1 })).status).toBe(400);
+    expect((await post(app, "/demo/videos/v1/bump", { views: 1 })).status).toBe(200); // existing still ok
+  });
+});
+
+describe("ProofService fresh path", () => {
+  const cfg = { ...baseCfg, reclaimAppId: "0xapp", reclaimAppSecret: "s", dataDir: join(tmp, "data3") };
+  const url = "https://verifier.example/demo/videos/vid9";
+  it("rejects an unknown attestor (and keeps the raw proof for inspection)", async () => {
+    const svc = new ProofService({ ...cfg, attestors: ["0x244897572368eadf65bfbc5aec98d8e5443a9072"] }, () => {});
+    (svc as any).zkFetch = async () => makeProof({ url });
+    await expect(svc.get("demo", "vid9")).rejects.toMatchObject({ code: "unknown_attestor" });
+  });
+  it("accepts configured attestor, dedupes in-flight, reuses cache ≤ maxAge", async () => {
+    const svc = new ProofService({ ...cfg, attestors: [TEST_ATTESTOR] }, () => {});
+    const fetch = vi.fn(async () => makeProof({ url, timestampS: Math.floor(Date.now() / 1000) }));
+    (svc as any).zkFetch = fetch;
+    const [a, b] = await Promise.all([svc.get("demo", "vid9"), svc.get("demo", "vid9")]);
+    expect(a.cached).toBe(false);
+    expect(b).toBe(a);
+    expect((await svc.get("demo", "vid9", { maxAgeS: 120 })).cached).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

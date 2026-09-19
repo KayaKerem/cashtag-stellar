@@ -106,6 +106,7 @@ umask 077
   echo "# GİZLİ — commit etme"
   echo "RELAYER_SECRET=$(stellar keys secret relayer)"
 } > "$OUT_DIR/secrets.env"
+chmod 600 "$OUT_DIR/secrets.env"
 
 log "Özet:"
 cat "$OUT_DIR/accounts.env"

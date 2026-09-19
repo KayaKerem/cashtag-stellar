@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { challengeEnd, contentEnd, currentEpoch, disputeEnd, epochPhase, proofEnd, refundAt, settleAt } from "../src/timeline.js";
+import { holdbackReleaseEnd, challengeEnd, contentEnd, currentEpoch, disputeEnd, epochPhase, proofEnd, refundAt, settleAt } from "../src/timeline.js";
 
 const p = { start: 1000n, epoch_len: 240n, epochs: 2, proof_window: 60n, dispute_window: 61n, arbiter_window: 30n, claim_grace: 100n };
 
@@ -12,6 +12,7 @@ describe("timeline", () => {
     expect(disputeEnd(p, 0)).toBe(1361);
     expect(settleAt(p, 0)).toBe(1391);
     expect(refundAt(p)).toBe(settleAt(p, 1) + 100);
+    expect(holdbackReleaseEnd(p, 0)).toBe(proofEnd(p, 1));
   });
   it("currentEpoch clamps", () => {
     expect(currentEpoch(p, 0)).toBe(0);
@@ -22,8 +23,8 @@ describe("timeline", () => {
   it("epochPhase", () => {
     expect(epochPhase(p, 0, 1100)).toBe("content");
     expect(epochPhase(p, 0, 1240)).toBe("proof");
-    expect(epochPhase(p, 0, 1300)).toBe("proof");
-    expect(epochPhase(p, 0, 1301)).toBe("challenge");
+    expect(epochPhase(p, 0, 1299)).toBe("proof");
+    expect(epochPhase(p, 0, 1300)).toBe("challenge"); // half-open [content_end, proof_end)
     expect(epochPhase(p, 0, 1330)).toBe("response");
     expect(epochPhase(p, 0, 1361)).toBe("arbiter");
     expect(epochPhase(p, 0, 1391)).toBe("settleable");
