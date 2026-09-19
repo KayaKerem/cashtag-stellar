@@ -6,6 +6,7 @@ target/
 .env
 .env.*
 !.env.example
+!.env.*.example
 scripts/.accounts
 fixtures/cache/
 .DS_Store

@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ROOT, E2E_ENV, accounts, identity, invoke, readEnvFile, sv, contractLink, txLink } from "./lib.ts";
-import { ATTESTOR_ADDRESS, OWNER, DEMO_PREFIX, DEMO_REQUIRED } from "./proofgen.ts";
+import { ATTESTOR_ADDRESS, OWNER, DEFAULT_DEMO_PREFIX, DEMO_REQUIRED } from "./proofgen.ts";
 
 const WASM = resolve(ROOT, "contracts/target/wasm32v1-none/release");
 const redeploy = process.argv.includes("--redeploy");
@@ -61,7 +61,7 @@ async function main() {
       "set_platform",
       [
         sv.sym("demo"),
-        sv.bytes(Buffer.from(DEMO_PREFIX, "utf8")),
+        sv.bytes(Buffer.from(DEFAULT_DEMO_PREFIX, "utf8")),
         sv.bytes(Buffer.alloc(0)),
         sv.vec(DEMO_REQUIRED.map((r) => sv.bytes(Buffer.from(r, "utf8")))),
       ],

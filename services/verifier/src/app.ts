@@ -4,7 +4,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import { timingSafeEqual } from "node:crypto";
 import { TokenBucket } from "./limit.js";
 import type { Config, Platform } from "./config.js";
-import { PLATFORMS } from "./config.js";
+import { PLATFORMS, attestorAddress } from "./config.js";
 import type { DemoStore } from "./demo.js";
 import { DEMO_ID_RE } from "./demo.js";
 import type { Ops } from "./ops.js";
@@ -98,8 +98,17 @@ export function createApp({ cfg, demo, proofs, ops }: Deps) {
   });
   app.notFound((c) => c.json({ error: "not found" }, 404));
 
+  const attestor = attestorAddress(cfg);
   app.get("/health", (c) =>
-    c.json({ ok: true, network: "testnet", cliprailId: cfg.cliprailId || null, humanityId: cfg.humanityId || null }),
+    c.json({
+      ok: true,
+      network: "testnet",
+      cliprailId: cfg.cliprailId || null,
+      humanityId: cfg.humanityId || null,
+      // "simulated": proofs are signed by a local test attestor, not Reclaim
+      attestorMode: cfg.attestorMode,
+      attestor,
+    }),
   );
 
   app.post("/proof", async (c) => {

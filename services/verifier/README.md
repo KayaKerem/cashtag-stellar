@@ -11,7 +11,7 @@ pnpm --filter verifier dev      # http://localhost:8787 (tsx watch)
 pnpm --filter verifier test     # vitest (gerçek zkFetch çağırmaz)
 ```
 
-- `.env` boş olsa da servis açılır. `/health`, `/demo/*` çalışır. `/proof` ve `/proof/submit` Reclaim kimlik bilgisi yoksa `503 {error:"reclaim credentials missing"}` döner.
+- `.env` boş olsa da servis açılır. `/health`, `/demo/*` çalışır. `/proof` ve `/proof/submit` Reclaim kimlik bilgisi yoksa `503 {error:"reclaim credentials missing"}` döner (`ATTESTOR_MODE=simulated` hariç, aşağıya bak).
 - `RELAYER_SECRET`, `CLIPRAIL_ID`, `HUMANITY_ID` boşsa `scripts/.accounts/{secrets,deploy}.env` dosyalarından okunur. Bu dosyaları `scripts/setup-accounts.sh` ve `scripts/deploy.sh` üretir, ikisi de gitignored.
 - `KEEPER=1`: her 5 sn'de bir tüm kampanyaları tarar.
   - Kanıt penceresinde (`content_end + 6 sn` ile `proof_end − 30 sn` arası) her klip için bir kez kapanış kanıtı gönderir.
@@ -58,6 +58,26 @@ pnpm --filter verifier test     # vitest (gerçek zkFetch çağırmaz)
   - Açık (public) header gönderilmez, çünkü `parameters`'a girerdi.
   - `test/reference-vector.test.ts`, `fixtures/reclaim/reference-vector.json` ile identifier, digest ve imzalayanın tuttuğunu doğrular.
 - Demo verisi `.data/demo-state.json` dosyasında tutulur. İlk açılışta `fixtures/demo-state.json` ile tohumlanır.
+
+## Simüle attestor (`ATTESTOR_MODE=simulated`)
+
+Reclaim kimlik bilgisi olmadan tüm web akışını testnet'te çalıştırmak içindir. Yalnız test attestor'una güvenen e2e instance ile kullanılır, ana deploy'a karşı kullanılmaz.
+
+- `/proof` ve kapanış kanıtları zkFetch çağırmaz. Servis hedef URL'yi kendisi okur:
+  - `demo`: süreç içi demo deposundan (HTTP yok).
+  - `youtube`: YouTube API'sinden (`YT_API_KEY` yoksa 503).
+- `providers.json`'daki aynı `responseMatches` regex'leri uygulanır. `parameters`/`context`, zkFetch'in göndereceğinin aynısı olarak kurulur ve attestor-core gibi imzalanır (`src/simulated.ts`; `scripts/e2e/proofgen.ts` aynı kodu kullanır).
+- Anahtarlar: `SIM_ATTESTOR_SECRET` / `SIM_OWNER_SECRET`, boşsa e2e varsayılanları (attestor `0x3522…4da9`, owner `0xc76d…e6e3`).
+- Simüle kanıtlar ayrı cache'te tutulur (`<DATA_DIR>/cache-simulated/`; örnek dosyada `DATA_DIR=.data/simulated`).
+- `/health` → `attestorMode` (`reclaim` | `simulated`) ve `attestor` adresi. Web bununla "Simulated attestor" rozeti gösterebilir.
+
+```bash
+cp services/verifier/.env.simulated.example services/verifier/.env.simulated   # DEMO_PUBLIC_BASE'i doldur
+pnpm --filter e2e set-demo-host -- https://verifier.example.com   # e2e demo url_prefix = <base>/demo/videos/
+ENV_FILE=.env.simulated pnpm --filter verifier start
+```
+
+`ENV_FILE`, `.env` yerine okunacak dosyayı seçer (servis klasörüne göre). `CLIPRAIL_ID` / `HUMANITY_ID` açıkça verilirse `deploy.env`'deki ana deploy değerlerini ezer.
 
 ## Docker
 

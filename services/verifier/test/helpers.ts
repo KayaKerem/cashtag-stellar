@@ -17,6 +17,13 @@ export function claimDigest(parameters: string, context: string, owner: string, 
   return { identifier, digest };
 }
 
+/** Signer address of a digest from r‖s hex + recovery id (what the contract recovers). */
+export function recoverAddress(digest: Uint8Array, signatureHex: string, recoveryId: number): string {
+  const sig = Uint8Array.from([recoveryId, ...Buffer.from(signatureHex, "hex")]);
+  const pub = secp256k1.Point.fromBytes(secp256k1.recoverPublicKey(sig, digest, { prehash: false })).toBytes(false);
+  return addressOf(pub);
+}
+
 export function makeProof(opts: { url?: string; views?: string; desc?: string; timestampS?: number } = {}): ZkProof {
   const url = opts.url ?? "https://verifier.example/demo/videos/vid1";
   const views = opts.views ?? "1234";

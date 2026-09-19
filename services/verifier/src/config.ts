@@ -2,16 +2,20 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { DEFAULT_SIM_ATTESTOR_SECRET, DEFAULT_SIM_OWNER_SECRET, addressOfSecret } from "./simulated.js";
 
 export const SERVICE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const REPO_ROOT = resolve(SERVICE_DIR, "../..");
 
-// .env first; then local fallbacks written by scripts/ (never override explicit env).
-dotenv.config({ path: resolve(SERVICE_DIR, ".env"), quiet: true });
+// ENV_FILE (default .env, relative to the service dir) first; then local fallbacks written by
+// scripts/ (never override explicit env). ENV_FILE=.env.simulated runs against the e2e instance.
+dotenv.config({ path: resolve(SERVICE_DIR, (process.env.ENV_FILE ?? "").trim() || ".env"), quiet: true });
 for (const f of ["deploy.env", "accounts.env", "secrets.env"]) {
   const p = resolve(REPO_ROOT, "scripts/.accounts", f);
   if (existsSync(p)) dotenv.config({ path: p, quiet: true });
 }
+
+export type AttestorMode = "reclaim" | "simulated";
 
 export type Platform = "youtube" | "demo";
 export const PLATFORMS: Platform[] = ["youtube", "demo"];
@@ -25,6 +29,12 @@ export interface ProviderCfg {
 
 const env = process.env;
 const str = (k: string, d = "") => (env[k] ?? d).trim();
+
+function attestorMode(): AttestorMode {
+  const m = str("ATTESTOR_MODE", "reclaim").toLowerCase() || "reclaim";
+  if (m !== "reclaim" && m !== "simulated") throw new Error(`ATTESTOR_MODE must be reclaim|simulated (got "${m}")`);
+  return m as AttestorMode;
+}
 
 export const config = {
   reclaimAppId: str("RECLAIM_APP_ID"),
@@ -47,6 +57,10 @@ export const config = {
     .split(",")
     .map((a) => a.trim().toLowerCase())
     .filter(Boolean),
+  /** reclaim = zkFetch through Reclaim; simulated = local test attestor (testnet demos without Reclaim credentials) */
+  attestorMode: attestorMode(),
+  simAttestorSecret: str("SIM_ATTESTOR_SECRET") || DEFAULT_SIM_ATTESTOR_SECRET,
+  simOwnerSecret: str("SIM_OWNER_SECRET") || DEFAULT_SIM_OWNER_SECRET,
   proofFixtureDir: str("PROOF_FIXTURE_DIR") ? resolve(SERVICE_DIR, str("PROOF_FIXTURE_DIR")) : "",
 };
 
@@ -57,3 +71,6 @@ export const providers: Record<Platform, ProviderCfg> = JSON.parse(
 );
 
 export const hasReclaim = (c: Config = config) => Boolean(c.reclaimAppId && c.reclaimAppSecret);
+export const isSimulated = (c: Config = config) => c.attestorMode === "simulated";
+/** Address whose signatures /proof returns: the simulated key, or the first configured Reclaim attestor. */
+export const attestorAddress = (c: Config = config) => (isSimulated(c) ? addressOfSecret(c.simAttestorSecret) : (c.attestors[0] ?? null));

@@ -8,7 +8,10 @@ import { DemoStore } from "../src/demo.js";
 import { ProofService, proofUrl, secretOptions } from "../src/zkfetch.js";
 import { toProofJson } from "../src/proof.js";
 import { ProofCache } from "../src/cache.js";
-import { makeProof, TEST_ATTESTOR } from "./helpers.js";
+import { claimDigest, makeProof, recoverAddress, TEST_ATTESTOR } from "./helpers.js";
+
+const SIM_ATTESTOR = "0x3522ca52bd619e230ef7b5c1845fb19a68a14da9"; // e2e instance attestor
+const SIM_OWNER = "0xc76daa73f2dcea9d6ac089e008f95b57eba9e6e3";
 
 const tmp = mkdtempSync(join(tmpdir(), "verifier-test-"));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -25,12 +28,13 @@ const baseCfg = {
   demoMode: false,
   dataDir: join(tmp, "data"),
   proofFixtureDir: "",
+  attestorMode: "reclaim" as "reclaim" | "simulated",
 };
 
 function mk(cfgOver: Partial<typeof baseCfg> = {}) {
   const cfg = { ...baseCfg, ...cfgOver };
   const demo = new DemoStore(join(tmp, `demo-${Math.random()}.json`));
-  const proofs = new ProofService(cfg);
+  const proofs = new ProofService(cfg, () => {}, demo);
   const ops = {
     submitClose: vi.fn(async () => ({ txHash: "ab".repeat(32), views: "10" })),
     demoRegister: vi.fn(async () => ({ txHash: "cd".repeat(32) })),
@@ -43,7 +47,18 @@ const post = (app: any, path: string, body: unknown) =>
 describe("health", () => {
   it("returns ids", async () => {
     const r = await mk().app.request("/health");
-    expect(await r.json()).toEqual({ ok: true, network: "testnet", cliprailId: "CCLIPRAIL", humanityId: "CHUMANITY" });
+    expect(await r.json()).toEqual({
+      ok: true,
+      network: "testnet",
+      cliprailId: "CCLIPRAIL",
+      humanityId: "CHUMANITY",
+      attestorMode: "reclaim",
+      attestor: baseCfg.attestors[0],
+    });
+  });
+  it("reports the simulated attestor", async () => {
+    const j = await (await mk({ attestorMode: "simulated" }).app.request("/health")).json();
+    expect(j).toMatchObject({ attestorMode: "simulated", attestor: SIM_ATTESTOR });
   });
 });
 
@@ -97,6 +112,33 @@ describe("/proof", () => {
     const r = await post(mk().app, "/proof", { platform: "demo", videoId: "vid1" });
     expect(r.status).toBe(503);
     expect(await r.json()).toEqual({ error: "reclaim credentials missing", code: "no_credentials" });
+  });
+
+  it("simulated mode: signs a demo proof without Reclaim credentials", async () => {
+    const { app } = mk({ attestorMode: "simulated", dataDir: join(tmp, "data-sim") });
+    await post(app, "/demo/videos/sim1/bump", { views: 4321, desc: 'join CR-ABC123 "now"' });
+    const r = await post(app, "/proof", { platform: "demo", videoId: "sim1" });
+    expect(r.status).toBe(200);
+    const j = await r.json();
+    expect(j.cached).toBe(false);
+    expect(j.extracted).toEqual({ views: "4321", desc: 'join CR-ABC123 \\"now\\"' });
+    const p = j.proof;
+    const str = (h: string) => Buffer.from(h, "hex").toString("utf8");
+    expect(JSON.parse(str(p.parameters)).url).toBe("https://verifier.example/demo/videos/sim1");
+    expect(str(p.owner)).toBe(SIM_OWNER);
+    expect(Math.abs(p.timestampS - Date.now() / 1000)).toBeLessThan(60);
+    const { digest } = claimDigest(str(p.parameters), str(p.context), str(p.owner), p.timestampS, p.epoch);
+    expect(recoverAddress(digest, p.signature, p.recoveryId)).toBe(SIM_ATTESTOR);
+    // within the reuse window the same proof comes back from the (separate) simulated cache
+    expect((await (await post(app, "/proof", { platform: "demo", videoId: "sim1" })).json()).cached).toBe(true);
+  });
+
+  it("simulated mode: unknown demo video -> 404, youtube without key -> 503", async () => {
+    const { app } = mk({ attestorMode: "simulated", dataDir: join(tmp, "data-sim2") });
+    const r = await post(app, "/proof", { platform: "demo", videoId: "nope" });
+    expect(r.status).toBe(404);
+    expect((await r.json()).code).toBe("no_match");
+    expect((await post(app, "/proof", { platform: "youtube", videoId: "dQw4w9WgXcQ" })).status).toBe(503);
   });
 
   it("400 on bad request", async () => {
