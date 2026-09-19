@@ -4,16 +4,43 @@
     "urlSuffix": "",
     "secretHeader": "x-goog-api-key",
     "responseMatches": [
-      { "type": "regex", "value": "\"viewCount\":\\s*\"(?<views>\\d+)\"" },
-      { "type": "regex", "value": "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\"" }
+      {
+        "type": "regex",
+        "value": "\"viewCount\":\\s*\"(?<views>\\d+)\""
+      },
+      {
+        "type": "regex",
+        "value": "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
+      }
     ]
   },
   "demo": {
     "urlPrefix": "https://DEMO_HOST/demo/videos/",
     "urlSuffix": "",
     "responseMatches": [
-      { "type": "regex", "value": "\"viewCount\":\\s*\"(?<views>\\d+)\"" },
-      { "type": "regex", "value": "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\"" }
+      {
+        "type": "regex",
+        "value": "\"viewCount\":\\s*\"(?<views>\\d+)\""
+      },
+      {
+        "type": "regex",
+        "value": "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
+      }
+    ]
+  },
+  "x": {
+    "metric": "likes",
+    "urlPrefix": "https://cdn.syndication.twimg.com/tweet-result?lang=en&token=a&id=",
+    "urlSuffix": "",
+    "responseMatches": [
+      {
+        "type": "regex",
+        "value": "\"favorite_count\":\\s*(?<views>\\d+)"
+      },
+      {
+        "type": "regex",
+        "value": "\"id_str\":\"\\d+\",\"text\":\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
+      }
     ]
   }
 }

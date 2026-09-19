@@ -23,6 +23,7 @@ export class HttpError extends Error {
 export const VIDEO_ID_RE: Record<Platform, RegExp> = {
   youtube: /^[A-Za-z0-9_-]{11}$/,
   demo: /^[a-z0-9-]{1,32}$/,
+  x: /^[0-9]{1,20}$/, // X (Twitter) snowflake status id
 };
 
 /** Full URL that ends up in the claim parameters (must equal contract url_prefix ‖ id ‖ url_suffix). */

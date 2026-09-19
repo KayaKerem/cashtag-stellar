@@ -21,5 +21,16 @@
       "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
     ],
     "urlNeedleExample": "\"url\":\"https://DEMO_HOST/demo/videos/VIDEO_ID\""
+  },
+  "x": {
+    "required": [
+      "{\"type\":\"regex\",\"value\":\"\\\"favorite_count\\\":\\\\s*(?<views>\\\\d+)\"}",
+      "{\"type\":\"regex\",\"value\":\"\\\"id_str\\\":\\\"\\\\d+\\\",\\\"text\\\":\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}"
+    ],
+    "regexValues": [
+      "\"favorite_count\":\\s*(?<views>\\d+)",
+      "\"id_str\":\"\\d+\",\"text\":\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
+    ],
+    "urlNeedleExample": "\"url\":\"https://cdn.syndication.twimg.com/tweet-result?lang=en&token=a&id=VIDEO_ID\""
   }
 }

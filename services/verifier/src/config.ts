@@ -17,10 +17,12 @@ for (const f of ["deploy.env", "accounts.env", "secrets.env"]) {
 
 export type AttestorMode = "reclaim" | "simulated";
 
-export type Platform = "youtube" | "demo";
-export const PLATFORMS: Platform[] = ["youtube", "demo"];
+export type Platform = "youtube" | "demo" | "x";
+export const PLATFORMS: Platform[] = ["youtube", "demo", "x"];
 
 export interface ProviderCfg {
+  /** Human-honest name of what `views` actually holds ("views", "likes", …); defaults to views. */
+  metric?: string;
   urlPrefix: string;
   urlSuffix: string;
   secretHeader?: string;

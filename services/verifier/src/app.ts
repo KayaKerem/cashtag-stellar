@@ -31,7 +31,7 @@ export function parseId(v: unknown, name: string): bigint {
 
 export function parseProofReq(b: unknown): { platform: Platform; videoId: string } {
   if (!isObj(b)) throw new HttpError(400, "JSON body required", "bad_request");
-  if (!PLATFORMS.includes(b.platform as Platform)) throw new HttpError(400, "platform must be youtube|demo", "bad_request");
+  if (!PLATFORMS.includes(b.platform as Platform)) throw new HttpError(400, `platform must be ${PLATFORMS.join("|")}`, "bad_request");
   if (typeof b.videoId !== "string" || !b.videoId) throw new HttpError(400, "videoId required", "bad_request");
   return { platform: b.platform as Platform, videoId: b.videoId };
 }

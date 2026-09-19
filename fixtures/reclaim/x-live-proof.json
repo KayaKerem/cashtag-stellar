@@ -1,0 +1,25 @@
+{
+  "identifier": "0xe10928a2237b2a1f36788011d8aceb00b1e52b52141e01d139e27929b38ca5ee",
+  "claimData": {
+    "provider": "http",
+    "parameters": "{\"body\":\"\",\"method\":\"GET\",\"responseMatches\":[{\"type\":\"regex\",\"value\":\"\\\"favorite_count\\\":\\\\s*(?<views>\\\\d+)\"},{\"type\":\"regex\",\"value\":\"\\\"id_str\\\":\\\"\\\\d+\\\",\\\"text\\\":\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}],\"responseRedactions\":[{\"regex\":\"\\\"favorite_count\\\":\\\\s*(?<views>\\\\d+)\"},{\"regex\":\"\\\"id_str\\\":\\\"\\\\d+\\\",\\\"text\\\":\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}],\"url\":\"https://cdn.syndication.twimg.com/tweet-result?lang=en&token=a&id=1833951636005552366\"}",
+    "owner": "0x4ac3115260b9ac955a158541caba294aff38c8f6",
+    "timestampS": 1789857241,
+    "context": "{\"extractedParameters\":{\"desc\":\"We reject: kings, presidents, and voting.\\\\nWe believe in: rough consensus and running code.\\\\n\\\\n—David Clark, 1992\",\"views\":\"27557\"},\"providerHash\":\"0x42c1535375408826abc62de1bf41ea3fef4947e9225f9a92d57fa50f053b4da8\"}",
+    "identifier": "0xe10928a2237b2a1f36788011d8aceb00b1e52b52141e01d139e27929b38ca5ee",
+    "epoch": 1
+  },
+  "signatures": [
+    "0xaab691e51103d3ebda0a607829629bbd7345f247e12eac26854a742589928bdc3850e1cbb4cc2a091012e1e79c4d5fa9b125626e45b0711b80e0e647ae3f35701b"
+  ],
+  "extractedParameterValues": {
+    "desc": "We reject: kings, presidents, and voting.\\nWe believe in: rough consensus and running code.\\n\\n—David Clark, 1992",
+    "views": "27557"
+  },
+  "witnesses": [
+    {
+      "id": "0x244897572368eadf65bfbc5aec98d8e5443a9072",
+      "url": "wss://attestor.reclaimprotocol.org:444/ws"
+    }
+  ]
+}
