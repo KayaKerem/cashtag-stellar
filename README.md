@@ -17,12 +17,13 @@ What is and is not proven today:
 - **In-contract proof verification** is also tested against Reclaim's reference vector (`contracts/reclaim-verify`), against saved live proofs (`fixtures/reclaim/demo-live-proof.json` and `fixtures/reclaim/x-live-proof.json`, offline regression tests in `services/verifier/test/live-proof.test.ts` and `services/verifier/test/x-live-proof.test.ts` that recompute the identifier and the EIP-191 digest and recover the live attestor address), and in a full testnet lifecycle run (create → join → posts → proofs → dispute → settle → claim → holdback → refund).
 - **Humanity is verified on-chain.** `humanity.register_zk` checks an Anon Aadhaar Groth16 proof (BN254) inside Soroban, bound to the campaign (nullifier seed) and to the submitting wallet (signal hash), for ~30.8M CPU instructions (~0.034 XLM fee on testnet). The demo uses UIDAI **test** data signed with the Anon Aadhaar test key, proven server-side by the verifier; production pins the real UIDAI key and proves in the browser. A relayer `register` path remains as a fallback.
 - **Funding and cash-out are live on testnet.** A brand can fund a campaign with XLM in one transaction (`create_campaign_with_swap` through the Soroswap router, tested: 47.37 XLM → 5 USDC escrow), and a clipper can cash out USDC to TRY through a SEP-6 anchor (tested: 5 USDC → 242.70 TL; 5000 TL → 101.98 USDC on the way in).
+- **A brand does not need USDC on Stellar at all.** With **Circle CCTP V2**, native USDC burned on another chain is attested by Circle and minted on Stellar straight into the escrow asset: [burn of 5 USDC on Arc Testnet](https://testnet.arcscan.app/tx/0xfe502def03331ffe33d17f7496edf6f932c1966e99f030806e4e7b40e2525bea) → [`mint_and_forward` on Stellar](https://stellar.expert/explorer/testnet/tx/ea727dcc6e648f0da4722fa4d2b2b40f59bac808a79b90ed43a33b8df8293a30), 24 s, 0 bps fee, and no contract change was needed. See [Funding a campaign from another chain](#funding-a-campaign-from-another-chain-circle-cctp-v2).
 
 Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **Scale track**. Live demo: **[LIVE_DEMO_URL]** · Demo video: **[TBD: demo video link]**
 
 ### Scale track requirements
 
-- [x] **Integration (load-bearing): Soroswap.** `cliprail.create_campaign_with_swap` calls the Soroswap router from inside the contract, swaps the brand's XLM (or any asset with a pool) into exactly `budget` of Circle USDC and escrows it atomically. See [Stellar integrations](#stellar-integrations).
+- [x] **Integrations (load-bearing): Soroswap and Circle CCTP V2** — two listed ecosystem partners, both on the path a brand's money takes into an escrow. **Soroswap = swap-to-fund:** `cliprail.create_campaign_with_swap` calls the Soroswap router from inside the contract, swaps the brand's XLM (or any asset with a pool) into exactly `budget` of Circle USDC and escrows it atomically. **CCTP = bridge-to-fund:** `scripts/cctp` burns native USDC on Arc Testnet, Circle attests it, and `CctpForwarder.mint_and_forward` mints it on Stellar as the very same Circle USDC SAC the escrow holds ([burn](https://testnet.arcscan.app/tx/0xfe502def03331ffe33d17f7496edf6f932c1966e99f030806e4e7b40e2525bea) · [mint](https://stellar.expert/explorer/testnet/tx/ea727dcc6e648f0da4722fa4d2b2b40f59bac808a79b90ed43a33b8df8293a30)). See [Stellar integrations](#stellar-integrations) and [Funding a campaign from another chain](#funding-a-campaign-from-another-chain-circle-cctp-v2).
 - [x] **Anchor / local currency: TRY via SEP-6.** SEP-1 discovery, SEP-10 auth, SEP-12 KYC, SEP-38 quotes and SEP-6 `deposit-exchange` / `withdraw-exchange` against the testnet anchor `tr-mock-anchor.fly.dev` (brand funds in TL, clipper cashes out to TL).
 - [x] **Core feature:** verifiable pay-per-reach escrow, platform- and content-agnostic: in-contract zkTLS proof verification (a **live Reclaim attestor-signed proof** accepted on testnet — [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69)), on-chain Anon Aadhaar humanity (`register_zk`), pro-rata settle, holdback, bonded disputes, refund. [Full product lifecycle run](#full-product-lifecycle-run-testnet) on the demo deployment.
 - [x] **Architecture diagram (Mermaid):** [Architecture](#architecture).
@@ -42,8 +43,9 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 | X (Twitter) live on-chain | [`set_platform("x", …)`](https://stellar.expert/explorer/testnet/tx/2707530e880bd48a5619a32d99850e040d0debc9133206d31aa3e9d5cbecadde) · [campaign 9 with `platforms: ["x"]`](https://stellar.expert/explorer/testnet/tx/a53eaa67fefae5e01fd0212823640fbc8dc01b5d0fec207660cbdbdbc31bc148) · [join → `CR-7ZYWBA`](https://stellar.expert/explorer/testnet/tx/5f0fc0c5815846e3fb5714143f5c34d4c069270d65ae378c7a3163dad62c81f8), and [a live X proof replayed against every contract check](#a-live-x-proof-replayed-on-chain) |
 | Full lifecycle, reproducible | `pnpm --filter e2e run e2e`: 39/39 steps, prints every explorer link |
 | Product lifecycle (Soroswap funding → ZK humanity → payouts → TRY cash-out) | `REFUND=1 pnpm --filter @cliprail/client smoke:full`, see [the run](#full-product-lifecycle-run-testnet) |
+| Cross-chain funding (Circle CCTP V2) | [Arc Testnet burn](https://testnet.arcscan.app/tx/0xfe502def03331ffe33d17f7496edf6f932c1966e99f030806e4e7b40e2525bea) → [Stellar `mint_and_forward`](https://stellar.expert/explorer/testnet/tx/ea727dcc6e648f0da4722fa4d2b2b40f59bac808a79b90ed43a33b8df8293a30), reproducible with `pnpm --filter cctp bridge -- --amount 5 --chain arc --fast`, see [the section](#funding-a-campaign-from-another-chain-circle-cctp-v2) |
 
-**Test wallets.** Use any wallet supported by Stellar Wallets Kit (e.g. Freighter switched to *Testnet*) and fund it with Friendbot. Campaign budgets use **Circle testnet USDC** (`USDC:GBBD47…LFLA5`, add a trustline). A brand without USDC can fund a campaign with XLM through Soroswap, or buy USDC with TL through the TRY anchor. No mainnet funds are involved.
+**Test wallets.** Use any wallet supported by Stellar Wallets Kit (e.g. Freighter switched to *Testnet*) and fund it with Friendbot. Campaign budgets use **Circle testnet USDC** (`USDC:GBBD47…LFLA5`, add a trustline). A brand without USDC can fund a campaign with XLM through Soroswap, buy USDC with TL through the TRY anchor, or bridge USDC in from another chain with Circle CCTP V2. No mainnet funds are involved.
 
 **Five-minute check:**
 
@@ -95,6 +97,42 @@ create ─▶ humanity ─▶ join (CR code) ─▶ register post (opening proof
 8. **Claim.** `claim` pays each post-epoch its share, O(1). Part of it (`holdback_bps`) is held back.
 9. **Holdback.** Epoch e's held share is released only to posts that are still live, meaning they got a closing proof in epoch e+1. Deleted posts forfeit their share to the survivors. The last epoch has no holdback.
 10. **Refund.** After `refund_at = settle_at(last) + claim_grace`, the remaining campaign balance returns to the brand.
+
+### Funding a campaign from another chain (Circle CCTP V2)
+
+Step 1 assumes the brand holds USDC on Stellar. It does not have to. `scripts/cctp/` takes USDC that lives on another chain and moves it with [Circle CCTP V2](https://developers.circle.com/cctp) — burn at the source, Circle attestation, **native mint** on Stellar (no wrapped asset, no bridge liquidity pool) — and then opens the campaign with it:
+
+```
+Arc Testnet USDC ──burn──▶ Circle attestation ──mint──▶ Stellar USDC ──escrow──▶ campaign #N
+  (domain 26)                    (Iris)                 (domain 27)             (cliprail)
+```
+
+**Arc Testnet** — Circle's own L1, CCTP domain 26 — is the default source chain, with **Base Sepolia** (domain 6) as a fallback. Stellar is domain 27, through `TokenMessengerMinter` [`CDNG7HXA…RTHP`](https://stellar.expert/explorer/testnet/contract/CDNG7HXAPBWICI2E3AUBP3YZWZELJLYSB6F5CC7WLDTLTHVM74SLRTHP), `MessageTransmitter` [`CBJ6MTCK…VVJY`](https://stellar.expert/explorer/testnet/contract/CBJ6MTCKKZG73PMDZCJMSFRD7DQEMI4FKDH7CGDSV4W6FHCRBCQAVVJY) and the `CctpForwarder` [`CA66Q2WF…4VSZ`](https://stellar.expert/explorer/testnet/contract/CA66Q2WFBND6V4UEB7RD4SAXSVIWMD6RA4X3U32ELVFGXV5PJK4T4VSZ). **No contract change was needed:** `create_campaign` escrows any SAC token, and what CCTP mints is exactly the Circle testnet USDC SAC the escrow already uses ([`CBIELTK6…DAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA)).
+
+**The byte layout that protects the funds.** A `G…` account can never be a CCTP `mintRecipient`: CCTP address fields are raw 32 bytes with no type marker, so the protocol assumes the recipient is a contract. Both `mintRecipient` and `destinationCaller` are therefore the `CctpForwarder`, and the real recipient travels inside `hookData` — 24 zero bytes, then a big-endian `uint32` hook version, a big-endian `uint32` length, then the recipient strkey as UTF-8. `CctpForwarder.mint_and_forward(message, attestation)` mints and pays the recipient in one atomic invocation. One wrong byte strands the transfer permanently, so **20 unit tests pin that layout** (`pnpm --filter cctp test`), and `bridge.ts` re-parses its own hook data and aborts *before* burning if the round-trip does not come back identical.
+
+**Measured on testnet.**
+
+| Run | Result | Transactions |
+|---|---|---|
+| Bridge 5 USDC, Arc → Stellar, Fast finality | **24 s** burn → mint (attestation 10–13 s), **0 bps fee** | [Arc burn](https://testnet.arcscan.app/tx/0xfe502def03331ffe33d17f7496edf6f932c1966e99f030806e4e7b40e2525bea) · [Stellar `mint_and_forward`](https://stellar.expert/explorer/testnet/tx/ea727dcc6e648f0da4722fa4d2b2b40f59bac808a79b90ed43a33b8df8293a30) |
+| Bridge 1 USDC (smoke run) | **25 s** burn → mint | [Arc burn](https://testnet.arcscan.app/tx/0xb2c06a426c48db549b9cfeafa2d84fd148461bbd214dd1b223fa89415fbbe0ec) · [Stellar mint](https://stellar.expert/explorer/testnet/tx/2d85b781d319ba84c41b9d54b3dfcca9836d4154ffb02498d983131e1e894c48) |
+| `create_campaign` with the bridged USDC | **7 s**, so **~31 s end to end** from burn to a funded campaign | **[campaign #10](https://stellar.expert/explorer/testnet/tx/401924c7e6d7c7e5bada57499387fa20d8a41cd16abde0f3b848b4cc3fce2451)** (on the [demo deployment](#demo-deployment-testnet)) |
+
+Across the two runs **6 USDC were burned and exactly 6 USDC were minted** — CCTP charged **0 bps** on Arc → Stellar at both the Standard and the Fast finality tier. Total gas for all four Arc transactions came to **0.008985 USDC** (Arc pays gas in USDC, so a single faucet claim covers the whole demo). The 6-decimal → 7-decimal conversion was exact: `1000000` → `10000000` and `5000000` → `50000000`, never through a float.
+
+**Commands.**
+
+```bash
+pnpm --filter cctp keygen                                   # one-off: demo EVM account (key stays gitignored, mode 600)
+pnpm --filter cctp dry-run                                  # no funds move: RPC, contract specs, fees, encoding, balances
+pnpm --filter cctp bridge -- --amount 5 --chain arc --fast  # approve → burn → attestation → mint_and_forward → verify balance
+pnpm --filter cctp fund-campaign -- --budget 5              # create_campaign with the bridged USDC
+```
+
+If the Stellar mint fails after a successful burn, nothing is lost: the attestation stays valid and `bridge` prints the `--resume <0x…>` command that finishes the transfer. Details are in [`scripts/cctp/README.md`](scripts/cctp/README.md).
+
+**Honest note: this is testnet.** The source chain is Arc Testnet, the attestations come from Circle's **sandbox** Iris service, and the USDC is claimed from `faucet.circle.com` — no real money moves. Mainnet is the same code path with different domain ids and contract addresses.
 
 ## Platforms
 
@@ -171,7 +209,12 @@ flowchart LR
     CR["cliprail escrow contract<br/>campaigns · epochs · pro-rata settle<br/>holdback · bonded disputes · refund<br/>in-contract zkTLS verify (secp256k1 + keccak)"]
     HU["humanity contract<br/>register_zk: Groth16 on BN254 (Anon Aadhaar)<br/>per-campaign nullifier bound to wallet<br/>register: relayer fallback"]
     USDC[("Circle USDC SAC<br/>token-agnostic escrow asset")]
-    SW["Soroswap router<br/>XLM → USDC swap"]
+  end
+
+  subgraph FUND["Funding a campaign — three routes into the same escrow asset"]
+    AN["1 · TRY anchor (tr-mock-anchor)<br/>SEP-1 · 10 · 12 · 38 · 6<br/>TL ⇄ USDC"]
+    SW["2 · Soroswap router (Soroban)<br/>XLM → exact USDC<br/>create_campaign_with_swap"]
+    FW["3 · CctpForwarder (Soroban)<br/>mint_and_forward(message, attestation)<br/>recipient strkey inside hookData"]
   end
 
   subgraph VS["Verifier service · holds no funds"]
@@ -184,7 +227,8 @@ flowchart LR
   AT["Reclaim attestor (TEE)<br/>attestor.reclaimprotocol.org<br/>live proof verified on-chain"]
   SP[("Social platforms<br/>YouTube · X (live: likes) · TikTok · Instagram<br/>post URL + reach metric + caption")]
   DEV["Participant device — next<br/>Reclaim app / browser extension<br/>fetch from the logged-in session<br/>(TikTok · Instagram · X view counts)"]
-  AN["TRY anchor (tr-mock-anchor)<br/>SEP-1 · 10 · 12 · 38 · 6<br/>TL ⇄ USDC"]
+  SRC[("Source chain — USDC burn<br/>Arc Testnet (CCTP domain 26)<br/>Base Sepolia (domain 6) fallback<br/>depositForBurnWithHook")]
+  IRIS["Circle Iris<br/>CCTP V2 attestation<br/>10–13 s, 0 bps"]
   SE["stellar.expert"]
 
   Brand --> Web
@@ -211,8 +255,14 @@ flowchart LR
   SW -- "exact budget in USDC" --> USDC
   Web -- "TL → USDC (brand) · USDC → TL (clipper)<br/>SEP-10 · SEP-38 quote · SEP-6" --> AN
   AN -- "USDC payments" --> USDC
+  Brand -- "scripts/cctp: burn USDC on the source chain" --> SRC
+  SRC -- "burn message" --> IRIS
+  IRIS -- "message + attestation" --> FW
+  FW -- "native mint on Stellar (domain 27)<br/>same Circle USDC SAC, no wrapped asset" --> USDC
   Web -- "tx and contract links" --> SE
 ```
+
+The three routes in the **Funding** group are the three ways money gets into a campaign — a TRY anchor, a Soroswap swap, or a CCTP bridge — and all three end at the same Circle USDC SAC the escrow holds, so `cliprail` never learns which one was used.
 
 Solid edges are live on testnet, and the server-side fetch covers `demo`, `youtube` and `x` (X on likes). Dashed edges are the relayer fallback for humanity and the device-side proof path, which remains next for TikTok, Instagram and X's view counts — it changes only who performs the fetch; the attestor, the claim shape and the in-contract verification stay identical.
 
@@ -230,6 +280,7 @@ sequenceDiagram
 
   B->>CR: create_campaign(immutable rules, budget) or create_campaign_with_swap(XLM)
   Note over B,CR: with_swap: cliprail swaps XLM → exact budget via Soroswap in the same tx
+  Note over B,T: the budget can come from the TRY anchor, a Soroswap swap, or a CCTP bridge from another chain
   CR->>T: budget into escrow
   C->>H: register_zk(Anon Aadhaar Groth16 proof)
   Note over H: BN254 pairing check, (campaign, nullifier) ↔ wallet
@@ -393,6 +444,7 @@ config/             providers.json (per platform: URL template + metric and capt
 fixtures/           Reclaim reference vector, saved live attestor proofs (reclaim/demo-live-proof.json, reclaim/x-live-proof.json), required substrings
 scripts/            setup-accounts.sh, deploy.sh, bindings.sh
   e2e/              testnet lifecycle run (deploy.ts, run.ts), simulated attestor (proofgen.ts), demo seeding (seed-demo.ts)
+  cctp/             Circle CCTP V2 cross-chain funding: burn USDC on Arc/Base, attestation, mint_and_forward on Stellar, fund a campaign
 ```
 
 ## Running it
@@ -449,9 +501,10 @@ pnpm --filter verifier dev                                 # http://localhost:87
 | Verifier service (incl. live-proof regressions over `fixtures/reclaim/demo-live-proof.json` and `fixtures/reclaim/x-live-proof.json`) | `pnpm --filter verifier test` | 99 passed (1 skipped — a network test) |
 | `@cliprail/shared` (timeline/payout parity with contract) | `pnpm --filter @cliprail/shared test` | 72 passed |
 | `@cliprail/client` (chain/mock API, Soroswap quote, SEP-6/10/12/38 ramp) | `pnpm --filter @cliprail/client test` | 66 passed |
+| `cctp` (CCTP hook data layout, strkey → bytes32, 6↔7 decimals, fees) | `pnpm --filter cctp test` | 20 passed |
 | Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run e2e` | 39/39 steps |
 
-**345 unit and integration tests in total**, plus the 39-step testnet run and the product lifecycle run below. Tests never call the real zkFetch: the live-proof tests replay saved attestor-signed proofs offline (including the X one), recomputing the identifier and the EIP-191 digest and recovering the live attestor address.
+**365 unit and integration tests in total**, plus the 39-step testnet run and the product lifecycle run below. Tests never call the real zkFetch: the live-proof tests replay saved attestor-signed proofs offline (including the X one), recomputing the identifier and the EIP-191 digest and recovering the live attestor address.
 
 ## Cost
 
@@ -487,6 +540,7 @@ Each integration below carries weight in the protocol; none is decorative.
 | **Stellar Wallets Kit** (`@creit.tech/stellar-wallets-kit`) | Live | Wallet connection and transaction signing in the dashboard (Freighter and other kit wallets) for brands, clippers and arbiters. Every state change that moves money is signed by the user's own wallet |
 | **Circle USDC via the Stellar Asset Contract** | Live (Circle testnet USDC SAC) | The escrow asset. `create_campaign`, `claim`, bonds and `refund` are SEP-41 `transfer` calls on the SAC. The contract is token-agnostic: it takes the token address per campaign, so an anchor-issued TRY token works the same way |
 | **Soroswap** (router) | Live, contract-level | `create_campaign_with_swap`: the `cliprail` contract calls the Soroswap router (`swap_tokens_for_exact_tokens`) and escrows exactly `budget` USDC in the same brand-signed transaction, with a slippage cap and deadline; the client quotes via `router_get_amounts_in`. Tested on testnet: 47.37 XLM → 5 USDC escrow |
+| **Circle CCTP V2** (cross-chain USDC, listed ecosystem partner — cross-chain) | Live, proven on testnet | Bridge-to-fund: a brand holding USDC on another chain burns it there and CCTP mints **native** USDC on Stellar (domain 27) through `CctpForwarder.mint_and_forward`, into the same Circle USDC SAC the escrow uses — so `create_campaign` needed no change. Proven Arc Testnet → Stellar: [burn of 5 USDC](https://testnet.arcscan.app/tx/0xfe502def03331ffe33d17f7496edf6f932c1966e99f030806e4e7b40e2525bea) → [`mint_and_forward`](https://stellar.expert/explorer/testnet/tx/ea727dcc6e648f0da4722fa4d2b2b40f59bac808a79b90ed43a33b8df8293a30) in 24 s at 0 bps, plus a [1 USDC smoke run](https://testnet.arcscan.app/tx/0xb2c06a426c48db549b9cfeafa2d84fd148461bbd214dd1b223fa89415fbbe0ec) → [mint](https://stellar.expert/explorer/testnet/tx/2d85b781d319ba84c41b9d54b3dfcca9836d4154ffb02498d983131e1e894c48). See [the section](#funding-a-campaign-from-another-chain-circle-cctp-v2) |
 | **Soroban host crypto: secp256k1 + keccak256** | Live | Recover the Reclaim attestor address and hash the claim identifier, so a zkTLS proof is verified fully in-contract (~3–10M instructions) |
 | **Soroban host crypto: BN254 pairing + G1 MSM** | Live | Groth16 verification of Anon Aadhaar proofs in `humanity.register_zk` (~30.8M CPU instructions, ~0.034 XLM fee on testnet) |
 | **Reclaim Protocol zkTLS** (zkFetch, attestor) | Live (attestor-signed proof verified on-chain) | Produces signed proofs of the reach metric and the caption text the platform served, verified inside `cliprail` — the same claim shape for every configured platform. A live attestor-signed proof was accepted on testnet: [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69). Tests and the e2e run use a simulated attestor that signs in the exact Reclaim format, so the free quota is not burned |
@@ -509,6 +563,7 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 | `skills/assets/SKILL.md` | Circle testnet USDC trustlines, SAC interop, test-asset issuance |
 | `skills/data/SKILL.md` | Stellar RPC reads, events, explorer links |
 | `skills/standards/SKILL.md` | SEP-1 / SEP-10 / SEP-12 / SEP-38 / SEP-6 anchor flow for the TRY on/off-ramp, SEP-41 token interface; Soroswap in the DeFi ecosystem reference |
+| `skills/cross-chain/SKILL.md` (+ `cctp.md`) | Circle CCTP V2: burn → attestation → mint, Stellar domain 27, CctpForwarder and hook-data semantics |
 
 ## Design decisions & trade-offs
 
@@ -536,7 +591,7 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 | Milestone | Timeline | Deliverables |
 |---|---|---|
 | **M1: Production-ready testnet** | 2–4 weeks | **Device-side zkTLS (Reclaim app / browser extension) first**, which unlocks the platforms and metrics clippers actually use: **X view counts instead of the likes we can prove server-side today**, plus TikTok and Instagram. The fetch runs in the participant's logged-in session with cookies redacted, so the numbers come with author-verified analytics; the attestor signs the same claim shape, and each platform lands as one `config/providers.json` entry plus one `set_platform` call — no contract change; live Reclaim zkFetch proofs in the default flow for every post and epoch (the first live proof is already verified on-chain; next is a paid tier so the keeper is not quota-bound, plus a full multi-post, multi-epoch live run); TRY cash-out moved from the testnet sandbox anchor to a licensed Turkish anchor (SEP-6/SEP-24); verifier and keeper hosted on Hetzner behind HTTPS with monitoring; in-browser Anon Aadhaar proving; external security review of `cliprail`, `humanity` and `reclaim-verify` |
-| **M2: Mainnet pilot** | +1–2 months | Mainnet deployment with real UIDAI key pinned; pilot campaigns with 2–3 brands (crypto projects, music labels); passkey smart accounts and fee sponsorship so clippers need no seed phrase or XLM; more platforms and metrics added purely through provider config (each one entry + one `set_platform` call); admin timelock and multisig |
+| **M2: Mainnet pilot** | +1–2 months | Mainnet deployment with real UIDAI key pinned; pilot campaigns with 2–3 brands (crypto projects, music labels); **CCTP V2 on mainnet** — the same code path with mainnet domain ids and contract addresses — so crypto-native brands that already hold USDC on Ethereum, Base, Arbitrum or Solana can fund a campaign without first acquiring USDC on Stellar, and the CCTP bridge is offered in the dashboard next to the Soroswap and anchor routes; passkey smart accounts and fee sponsorship so clippers need no seed phrase or XLM; more platforms and metrics added purely through provider config (each one entry + one `set_platform` call); admin timelock and multisig |
 | **M3: SCF Build Award** | +3 months | SCF Build application backed by pilot metrics; Self / zkPassport identity alongside Aadhaar; SDK and dashboard for agencies running many campaigns; multi-attestor threshold verification; Stellar Disbursement Platform integration for large payouts |
 
 **Success metrics** (reported publicly from on-chain data): campaigns launched, USDC escrowed and paid out, posts verified (by platform), unique verified humans, dispute rate and outcome split, median time from epoch end to payout, share of clippers cashing out through an anchor.
