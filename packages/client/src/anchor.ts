@@ -671,3 +671,465 @@ export async function completeWithdrawPayment(o: CompleteWithdrawOptions): Promi
     .build();
   return signAndSubmit(server, built.toXDR(), o.account, o.signer, passphrase, "anchor_payment_failed");
 }
+
+// ------------------------------------------------------------------ SEP-6 (programmatic deposit / withdraw)
+
+export interface Sep6AssetInfo {
+  enabled: boolean;
+  authenticationRequired?: boolean;
+  feePercent?: number;
+  minAmount?: number;
+  maxAmount?: number;
+  fundingMethods?: string[];
+}
+
+export interface Sep6Info {
+  deposit: Record<string, Sep6AssetInfo>;
+  withdraw: Record<string, Sep6AssetInfo>;
+  depositExchange: Record<string, Sep6AssetInfo>;
+  withdrawExchange: Record<string, Sep6AssetInfo>;
+  /** `features.claimable_balances`: the anchor can pay deposits to accounts without a trustline. */
+  claimableBalances: boolean;
+  raw: unknown;
+}
+
+const sep6Server = (a: Pick<AnchorInfo, "transferServer">): string => {
+  if (!a.transferServer) throw anchorError("anchor_sep6_unsupported");
+  return a.transferServer;
+};
+
+const num = (v: unknown): number | undefined => (typeof v === "number" ? v : typeof v === "string" && v.trim() && Number.isFinite(Number(v)) ? Number(v) : undefined);
+
+const sep6AssetMap = (o: unknown): Record<string, Sep6AssetInfo> => {
+  const out: Record<string, Sep6AssetInfo> = {};
+  if (!o || typeof o !== "object") return out;
+  for (const [code, v] of Object.entries(o as Record<string, Record<string, unknown>>)) {
+    out[code] = {
+      enabled: v?.enabled === true,
+      authenticationRequired: typeof v?.authentication_required === "boolean" ? v.authentication_required : undefined,
+      feePercent: num(v?.fee_percent),
+      minAmount: num(v?.min_amount),
+      maxAmount: num(v?.max_amount),
+      fundingMethods: Array.isArray(v?.funding_methods) ? (v.funding_methods as unknown[]).map(String) : undefined,
+    };
+  }
+  return out;
+};
+
+/** SEP-6 `GET /info`. */
+export async function sep6Info(anchor: Pick<AnchorInfo, "transferServer">, f: Fetch = globalThis.fetch): Promise<Sep6Info> {
+  const res = await anchorFetch(f, `${sep6Server(anchor)}/info`);
+  const body = await readJson(res);
+  if (!res.ok) throw httpError(res, body, "anchor_request_failed");
+  return {
+    deposit: sep6AssetMap(body.deposit),
+    withdraw: sep6AssetMap(body.withdraw),
+    depositExchange: sep6AssetMap(body["deposit-exchange"]),
+    withdrawExchange: sep6AssetMap(body["withdraw-exchange"]),
+    claimableBalances: (body.features as { claimable_balances?: unknown } | undefined)?.claimable_balances === true,
+    raw: body,
+  };
+}
+
+/** Positive decimal string ("5000", "12.5"); throws `anchor_amount_invalid`. */
+export function checkAmount(amount: string | number, maxDecimals = 7): string {
+  const s = String(amount).trim().replace(",", ".");
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(s);
+  if (!m || Number(s) <= 0 || (m[2]?.length ?? 0) > maxDecimals) throw anchorError("anchor_amount_invalid", String(amount));
+  return s;
+}
+
+async function sep6Get(anchor: AnchorInfo, jwt: string, path: string, params: Record<string, string | undefined>, f: Fetch) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") q.set(k, v);
+  const res = await anchorFetch(f, `${sep6Server(anchor)}/${path}?${q}`, { headers: { authorization: `Bearer ${jwt}` } });
+  const body = await readJson(res);
+  if (!res.ok || body.type === "non_interactive_customer_info_needed" || body.type === "customer_info_status") {
+    if (body.type === "non_interactive_customer_info_needed") throw anchorError("anchor_kyc_failed", "KYC fields required", body);
+    if (body.type === "customer_info_status") throw anchorError(body.status === "denied" ? "anchor_kyc_rejected" : "anchor_kyc_failed", str(body.status), body);
+    throw httpError(res, body, "anchor_request_failed");
+  }
+  return body;
+}
+
+export interface Sep6DepositOptions {
+  anchor: AnchorInfo;
+  jwt: string;
+  /** On-chain asset (default "USDC"). */
+  assetCode?: string;
+  /** Receiving G... / M... account. */
+  account: string;
+  /** Deposit amount in the off-chain asset for exchange deposits (TRY), else in the asset. */
+  amount?: string;
+  /** Funding method (default "bank_account"). */
+  type?: string;
+  /** SEP-38 quote id → uses `/deposit-exchange`. */
+  quoteId?: string;
+  /** Force `/deposit-exchange` (default: when `quoteId` or `sourceAsset` is given). */
+  exchange?: boolean;
+  /** Off-chain source asset for `/deposit-exchange` (default "iso4217:TRY"). */
+  sourceAsset?: string;
+  /** Let the anchor pay a claimable balance when there is no trustline. */
+  claimableBalanceSupported?: boolean;
+  lang?: string;
+  extra?: Record<string, string>;
+  fetch?: Fetch;
+}
+
+export interface Sep6DepositResponse {
+  id: string;
+  /** Human instructions ("Send TRY to IBAN ... with reference ..."). */
+  how?: string;
+  /** SEP-9 fields: bank_name, bank_account_number (IBAN), external_transfer_memo (reference). */
+  instructions: Record<string, { value: string; description?: string }>;
+  bankName?: string;
+  iban?: string;
+  /** Reference to write in the bank transfer description (açıklama). */
+  reference?: string;
+  /** Transaction page (sandbox: "simulate incoming transfer" button). */
+  moreInfoUrl?: string;
+  eta?: number;
+  feePercent?: number;
+  message?: string;
+  raw: Record<string, unknown>;
+}
+
+const URL_RE = /https?:\/\/[^\s"'<>)]+/;
+
+/** SEP-6 `GET /deposit` or `/deposit-exchange` → id + bank instructions (IBAN + reference). */
+export async function sep6Deposit(o: Sep6DepositOptions): Promise<Sep6DepositResponse> {
+  const f = o.fetch ?? globalThis.fetch;
+  const code = o.assetCode ?? "USDC";
+  const exchange = o.exchange ?? !!(o.quoteId || o.sourceAsset);
+  const amount = o.amount === undefined ? undefined : checkAmount(o.amount);
+  if (exchange && !amount) throw anchorError("anchor_amount_invalid", "amount required for deposit-exchange");
+  const type = o.type ?? "bank_account";
+  const params: Record<string, string | undefined> = {
+    asset_code: code,
+    account: o.account,
+    amount,
+    type,
+    funding_method: type,
+    lang: o.lang ?? "tr",
+    ...(o.claimableBalanceSupported ? { claimable_balance_supported: "true" } : {}),
+    ...(exchange ? { destination_asset: code, source_asset: o.sourceAsset ?? TRY_SEP38_ASSET, quote_id: o.quoteId } : {}),
+    ...o.extra,
+  };
+  const body = await sep6Get(o.anchor, o.jwt, exchange ? "deposit-exchange" : "deposit", params, f);
+  if (typeof body.id !== "string") throw anchorError("anchor_request_failed", "deposit: missing id", body);
+  const instructions = sep9Instructions(body.instructions) ?? {};
+  const message = str((body.extra_info as { message?: unknown } | undefined)?.message);
+  const moreInfoUrl =
+    str(body.more_info_url) ?? (message ?? str(body.how))?.match(URL_RE)?.[0]?.replace(/[.,;]+$/, "");
+  return {
+    id: body.id,
+    how: str(body.how),
+    instructions,
+    bankName: instructions.bank_name?.value,
+    iban: instructions.bank_account_number?.value ?? instructions.iban?.value,
+    reference: instructions.external_transfer_memo?.value ?? instructions.reference?.value,
+    moreInfoUrl,
+    eta: num(body.eta),
+    feePercent: num(body.fee_percent),
+    message,
+    raw: body,
+  };
+}
+
+/** `sep6Deposit` through `/deposit-exchange` (TRY → USDC, optionally with a SEP-38 quote). */
+export const sep6DepositExchange = (o: Sep6DepositOptions) => sep6Deposit({ ...o, exchange: true });
+
+export interface Sep6WithdrawOptions {
+  anchor: AnchorInfo;
+  jwt: string;
+  assetCode?: string;
+  /** Sending account (optional per SEP-6; the JWT identifies the user). */
+  account?: string;
+  /** Amount of the on-chain asset (USDC) to withdraw. */
+  amount?: string;
+  /** Withdrawal type (default "bank_account"). */
+  type?: string;
+  /** Destination (IBAN) and extra (bank) — optional on the mock: the SEP-12 IBAN or a sandbox IBAN is used. */
+  dest?: string;
+  destExtra?: string;
+  /** SEP-38 quote id → uses `/withdraw-exchange`. */
+  quoteId?: string;
+  exchange?: boolean;
+  /** Off-chain destination asset for `/withdraw-exchange` (default "iso4217:TRY"). */
+  destinationAsset?: string;
+  refundMemo?: string;
+  refundMemoType?: "text" | "id" | "hash";
+  lang?: string;
+  extra?: Record<string, string>;
+  fetch?: Fetch;
+}
+
+export interface Sep6WithdrawResponse {
+  id: string;
+  /** Anchor account to pay the asset to. */
+  accountId: string;
+  memo?: string;
+  memoType?: "text" | "id" | "hash";
+  eta?: number;
+  feePercent?: number;
+  message?: string;
+  /** SEP-7 `web+stellar:pay?...` URI when the anchor provides one. */
+  paymentUri?: string;
+  raw: Record<string, unknown>;
+}
+
+/** SEP-6 `GET /withdraw` or `/withdraw-exchange` → anchor account + memo to pay. */
+export async function sep6Withdraw(o: Sep6WithdrawOptions): Promise<Sep6WithdrawResponse> {
+  const f = o.fetch ?? globalThis.fetch;
+  const code = o.assetCode ?? "USDC";
+  const exchange = o.exchange ?? !!(o.quoteId || o.destinationAsset);
+  const amount = o.amount === undefined ? undefined : checkAmount(o.amount);
+  if (exchange && !amount) throw anchorError("anchor_amount_invalid", "amount required for withdraw-exchange");
+  const type = o.type ?? "bank_account";
+  const params: Record<string, string | undefined> = {
+    asset_code: code,
+    account: o.account,
+    amount,
+    type,
+    funding_method: type,
+    dest: o.dest,
+    dest_extra: o.destExtra,
+    refund_memo: o.refundMemo,
+    refund_memo_type: o.refundMemo ? (o.refundMemoType ?? "text") : undefined,
+    lang: o.lang ?? "tr",
+    ...(exchange ? { source_asset: code, destination_asset: o.destinationAsset ?? TRY_SEP38_ASSET, quote_id: o.quoteId } : {}),
+    ...o.extra,
+  };
+  const body = await sep6Get(o.anchor, o.jwt, exchange ? "withdraw-exchange" : "withdraw", params, f);
+  if (typeof body.id !== "string" || typeof body.account_id !== "string") throw anchorError("anchor_request_failed", "withdraw: missing id / account_id", body);
+  const memoType = str(body.memo_type);
+  const extra = body.extra_info as { message?: unknown; payment_uri?: unknown } | undefined;
+  return {
+    id: body.id,
+    accountId: body.account_id,
+    memo: body.memo === undefined || body.memo === null ? undefined : String(body.memo),
+    memoType: memoType === "id" || memoType === "hash" || memoType === "text" ? memoType : undefined,
+    eta: num(body.eta),
+    feePercent: num(body.fee_percent),
+    message: str(extra?.message),
+    paymentUri: str(extra?.payment_uri),
+    raw: body,
+  };
+}
+
+/** `sep6Withdraw` through `/withdraw-exchange` (USDC → TRY, optionally with a SEP-38 quote). */
+export const sep6WithdrawExchange = (o: Sep6WithdrawOptions) => sep6Withdraw({ ...o, exchange: true });
+
+/** A SEP-6 withdraw response as a payable transaction for `completeWithdrawPayment` (no poll needed). */
+export function withdrawResponseToTx(w: Sep6WithdrawResponse, amount: string): AnchorTransaction {
+  return mapAnchorTransaction(
+    {
+      id: w.id,
+      kind: "withdrawal",
+      status: "pending_user_transfer_start",
+      amount_in: amount,
+      withdraw_anchor_account: w.accountId,
+      withdraw_memo: w.memo,
+      withdraw_memo_type: w.memoType,
+    },
+    "sep6",
+  );
+}
+
+export interface SimulateDepositOptions {
+  anchor: Pick<AnchorInfo, "transferServer">;
+  /** SEP-6 transaction id. */
+  id: string;
+  /** Off-chain amount that "arrives" (TRY). */
+  amount: string;
+  /** Transaction page; the simulate endpoint lives under it (default `<TRANSFER_SERVER>/tx/<id>`). */
+  moreInfoUrl?: string;
+  fetch?: Fetch;
+}
+
+/**
+ * Sandbox only: make the off-chain TRY transfer "arrive" (what the more_info_url page's
+ * "Simulate incoming TRY transfer" button does): `POST <more_info_url>/simulate-bank-transfer`.
+ * On a real anchor the user's bank transfer does this; there is no such endpoint.
+ */
+export async function simulateDepositArrival(o: SimulateDepositOptions): Promise<AnchorTransaction | null> {
+  const f = o.fetch ?? globalThis.fetch;
+  const base = (o.moreInfoUrl ?? `${sep6Server(o.anchor)}/tx/${encodeURIComponent(o.id)}`).replace(/[?#].*$/, "").replace(/\/+$/, "");
+  const res = await anchorFetch(f, `${base}/simulate-bank-transfer`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ amount: checkAmount(o.amount, 2) }),
+  });
+  const body = await readJson(res);
+  if (!res.ok || body.ok === false) throw httpError(res, body, "anchor_simulate_failed");
+  return body.transaction && typeof body.transaction === "object" ? mapAnchorTransaction(body.transaction as Record<string, unknown>, "sep6") : null;
+}
+
+// ------------------------------------------------------------------ SEP-12 (KYC)
+
+export interface Sep12Customer {
+  id?: string;
+  status: Sep12Status | string;
+  message?: string;
+  /** Fields the anchor still wants (`{ first_name: { type, description, optional } }`). */
+  fields: Record<string, { type?: string; description?: string; optional?: boolean }>;
+  providedFields: Record<string, { status?: string }>;
+  raw: Record<string, unknown>;
+}
+
+export interface Sep12Options {
+  anchor: Pick<AnchorInfo, "kycServer" | "transferServer">;
+  jwt: string;
+  /** SEP-12 customer type (e.g. "sep6-deposit"); optional. */
+  type?: string;
+  fetch?: Fetch;
+}
+
+const kycServer = (a: Pick<AnchorInfo, "kycServer" | "transferServer">): string => {
+  const s = a.kycServer ?? a.transferServer;
+  if (!s) throw anchorError("anchor_kyc_failed", "KYC_SERVER");
+  return s;
+};
+
+/** SEP-12 `GET /customer` (the JWT identifies the account). */
+export async function sep12GetCustomer({ anchor, jwt, type, fetch: f = globalThis.fetch }: Sep12Options): Promise<Sep12Customer> {
+  const q = type ? `?${new URLSearchParams({ type })}` : "";
+  const res = await anchorFetch(f, `${kycServer(anchor)}/customer${q}`, { headers: { authorization: `Bearer ${jwt}` } });
+  const body = await readJson(res);
+  if (!res.ok) throw httpError(res, body, "anchor_kyc_failed");
+  return {
+    id: str(body.id),
+    status: str(body.status) ?? "NEEDS_INFO",
+    message: str(body.message),
+    fields: (body.fields as Sep12Customer["fields"]) ?? {},
+    providedFields: (body.provided_fields as Sep12Customer["providedFields"]) ?? {},
+    raw: body,
+  };
+}
+
+/**
+ * SEP-12 `PUT /customer` with SEP-9 fields (e.g. `first_name`, `bank_account_number` = IBAN).
+ * The mock anchor auto-approves any PUT, even an empty one. Returns the customer id.
+ */
+export async function sep12PutCustomer(o: Sep12Options & { fields?: Record<string, string> }): Promise<{ id: string }> {
+  const f = o.fetch ?? globalThis.fetch;
+  const body = { ...(o.type ? { type: o.type } : {}), ...(o.fields ?? {}) };
+  const res = await anchorFetch(f, `${kycServer(o.anchor)}/customer`, {
+    method: "PUT",
+    headers: { "content-type": "application/json", authorization: `Bearer ${o.jwt}` },
+    body: JSON.stringify(body),
+  });
+  const j = await readJson(res);
+  if (!res.ok || typeof j.id !== "string") throw httpError(res, j, "anchor_kyc_failed");
+  return { id: j.id };
+}
+
+/** KYC status; when not ACCEPTED, PUT `fields` (default none: simulated KYC) and re-read. Throws on REJECTED. */
+export async function ensureKyc(o: Sep12Options & { fields?: Record<string, string> }): Promise<Sep12Customer> {
+  let c = await sep12GetCustomer(o).catch(() => null);
+  if (c?.status !== "ACCEPTED") {
+    await sep12PutCustomer(o);
+    c = await sep12GetCustomer(o);
+  }
+  if (c.status === "REJECTED") throw anchorError("anchor_kyc_rejected", c.message);
+  return c;
+}
+
+// ------------------------------------------------------------------ SEP-38 (quotes)
+
+/** Classic asset → SEP-38 id `stellar:CODE:ISSUER`. */
+export const sep38AssetId = (asset: Asset): string => (asset.isNative() ? "stellar:native" : `stellar:${asset.getCode()}:${asset.getIssuer()}`);
+
+export interface Sep38PriceRequest {
+  anchor: Pick<AnchorInfo, "quoteServer">;
+  sellAsset: string;
+  buyAsset: string;
+  /** Exactly one of sellAmount / buyAmount. */
+  sellAmount?: string;
+  buyAmount?: string;
+  /** Default "sep6". */
+  context?: "sep6" | "sep24" | "sep31";
+  sellDeliveryMethod?: string;
+  buyDeliveryMethod?: string;
+  countryCode?: string;
+  jwt?: string;
+  fetch?: Fetch;
+}
+
+export interface Sep38Price {
+  /** SEP-38 `total_price`: sell units per 1 buy unit, fee included. */
+  totalPrice: string;
+  /** Price excluding the fee. */
+  price: string;
+  sellAmount: string;
+  buyAmount: string;
+  fee?: { total: string; asset: string; details?: { name: string; description?: string; amount: string }[] };
+  /** TRY per 1 USDC (fee included), whichever way the trade goes — for "1 USDC = 49,03 TL". */
+  tryPerUsdc?: number;
+  raw: Record<string, unknown>;
+}
+
+export interface Sep38Quote extends Sep38Price {
+  id: string;
+  expiresAt: string;
+  sellAsset: string;
+  buyAsset: string;
+}
+
+const quoteServer = (a: Pick<AnchorInfo, "quoteServer">): string => {
+  if (!a.quoteServer) throw anchorError("anchor_quote_failed", "ANCHOR_QUOTE_SERVER");
+  return a.quoteServer;
+};
+
+function mapPrice(b: Record<string, unknown>, sellAsset: string, buyAsset: string): Sep38Price {
+  const sellAmount = str(b.sell_amount) ?? "0";
+  const buyAmount = str(b.buy_amount) ?? "0";
+  const s = Number(sellAmount);
+  const bu = Number(buyAmount);
+  let tryPerUsdc: number | undefined;
+  if (sellAsset.startsWith("iso4217:TRY") && bu > 0) tryPerUsdc = s / bu;
+  else if (buyAsset.startsWith("iso4217:TRY") && s > 0) tryPerUsdc = bu / s;
+  const fee = b.fee as Sep38Price["fee"] | undefined;
+  return { totalPrice: str(b.total_price) ?? "", price: str(b.price) ?? "", sellAmount, buyAmount, fee, tryPerUsdc, raw: b };
+}
+
+function priceParams(o: Sep38PriceRequest): Record<string, string> {
+  if (!!o.sellAmount === !!o.buyAmount) throw anchorError("anchor_amount_invalid", "exactly one of sellAmount / buyAmount");
+  const p: Record<string, string> = { sell_asset: o.sellAsset, buy_asset: o.buyAsset, context: o.context ?? "sep6" };
+  if (o.sellAmount) p.sell_amount = checkAmount(o.sellAmount);
+  if (o.buyAmount) p.buy_amount = checkAmount(o.buyAmount);
+  if (o.sellDeliveryMethod) p.sell_delivery_method = o.sellDeliveryMethod;
+  if (o.buyDeliveryMethod) p.buy_delivery_method = o.buyDeliveryMethod;
+  if (o.countryCode) p.country_code = o.countryCode;
+  return p;
+}
+
+/** SEP-38 `GET /price` (indicative, no auth needed). */
+export async function sep38Price(o: Sep38PriceRequest): Promise<Sep38Price> {
+  const f = o.fetch ?? globalThis.fetch;
+  const q = new URLSearchParams(priceParams(o));
+  const res = await anchorFetch(f, `${quoteServer(o.anchor)}/price?${q}`, o.jwt ? { headers: { authorization: `Bearer ${o.jwt}` } } : undefined);
+  const body = await readJson(res);
+  if (!res.ok || !str(body.total_price)) throw httpError(res, body, "anchor_quote_failed");
+  return mapPrice(body, o.sellAsset, o.buyAsset);
+}
+
+/** SEP-38 `POST /quote` (firm, single-use, needs the SEP-10 JWT). Pass `id` as `quoteId` to the -exchange call. */
+export async function sep38Quote(o: Sep38PriceRequest & { jwt: string; expireAfter?: string }): Promise<Sep38Quote> {
+  const f = o.fetch ?? globalThis.fetch;
+  const body = { ...priceParams(o), ...(o.expireAfter ? { expire_after: o.expireAfter } : {}) };
+  const res = await anchorFetch(f, `${quoteServer(o.anchor)}/quote`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${o.jwt}` },
+    body: JSON.stringify(body),
+  });
+  const j = await readJson(res);
+  if (!res.ok || typeof j.id !== "string") throw httpError(res, j, "anchor_quote_failed");
+  return {
+    ...mapPrice(j, o.sellAsset, o.buyAsset),
+    id: j.id,
+    expiresAt: str(j.expires_at) ?? "",
+    sellAsset: str(j.sell_asset) ?? o.sellAsset,
+    buyAsset: str(j.buy_asset) ?? o.buyAsset,
+  };
+}
