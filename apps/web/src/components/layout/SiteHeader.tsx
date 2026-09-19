@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NAV_ITEMS, isActive } from "./nav";
+import { AttestorBadge } from "./AttestorBadge";
 import { NetworkBadge } from "./NetworkBadge";
 import { WalletButton } from "@/components/wallet/WalletButton";
 import { ThemeToggle } from "./ThemeToggle";
@@ -45,8 +46,9 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <span className="hidden lg:inline-flex">
+          <span className="hidden items-center gap-2 lg:inline-flex">
             <NetworkBadge />
+            <AttestorBadge />
           </span>
           <ThemeToggle />
           <WalletButton className="hidden sm:block" />
@@ -78,8 +80,11 @@ export function SiteHeader() {
               </Link>
             ))}
           </div>
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <NetworkBadge />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="flex flex-wrap gap-2">
+              <NetworkBadge />
+              <AttestorBadge />
+            </span>
             <WalletButton />
           </div>
         </nav>
