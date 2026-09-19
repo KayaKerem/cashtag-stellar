@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "anchor-smoke": "tsx anchor-smoke.ts",
     "soroswap-pool": "tsx soroswap-pool.ts",
-    "swap-fund-smoke": "tsx swap-fund-smoke.ts"
+    "swap-fund-smoke": "tsx swap-fund-smoke.ts",
+    "anchor-try-smoke": "tsx anchor-try-smoke.ts"
   },
   "dependencies": {
     "@cliprail/client": "workspace:*",

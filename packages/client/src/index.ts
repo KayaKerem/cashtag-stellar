@@ -8,6 +8,8 @@ export * from "./errors";
 export * from "./proof";
 export * from "./token";
 export * from "./anchor";
+export * from "./anchor-ramp";
+export * from "./anchor-mock";
 export * from "./humanity-zk";
 export * from "./swap";
 export { runWrite, isRetryable, simulatedResult, unwrapResult, mapLimit, type TxLike, type WriteResult } from "./tx";
