@@ -2,11 +2,31 @@
 
 **Verifiable pay-per-view clipping campaigns on Stellar.**
 
-A brand locks a USDC budget in a Soroban escrow with rules that cannot change after launch. Verified unique humans post campaign clips on their own social accounts, tagged with a personal campaign code. View counts are proven with zkTLS (Reclaim), and the proof is checked **inside the contract**: the attestor signature, the exact API URL, the extraction regexes, and the clipper's code in the video description. Each epoch the budget is split pro-rata over proven view growth, under a per-1k rate ceiling and per-human caps. Payouts cost fractions of a cent, so there is no minimum payout, and clippers in any country can be paid.
+A brand locks a USDC budget in a Soroban escrow with rules that cannot change after launch. Clippers who are registered in a per-campaign humanity registry post campaign clips on their own social accounts, tagged with a personal campaign code. View counts are proven with zkTLS (Reclaim), and the proof is checked **inside the contract**: the attestor signature, the exact API URL, the extraction regexes, and the clipper's code in the video description. Each epoch the budget is split pro-rata over proven view growth, under a per-1k rate ceiling and per-human caps. Payout transactions cost well under a cent on testnet (measured below), so there is no minimum payout, and clippers in any country can be paid.
 
 > **The number is real** (zkTLS, verified on-chain) · **One human, once** (per-campaign nullifier) · **The rules can't change** (Soroban escrow)
 
+**Full lifecycle on testnet: 39/39 steps, explorer links → [docs/e2e-testnet-run.md](docs/e2e-testnet-run.md)**
+
+What is and is not proven today:
+
+- **In-contract proof verification** is tested against Reclaim's reference vector (`contracts/reclaim-verify`) and in a full testnet lifecycle run (create → join → clips → proofs → dispute → settle → claim → holdback → refund) using Reclaim-format proofs signed by a **simulated attestor** ([docs/e2e-testnet-run.md](docs/e2e-testnet-run.md)).
+- **Live Reclaim zkFetch run:** pending credentials. **[TBD: link to live-proof testnet run]**
+- **Humanity** is a per-campaign nullifier registry. In the demo, registration goes through a relayer; a Self ZK passport proof is on the roadmap.
+
 Status: hackathon build on Stellar **testnet**. Demo video: **[TBD: demo video link]**
+
+## Judge quickstart
+
+```bash
+(cd contracts && cargo test)                                 # cliprail, humanity, reclaim-verify
+pnpm install && pnpm -r test                                 # verifier, @cliprail/shared, @cliprail/client
+pnpm --filter e2e deploy -- --redeploy                       # fresh e2e instance on testnet (simulated attestor)
+pnpm --filter e2e run                                        # full lifecycle, rewrites docs/e2e-testnet-run.md
+pnpm --filter e2e seed -- --mode local                       # demo seed; --mode real requires Reclaim credentials
+```
+
+The e2e scripts need funded testnet accounts from `bash scripts/setup-accounts.sh`. A fresh instance is needed per run because the video registry is global.
 
 ---
 
@@ -15,15 +35,15 @@ Status: hackathon build on Stellar **testnet**. Demo video: **[TBD: demo video l
 | Layer | Guarantee | How |
 |---|---|---|
 | **The number is real** | The view count and description the platform served reach the contract unmodified | Reclaim zkTLS proof. Secp256k1 attestor signature, URL template, `responseMatches` and extracted `views`/`desc` are all verified in the `cliprail` contract (`contracts/reclaim-verify`), not by a backend |
-| **One human, once** | A person joins a campaign at most once, and caps apply per human, not per account | `humanity` registry: `(campaign, nullifier)` and `(campaign, wallet)` are each unique. The nullifier is scoped per campaign |
+| **One human, once** | A registered nullifier joins a campaign at most once, and caps apply per nullifier, not per account | `humanity` registry: `(campaign, nullifier)` and `(campaign, wallet)` are each unique. The nullifier is scoped per campaign. Demo: relayer registration; roadmap: Self ZK passport proof |
 | **The rules can't change** | Rate, caps, windows, holdback, bond and arbiter are fixed at creation. There are no discretionary rejections | Budget sits in a Soroban escrow. Every payout is a formula over proven numbers. Disputes are bonded and time-boxed |
 
 ## The problem
 
-Clipping is now a real market: brands and creators pay "clippers" per view to repost short cuts of their content. Whop Content Rewards alone pays out roughly **$40k/day**. The market runs on trust it has not earned:
+Clipping is now a real market: brands and creators pay "clippers" per view to repost short cuts of their content. Whop Content Rewards has been reported to pay out on the order of tens of thousands of dollars per day (Forbes, April 2026, as cited by third-party guides). The market runs on trust it has not earned:
 
-- **Discretionary payouts.** Platforms count views their own way and reject submissions "at our sole discretion". Payouts can take up to 90 days, and agency cuts leave clippers 55–70%.
-- **Bot fraud.** Bot views are cheap. In one publicized case a brand paid $1,500 for views that turned out to be almost entirely bots. Nobody can prove what was counted.
+- **Discretionary payouts.** Platforms count views their own way and reject submissions "at our sole discretion". Clippers report long payout delays and agency cuts on top of platform fees.
+- **Bot fraud.** Bot views are cheap. The StreamAlive founder described (blog post, September 2025) paying for a clipping campaign whose views turned out to be mostly bots. Nobody can prove what was counted.
 - **Payout rails exclude the workforce.** Many clippers are in India, the Philippines and Latin America, where PayPal is unavailable or impractical.
 
 Competitors advertise "verified views" but cannot show the verification. ClipRail makes it checkable: the count comes from a proof, the payout from immutable code.
@@ -118,9 +138,9 @@ held_c   = pay_c · holdback_bps / 10000   (0 in the last epoch) ;  immediate_c 
 ### Honest limits
 
 - **zkTLS proves the count the platform displays, not that viewers are human.** We mitigate bot views with caps, disputes and pro-rata dilution. We do not claim to solve them.
-- **One Reclaim attestor key** (`0x2448…9072`). Trust moves from "our server" to "a third-party, signed, TEE-backed attestor". That is better, but not trustless.
+- **One Reclaim attestor key.** The address we allowlist (`0x2448…9072`, from Reclaim's reference vector) is to be confirmed with a live proof. Trust moves from "our server" to "a third-party, signed, TEE-backed attestor". That is better, but not trustless.
 - **Humanity is a demo registration via relayer** (`/humanity/demo-register`). The contract-side per-campaign nullifier logic is complete. Self passport ZK is on the roadmap. Identities can be rented, which raises the Sybil cost to the price of a real identity without eliminating it.
-- **The live demo uses a platform endpoint we control** (`/demo/videos/:id`) so viewers can watch the count grow within minutes. It is still a **real zkTLS proof** verified in-contract. The YouTube path uses the same verifier.
+- **The live demo uses a platform endpoint we control** (`/demo/videos/:id`) so viewers can watch the count grow within minutes. Once Reclaim credentials are in place it is a **real zkTLS proof** verified in-contract; until then the testnet run uses a simulated attestor. The YouTube path uses the same verifier.
 - The proof `timestampS` is chosen by the prover, so freshness relies on the allowlisted `owner` (our zkFetch app).
 
 ## Threat → mitigation
@@ -155,6 +175,13 @@ Every row has a dedicated test in [`contracts/cliprail/src/test/attacks.rs`](con
 | `humanity` | [`CAUU4KCBSL3L5CCLU2S5GNZ354S4X3DP6Z5ZSWMSDDCNNNE3AJSCGKMQ`](https://stellar.expert/explorer/testnet/contract/CAUU4KCBSL3L5CCLU2S5GNZ354S4X3DP6Z5ZSWMSDDCNNNE3AJSCGKMQ) |
 | USDC (test issuer, SAC) | [`CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E`](https://stellar.expert/explorer/testnet/contract/CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E) |
 
+**e2e instance (simulated attestor)**, separate from the main deployment, used for the [lifecycle run](docs/e2e-testnet-run.md):
+
+| Contract | ID |
+|---|---|
+| `cliprail` (e2e) | [`CC4SMPQWP56TUVAUAWMK4BLOONQPBLJAWDVNPE6HMZGEMG67WW4XR7T3`](https://stellar.expert/explorer/testnet/contract/CC4SMPQWP56TUVAUAWMK4BLOONQPBLJAWDVNPE6HMZGEMG67WW4XR7T3) |
+| `humanity` (e2e) | [`CB24BRMGW4ZTLJVC2ETKU5URUD7PXQ6BOYEKV4JUIO7O62GZWM6ZZZUM`](https://stellar.expert/explorer/testnet/contract/CB24BRMGW4ZTLJVC2ETKU5URUD7PXQ6BOYEKV4JUIO7O62GZWM6ZZZUM) |
+
 Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Test accounts are listed in [docs/INTERFACES.md §6](docs/INTERFACES.md). Verifier URL: **[TBD]**
 
 ## Repository layout
@@ -166,14 +193,16 @@ contracts/
   humanity/         per-campaign nullifier registry (constructor: admin, relayer)
 services/verifier/  Node/TS: zkFetch proofs, relay, keeper, demo platform endpoint, rate limits
 packages/
+  client/           @cliprail/client: chain and mock CliprailApi for the web app (tx helpers with retry, proof calls)
   cliprail-client/  generated TS bindings (stellar contract bindings typescript)
   humanity-client/  generated TS bindings
   shared/           @cliprail/shared: timeline, payout, errors, video-id parsing, formatting (mirrors the contract)
 apps/web/           Next.js dApp (in progress)
 config/             providers.json (URL templates + regexes per platform)
 fixtures/           Reclaim reference vector, required substrings
-scripts/            setup-accounts.sh, deploy.sh, bindings.sh, e2e/
-docs/               ARCHITECTURE, INTERFACES, DEVELOPMENT_PLAN, HANDOFF, reclaim-notes
+scripts/            setup-accounts.sh, deploy.sh, bindings.sh
+  e2e/              testnet lifecycle run (deploy.ts, run.ts), simulated attestor (proofgen.ts), demo seeding (seed-demo.ts)
+docs/               ARCHITECTURE, INTERFACES, e2e-testnet-run, DEMO, reclaim-notes, DEVELOPMENT_PLAN, HANDOFF
 ```
 
 ## Running it
@@ -228,25 +257,32 @@ pnpm --filter verifier dev                                 # http://localhost:87
 | `reclaim-verify` (Reclaim reference vector, k256 signatures, JSON scanner) | ″ | 24 passed |
 | Verifier service | `pnpm --filter verifier test` | 50 passed |
 | `@cliprail/shared` (timeline/payout parity with contract) | `pnpm --filter @cliprail/shared test` | 65 passed |
+| `@cliprail/client` | `pnpm --filter @cliprail/client test` | 17 passed |
+| Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run` | 39/39 steps ([report](docs/e2e-testnet-run.md)) |
 
-**187 tests in total.** Tests never call the real zkFetch.
+**204 unit and integration tests in total**, plus the 39-step testnet run. Tests never call the real zkFetch.
 
 ## Cost
 
-| Operation | CPU instructions | Source |
-|---|---|---|
-| Reclaim proof verification, in contract | 3.2M (142 B context) · 8.0M (5.5 KB) · 10.2M (7.9 KB) | real wasm, including VM setup ([docs/reclaim-notes.md](docs/reclaim-notes.md)) |
-| `register_clip` (opening proof) | ~3.1M | native estimate |
-| `submit_proof` (closing proof) | ~3.0M | native estimate |
-| `claim` | ~0.7M | native estimate |
+Measured on testnet in the [lifecycle run](docs/e2e-testnet-run.md): average CPU instructions from simulation and the fee actually paid.
 
-Each operation stays well within Soroban's per-transaction limits. Network fees are around $0.00001, so paying a clipper $0.03 makes economic sense.
+| Function | CPU instructions | Fee paid |
+|---|---|---|
+| `create_campaign` | ~1.45M | ~0.111 XLM |
+| `join` | ~1.7M | ~0.023 XLM |
+| `register_clip` (opening proof, verified in contract) | ~5.2M | ~0.061 XLM |
+| `submit_proof` (closing proof, verified in contract) | ~5.3M | ~0.072 XLM |
+| `challenge` | ~2.3M | ~0.059 XLM |
+| `settle_epoch` | ~1.5M | ~0.0012 XLM |
+| `claim` | ~2.0M | ~0.0023 XLM |
+
+Reclaim proof verification alone costs 3.2M instructions (142 B context) to 10.2M (7.9 KB), measured on the real wasm including VM setup ([docs/reclaim-notes.md](docs/reclaim-notes.md)). Every call stays far inside Soroban's 400M-instruction per-transaction budget. The most expensive call is `create_campaign` at ~0.11 XLM; the recurring payout calls (`settle_epoch`, `claim`) cost a small fraction of a cent.
 
 ## Why Stellar
 
-- **Native USDC** and **~$0.00001 fees** make per-epoch micro-payouts with no minimum threshold possible.
+- **Native USDC and low fees.** A classic USDC payment costs ~0.00001 XLM, and the Soroban calls above cost cents or less (`claim` ~0.0023 XLM), which makes per-epoch micro-payouts with no minimum threshold possible.
 - **Anchors and MoneyGram** let clippers cash out locally (SEP-24) in markets PayPal does not serve.
-- **Host crypto functions** (`secp256k1_recover`, `keccak256`) make it cheap enough to verify a Reclaim zkTLS proof fully inside a Soroban contract. BN254 host functions open the way to on-chain Groth16 identity proofs.
+- **Host crypto functions** (`secp256k1_recover`, `keccak256`) make it cheap enough to verify a Reclaim zkTLS proof fully inside a Soroban contract: a full verification measures ~3–10M instructions of the 400M per-transaction budget. BN254 host functions open the way to on-chain Groth16 identity proofs.
 - A layer that complements the **Stellar Disbursement Platform**: SDP distributes, ClipRail proves what should be paid.
 
 ## Roadmap
@@ -263,7 +299,9 @@ Each operation stays well within Soroban's per-transaction limits. Network fees 
 
 | | |
 |---|---|
+| [docs/e2e-testnet-run.md](docs/e2e-testnet-run.md) | **Headline evidence:** full testnet lifecycle, 39/39 steps, explorer links, measured costs (TR) |
+| [docs/DEMO.md](docs/DEMO.md) | Demo runbook: seeding, real vs. simulated-attestor mode, fallbacks (TR) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design rationale, mechanism, trust model, threat table (TR) |
 | [docs/INTERFACES.md](docs/INTERFACES.md) | Contract, service and web interfaces (TR) |
 | [docs/reclaim-notes.md](docs/reclaim-notes.md) | Byte-level Reclaim proof format and in-contract verification (TR) |
-| [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) · [docs/HANDOFF.md](docs/HANDOFF.md) | Plan, tasks, team handoff (TR) |
+| [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) · [docs/HANDOFF.md](docs/HANDOFF.md) | Internal planning docs: plan, tasks, team handoff (Turkish) |

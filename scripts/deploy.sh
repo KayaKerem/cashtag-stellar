@@ -99,8 +99,7 @@ invoke "$CLIPRAIL_ID" set_owners --owners "$(hex_json_array "${OWNERS[@]}")"
 
 # set_platform(platform, url_prefix, url_suffix, required)
 # required = canonical parameters içinde aynen geçmesi gereken alt diziler.
-# TODO(reclaim-notes): kaynak fixtures/required-substrings.json (docs/reclaim-notes.md §2.2). İlk gerçek
-#   zkFetch kanıtında claimData.parameters'ın bu byte'ları içerdiğini doğrula (reclaim-notes §5 soru 1).
+# Kaynak fixtures/required-substrings.json (kesin; docs/reclaim-notes.md §2.2); ilk gerçek zkFetch kanıtıyla teyit edilecek.
 REQ_FILE="$ROOT/fixtures/required-substrings.json"
 [ -f "$REQ_FILE" ] || die "$REQ_FILE yok"
 required_hex() { python3 -c 'import json,sys; print(json.dumps([s.encode().hex() for s in json.load(open(sys.argv[1]))[sys.argv[2]]["required"]]))' "$REQ_FILE" "$1"; }
