@@ -4,6 +4,7 @@ import { canJoin, type CampaignView, type ClipView, type Dispute, type EpochStat
 import { useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { Amount } from "@/components/common/Amount";
+import { TryRampButton } from "@/components/anchor/TryRampDialog";
 import { CodeBadge } from "@/components/common/CodeBadge";
 import { DemoBoostButton } from "./DemoBoostButton";
 import { EmptyState, Skeleton } from "@/components/common/EmptyState";
@@ -233,7 +234,11 @@ export function MePanel() {
 
   return (
     <>
-      <PageHeader title="Panelim" description="Kliplerin, dönem durumları ve kazançların. Aksiyonlar yalnızca ilgili aşamada açılır." />
+      <PageHeader
+        title="Panelim"
+        description="Kliplerin, dönem durumları ve kazançların. Aksiyonlar yalnızca ilgili aşamada açılır."
+        actions={<TryRampButton kind="withdraw" />}
+      />
 
       <div className="mb-8 grid gap-3 sm:grid-cols-3">
         {[

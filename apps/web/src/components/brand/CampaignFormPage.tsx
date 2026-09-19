@@ -4,6 +4,7 @@ import { MOCK_ACCOUNTS } from "@cliprail/client";
 import { parseUsdc, type Platform } from "@cliprail/shared";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { TryRampButton } from "@/components/anchor/TryRampDialog";
 import { PhaseTimeline } from "@/components/common/PhaseTimeline";
 import { FundingChoice, SWAP_CAMPAIGN_TOKEN, SWAP_TOKEN_IN, swapErrorMessage, type FundWith } from "./SwapFunding";
 import { useToast } from "@/components/common/Toast";
@@ -153,16 +154,19 @@ export function CampaignFormPage() {
         title="Yeni kampanya"
         description="Bütçeyi kilitle, kuralları belirle. Kampanya kurulduktan sonra kurallar kimse tarafından değiştirilemez."
         actions={
-          <button
-            type="button"
-            onClick={() => {
-              setForm(demoPreset(form.arbiter || MOCK_ACCOUNTS.arbiter));
-              setTouched(false);
-            }}
-            className="label-mono h-10 rounded-full border border-border-strong px-5 text-[12px] hover:bg-surface-2"
-          >
-            Demo ön ayarı
-          </button>
+          <>
+            <TryRampButton kind="deposit" />
+            <button
+              type="button"
+              onClick={() => {
+                setForm(demoPreset(form.arbiter || MOCK_ACCOUNTS.arbiter));
+                setTouched(false);
+              }}
+              className="label-mono h-10 rounded-full border border-border-strong px-5 text-[12px] hover:bg-surface-2"
+            >
+              Demo ön ayarı
+            </button>
+          </>
         }
       />
 
