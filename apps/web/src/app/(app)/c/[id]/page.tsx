@@ -1,11 +1,8 @@
-import { PageHeader, Placeholder } from "@/components/layout/PageHeader";
+import { notFound } from "next/navigation";
+import { CampaignPage } from "@/components/campaign/CampaignPage";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return (
-    <>
-      <PageHeader title={`Kampanya #${id}`} description="Kurallar, dönemler, klipler ve itirazlar." />
-      <Placeholder task="S05" />
-    </>
-  );
+  if (!/^\d+$/.test(id)) notFound();
+  return <CampaignPage id={BigInt(id)} />;
 }
