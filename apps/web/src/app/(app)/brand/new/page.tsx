@@ -1,10 +1,5 @@
-import { PageHeader, Placeholder } from "@/components/layout/PageHeader";
+import { CampaignFormPage } from "@/components/brand/CampaignFormPage";
 
 export default function Page() {
-  return (
-    <>
-      <PageHeader title="Yeni kampanya" description="Bütçeyi kilitle, kuralları belirle. Kampanya kurulduktan sonra kurallar değiştirilemez." />
-      <Placeholder task="S06" />
-    </>
-  );
+  return <CampaignFormPage />;
 }
