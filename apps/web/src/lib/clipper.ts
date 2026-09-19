@@ -142,7 +142,8 @@ export function buildCell(
   if (split.held === 0n || e >= lastEpoch(p)) return { ...base, status: "Claimed" };
   if (ce.holdback_claimed) return { ...base, status: "Claimed", note: "Holdback da alındı" };
   if (!ce.alive) {
-    if (now > holdbackReleaseEnd(p, e)) return { ...base, status: "Claimed", note: "Holdback yandı (sonraki dönem kanıtı gelmedi)" };
+    // Pencere proof_end(e+1) anında açılır (lib.rs claim_holdback: now >= proof_end(e+1))
+    if (now >= holdbackReleaseEnd(p, e)) return { ...base, status: "Claimed", note: "Holdback yandı (sonraki dönem kanıtı gelmedi)" };
     return {
       ...base,
       status: "Holdback",
@@ -156,7 +157,7 @@ export function buildCell(
     action: {
       kind: "holdback",
       enabled: false,
-      reason: now >= refundAt(p) ? "Süre doldu" : `${formatDuration(holdbackReleaseEnd(p, e) - now + 1n)} sonra açılır`,
+      reason: now >= refundAt(p) ? "Süre doldu" : `${formatDuration(holdbackReleaseEnd(p, e) - now)} sonra açılır`,
     },
   };
 }

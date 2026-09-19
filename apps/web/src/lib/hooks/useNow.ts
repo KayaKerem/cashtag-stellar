@@ -6,8 +6,17 @@ import { useEffect, useState } from "react";
 export function useNow(ms = 1000): bigint {
   const [now, setNow] = useState(() => BigInt(Math.floor(Date.now() / 1000)));
   useEffect(() => {
-    const id = window.setInterval(() => setNow(BigInt(Math.floor(Date.now() / 1000))), ms);
-    return () => window.clearInterval(id);
+    const tick = () => setNow(BigInt(Math.floor(Date.now() / 1000)));
+    const id = window.setInterval(tick, ms);
+    // Arka plandaki sekmede zamanlayıcılar kısılır; sekmeye dönünce saati hemen tazele
+    const onVisible = () => document.visibilityState === "visible" && tick();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", tick);
+    };
   }, [ms]);
   return now;
 }
