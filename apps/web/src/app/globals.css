@@ -1,0 +1,128 @@
+/* Tarama kökü sabit: dev sunucusu başka bir cwd'den başlatılsa da yalnızca src/ taranır. */
+@import "tailwindcss" source("..");
+
+/* Tema: <html data-theme="light|dark">. İlk boyamadan önce layout'taki script ayarlar. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+  --panel: #f2f2f2;
+  --panel-2: #e4ecf4;
+  --row: #f5f5f3;
+  --border: rgba(19, 19, 19, 0.09);
+  --border-strong: rgba(19, 19, 19, 0.18);
+  --fg: #131313;
+  --muted: #5f6166;
+  --ink: #131313;
+  --ink-fg: #dbff00;
+  --lime: #dbff00;
+  --lime-fg: #131313;
+  --accent: #dbff00;
+  --accent-fg: #131313;
+  --success: #15803d;
+  --success-soft: #e8f6ec;
+  --warning: #b45309;
+  --warning-soft: #fdf3e3;
+  --danger: #b91c1c;
+  --danger-soft: #fdecec;
+  --info: #1d4ed8;
+  --info-soft: #e9effd;
+  --shadow-card: 0 1px 2px rgba(19, 19, 19, 0.04), 0 30px 60px -46px rgba(19, 19, 19, 0.5);
+  --shadow-float: 0 26px 64px -34px rgba(8, 28, 54, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --shadow-chip: 0 6px 16px -12px rgba(19, 19, 19, 0.3);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #0b0b0b;
+  --surface: #151515;
+  --surface-2: #1c1c1c;
+  --panel: #161616;
+  --panel-2: #121a24;
+  --row: #1f1f1f;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --fg: #f2f2f0;
+  --muted: #9a9ca1;
+  --ink: #dbff00;
+  --ink-fg: #131313;
+  --lime: #dbff00;
+  --lime-fg: #131313;
+  --accent: #dbff00;
+  --accent-fg: #131313;
+  --success: #4ade80;
+  --success-soft: #0f2a1a;
+  --warning: #fbbf24;
+  --warning-soft: #2e2209;
+  --danger: #f87171;
+  --danger-soft: #331414;
+  --info: #93b4fd;
+  --info-soft: #152241;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 30px 60px -46px rgba(0, 0, 0, 0.9);
+  --shadow-float: 0 26px 64px -34px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-chip: 0 6px 16px -12px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-row: var(--row);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-ink: var(--ink);
+  --color-ink-fg: var(--ink-fg);
+  --color-lime: var(--lime);
+  --color-lime-fg: var(--lime-fg);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --shadow-card: var(--shadow-card);
+  --shadow-float: var(--shadow-float);
+  --shadow-chip: var(--shadow-chip);
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Başlık ölçüsü: sıkı harf aralığı */
+.display {
+  font-weight: 500;
+  letter-spacing: -0.06em;
+}
+
+/* Mono etiket: buton, eyebrow */
+.label-mono {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
