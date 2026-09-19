@@ -83,6 +83,8 @@ export function JoinFlow({ id }: { id: bigint }) {
   const open = canJoin(p, now) && !c.refunded;
 
   const s1: StepState = walletOk ? "done" : "current";
+  const humanLoading = walletOk && needsHuman && human.isLoading;
+  const partLoading = walletOk && participant.isLoading;
   const s2: StepState = !walletOk ? "locked" : isHuman ? "done" : "current";
   const s3: StepState = joined ? "done" : walletOk && isHuman ? "current" : "locked";
 
@@ -129,6 +131,8 @@ export function JoinFlow({ id }: { id: bigint }) {
         <Step n={2} title="İnsan doğrulaması" state={s2}>
           {!needsHuman ? (
             <p className="text-sm text-muted">Bu kampanya tek insan doğrulaması istemiyor.</p>
+          ) : humanLoading ? (
+            <Skeleton className="h-24" />
           ) : s2 === "done" ? (
             <p className="text-sm text-muted">Bu kampanya için tek ve gerçek bir insan olarak kaydın var.</p>
           ) : s2 === "current" ? (
@@ -160,7 +164,9 @@ export function JoinFlow({ id }: { id: bigint }) {
         </Step>
 
         <Step n={3} title="Katıl ve kodunu al" state={s3}>
-          {joined ? (
+          {partLoading || humanLoading ? (
+            <Skeleton className="h-10 w-32" />
+          ) : joined ? (
             <div className="space-y-4">
               <CodeBadge code={joined.code} />
               <div className="rounded-2xl bg-panel p-4 text-sm">

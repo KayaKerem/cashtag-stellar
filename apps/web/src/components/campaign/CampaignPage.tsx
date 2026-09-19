@@ -77,7 +77,7 @@ export function CampaignPage({ id }: { id: bigint }) {
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          {joined ? (
+          {joined && joinOpen ? (
             <ButtonLink href={`/c/${c.id}/register`}>Klip kaydet</ButtonLink>
           ) : joinOpen ? (
             <ButtonLink href={`/c/${c.id}/join`}>Katıl</ButtonLink>

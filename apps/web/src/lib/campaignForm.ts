@@ -33,11 +33,17 @@ const MAX_CAP_VIEWS = 1_000_000_000_000n;
 const MAX_RATE = 1_000_000_000_000n;
 const MAX_BUDGET = 1_000_000_000_000_000n;
 
+// E2E instance'ta yalnız `demo` kayıtlı; farklı kurulumda NEXT_PUBLIC_PLATFORMS=youtube,demo
+const DEFAULT_PLATFORMS = (process.env.NEXT_PUBLIC_PLATFORMS ?? "demo")
+  .split(",")
+  .map((s) => s.trim())
+  .filter((s): s is Platform => s === "youtube" || s === "demo");
+
 export function demoPreset(arbiter: string): CampaignForm {
   return {
     title: "Demo kampanyası",
     brief_url: "",
-    budget: "500",
+    budget: "20",
     rate_max_per_1k: "1",
     cap_views_clip: "50000",
     cap_views_human: "100000",
@@ -52,7 +58,7 @@ export function demoPreset(arbiter: string): CampaignForm {
     holdback_pct: "20",
     bond: "5",
     arbiter,
-    platforms: ["youtube", "demo"],
+    platforms: DEFAULT_PLATFORMS,
     require_humanity: true,
   };
 }
