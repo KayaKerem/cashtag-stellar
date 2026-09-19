@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { CheckDot } from "@/components/ui/Chip";
 import { useApi } from "@/lib/api/ApiProvider";
+import { useWallet } from "@/lib/wallet/WalletProvider";
 import { errorMessage } from "@/lib/api/errors";
 import { useCampaign, useClips, useParticipant, useWrite } from "@/lib/api/hooks";
 import { useNow } from "@/lib/hooks/useNow";
@@ -67,7 +68,8 @@ function Progress({ startedAt }: { startedAt: number }) {
 }
 
 export function RegisterClip({ id }: { id: bigint }) {
-  const { account } = useApi();
+  const { account, mode } = useApi();
+  const wallet = useWallet();
   const toast = useToast();
   const now = useNow();
   const campaign = useCampaign(id);
@@ -99,10 +101,27 @@ export function RegisterClip({ id }: { id: bigint }) {
       />
     );
   }
+  if (mode === "chain" && !wallet.connected) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <PageHeader title="Klip kaydet" />
+        <EmptyState
+          title="Cüzdanını bağla"
+          description="Klip kaydetmek için kampanyaya katıldığın cüzdanı bağla."
+          action={
+            <button type="button" onClick={() => wallet.connect()} className="label-mono h-10 rounded-full bg-lime px-5 text-[12px] text-lime-fg">
+              Cüzdan bağla
+            </button>
+          }
+        />
+      </div>
+    );
+  }
   const me = participant.data;
   if (!me) {
     return (
       <div className="mx-auto max-w-2xl">
+        <PageHeader title="Klip kaydet" />
         <EmptyState
           title="Önce kampanyaya katıl"
           description="Klip kaydetmek için bu kampanyaya katılmış olman ve kodunu videonun açıklamasına eklemiş olman gerekir."

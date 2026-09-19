@@ -9,7 +9,8 @@ const geist = Geist({ subsets: ["latin", "latin-ext"], variable: "--font-geist" 
 const geistMono = Geist_Mono({ subsets: ["latin", "latin-ext"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
-  title: { default: "ClipRail", template: "%s · ClipRail" },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3100"),
+  title: { default: "ClipRail · Kampanyalar", template: "%s · ClipRail" },
   description:
     "Stellar üzerinde doğrulanabilir izlenme başına ödeme kampanyaları. Sayı doğru, kişi tek, kurallar değişmez.",
 };
