@@ -6,11 +6,11 @@ A brand locks a USDC budget in a Soroban escrow with rules that cannot change af
 
 > **The number is real** (zkTLS, verified on-chain) · **One human, once** (per-campaign nullifier) · **The rules can't change** (Soroban escrow)
 
-**Full lifecycle on testnet: 39/39 steps, explorer links → [docs/e2e-testnet-run.md](docs/e2e-testnet-run.md)**
+**Full lifecycle on testnet: 39/39 steps** (`pnpm --filter e2e run` reproduces it and prints every explorer link).
 
 What is and is not proven today:
 
-- **In-contract proof verification** is tested against Reclaim's reference vector (`contracts/reclaim-verify`) and in a full testnet lifecycle run (create → join → clips → proofs → dispute → settle → claim → holdback → refund) using Reclaim-format proofs signed by a **simulated attestor** ([docs/e2e-testnet-run.md](docs/e2e-testnet-run.md)).
+- **In-contract proof verification** is tested against Reclaim's reference vector (`contracts/reclaim-verify`) and in a full testnet lifecycle run (create → join → clips → proofs → dispute → settle → claim → holdback → refund) using Reclaim-format proofs signed by a **simulated attestor**.
 - **Live Reclaim zkFetch run:** pending credentials. **[TBD: link to live-proof testnet run]**
 - **Humanity** is a per-campaign nullifier registry. In the demo, registration goes through a relayer; a Self ZK passport proof is on the roadmap.
 
@@ -22,7 +22,7 @@ Status: hackathon build on Stellar **testnet**. Demo video: **[TBD: demo video l
 (cd contracts && cargo test)                                 # cliprail, humanity, reclaim-verify
 pnpm install && pnpm -r test                                 # verifier, @cliprail/shared, @cliprail/client
 pnpm --filter e2e deploy -- --redeploy                       # fresh e2e instance on testnet (simulated attestor)
-pnpm --filter e2e run                                        # full lifecycle, rewrites docs/e2e-testnet-run.md
+pnpm --filter e2e run                                        # full lifecycle on testnet, prints explorer links
 pnpm --filter e2e seed -- --mode local                       # demo seed; --mode real requires Reclaim credentials
 ```
 
@@ -175,14 +175,14 @@ Every row has a dedicated test in [`contracts/cliprail/src/test/attacks.rs`](con
 | `humanity` | [`CAUU4KCBSL3L5CCLU2S5GNZ354S4X3DP6Z5ZSWMSDDCNNNE3AJSCGKMQ`](https://stellar.expert/explorer/testnet/contract/CAUU4KCBSL3L5CCLU2S5GNZ354S4X3DP6Z5ZSWMSDDCNNNE3AJSCGKMQ) |
 | USDC (test issuer, SAC) | [`CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E`](https://stellar.expert/explorer/testnet/contract/CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E) |
 
-**e2e instance (simulated attestor)**, separate from the main deployment, used for the [lifecycle run](docs/e2e-testnet-run.md):
+**e2e instance (simulated attestor)**, separate from the main deployment, used for the lifecycle run:
 
 | Contract | ID |
 |---|---|
 | `cliprail` (e2e) | [`CC4SMPQWP56TUVAUAWMK4BLOONQPBLJAWDVNPE6HMZGEMG67WW4XR7T3`](https://stellar.expert/explorer/testnet/contract/CC4SMPQWP56TUVAUAWMK4BLOONQPBLJAWDVNPE6HMZGEMG67WW4XR7T3) |
 | `humanity` (e2e) | [`CB24BRMGW4ZTLJVC2ETKU5URUD7PXQ6BOYEKV4JUIO7O62GZWM6ZZZUM`](https://stellar.expert/explorer/testnet/contract/CB24BRMGW4ZTLJVC2ETKU5URUD7PXQ6BOYEKV4JUIO7O62GZWM6ZZZUM) |
 
-Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Test accounts are listed in [docs/INTERFACES.md §6](docs/INTERFACES.md). Verifier URL: **[TBD]**
+Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Verifier URL: **[TBD]**
 
 ## Repository layout
 
@@ -202,7 +202,6 @@ config/             providers.json (URL templates + regexes per platform)
 fixtures/           Reclaim reference vector, required substrings
 scripts/            setup-accounts.sh, deploy.sh, bindings.sh
   e2e/              testnet lifecycle run (deploy.ts, run.ts), simulated attestor (proofgen.ts), demo seeding (seed-demo.ts)
-docs/               ARCHITECTURE, INTERFACES, e2e-testnet-run, DEMO, reclaim-notes, DEVELOPMENT_PLAN, HANDOFF
 ```
 
 ## Running it
@@ -258,13 +257,13 @@ pnpm --filter verifier dev                                 # http://localhost:87
 | Verifier service | `pnpm --filter verifier test` | 50 passed |
 | `@cliprail/shared` (timeline/payout parity with contract) | `pnpm --filter @cliprail/shared test` | 65 passed |
 | `@cliprail/client` | `pnpm --filter @cliprail/client test` | 17 passed |
-| Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run` | 39/39 steps ([report](docs/e2e-testnet-run.md)) |
+| Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run` | 39/39 steps |
 
 **204 unit and integration tests in total**, plus the 39-step testnet run. Tests never call the real zkFetch.
 
 ## Cost
 
-Measured on testnet in the [lifecycle run](docs/e2e-testnet-run.md): average CPU instructions from simulation and the fee actually paid.
+Measured on testnet in the lifecycle run: average CPU instructions from simulation and the fee actually paid.
 
 | Function | CPU instructions | Fee paid |
 |---|---|---|
@@ -276,7 +275,7 @@ Measured on testnet in the [lifecycle run](docs/e2e-testnet-run.md): average CPU
 | `settle_epoch` | ~1.5M | ~0.0012 XLM |
 | `claim` | ~2.0M | ~0.0023 XLM |
 
-Reclaim proof verification alone costs 3.2M instructions (142 B context) to 10.2M (7.9 KB), measured on the real wasm including VM setup ([docs/reclaim-notes.md](docs/reclaim-notes.md)). Every call stays far inside Soroban's 400M-instruction per-transaction budget. The most expensive call is `create_campaign` at ~0.11 XLM; the recurring payout calls (`settle_epoch`, `claim`) cost a small fraction of a cent.
+Reclaim proof verification alone costs 3.2M instructions (142 B context) to 10.2M (7.9 KB), measured on the real wasm including VM setup. Every call stays far inside Soroban's 400M-instruction per-transaction budget. The most expensive call is `create_campaign` at ~0.11 XLM; the recurring payout calls (`settle_epoch`, `claim`) cost a small fraction of a cent.
 
 ## Why Stellar
 
@@ -295,13 +294,3 @@ Reclaim proof verification alone costs 3.2M instructions (142 B context) to 10.2
 - **SDP integration** for large-scale disbursement.
 - **Multi-attestor** threshold verification.
 
-## Docs
-
-| | |
-|---|---|
-| [docs/e2e-testnet-run.md](docs/e2e-testnet-run.md) | **Headline evidence:** full testnet lifecycle, 39/39 steps, explorer links, measured costs (TR) |
-| [docs/DEMO.md](docs/DEMO.md) | Demo runbook: seeding, real vs. simulated-attestor mode, fallbacks (TR) |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design rationale, mechanism, trust model, threat table (TR) |
-| [docs/INTERFACES.md](docs/INTERFACES.md) | Contract, service and web interfaces (TR) |
-| [docs/reclaim-notes.md](docs/reclaim-notes.md) | Byte-level Reclaim proof format and in-contract verification (TR) |
-| [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) · [docs/HANDOFF.md](docs/HANDOFF.md) | Internal planning docs: plan, tasks, team handoff (Turkish) |
