@@ -29,6 +29,7 @@ import { errorMessage } from "@/lib/api/errors";
 import { useCampaign, useClips, useDisputes, useEpochs, useWrite } from "@/lib/api/hooks";
 import { formatDuration, useNow } from "@/lib/hooks/useNow";
 import { PLATFORM_LABEL, videoUrl } from "@/lib/video";
+import { TryRampButton } from "@/components/anchor/TryRampDialog";
 import { ChallengeDialog } from "./ChallengeDialog";
 
 function Stat({ k, v, hint }: { k: string; v: React.ReactNode; hint?: string }) {
@@ -100,7 +101,12 @@ export function BrandPanel({ id }: { id: bigint }) {
             Marka paneli · <AddressChip address={c.brand} you={isBrand} />
           </span>
         }
-        actions={<ButtonLink href={`/c/${c.id}`} variant="outline">Public sayfa</ButtonLink>}
+        actions={
+          <>
+            {isBrand && <TryRampButton kind="deposit" />}
+            <ButtonLink href={`/c/${c.id}`} variant="outline">Public sayfa</ButtonLink>
+          </>
+        }
       />
 
       {!isBrand && (
