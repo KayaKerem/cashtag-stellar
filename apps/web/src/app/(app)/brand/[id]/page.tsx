@@ -1,11 +1,8 @@
-import { PageHeader, Placeholder } from "@/components/layout/PageHeader";
+import { notFound } from "next/navigation";
+import { BrandPanel } from "@/components/brand/BrandPanel";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return (
-    <>
-      <PageHeader title={`Kampanya #${id} · Marka paneli`} description="Bütçe, klipler, itirazlar ve dönem settle işlemleri." />
-      <Placeholder task="S10" />
-    </>
-  );
+  if (!/^\d+$/.test(id)) notFound();
+  return <BrandPanel id={BigInt(id)} />;
 }
