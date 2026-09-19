@@ -165,7 +165,7 @@ Tüm P0 ve P1 görevleri kapandığında proje biter.
 ## 10. Nasıl çalışıyoruz?
 
 - **Arayüz sözleşmesi kutsal:** `docs/INTERFACES.md` değişecekse önce diğer kişiye haber verilir.
-- **Görev akışı:** Görev GitHub Projects'te "In Progress" sütununa çekilir, bitince "Done"a. Takılırsan issue'ya yorum yaz ve diğer kişiyi etiketle.
+- **Görev akışı:** Kanban panosunda kart Todo → In Progress → (Blocked) → Review → Done sütunlarında ilerletilir. Takılırsan kartı Blocked'a çek, issue'ya yorum yaz ve diğer kişiyi etiketle.
 - **Branch'ler:** `kerem/<konu>`, `sena/<konu>`. Küçük PR'lar açılır; `main` her zaman çalışır durumda tutulur.
 - **Gizli bilgiler:** `.env` dosyaları repoya girmez. Örnekler `.env.example` dosyalarında.
 - **Testnet:** Hesap anahtarları `scripts/.accounts` içinde (git'e girmez). Sena'ya gerekli public key'ler `INTERFACES.md` §6'da.
