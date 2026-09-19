@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { CheckDot } from "@/components/ui/Chip";
 import { useApi } from "@/lib/api/ApiProvider";
+import { bumpDemoVideo, demoDescription, suggestDemoId } from "@/lib/api/demo";
 import { useWallet } from "@/lib/wallet/WalletProvider";
 import { errorMessage } from "@/lib/api/errors";
 import { useCampaign, useClips, useParticipant, useWrite } from "@/lib/api/hooks";
@@ -85,6 +86,9 @@ export function RegisterClip({ id }: { id: bigint }) {
   const [confirmed, setConfirmed] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [result, setResult] = useState<{ clipId: bigint; txHash: string } | null>(null);
+  // Demo platformu: açıklamasına kod yazılmış video kimliği
+  const [prepared, setPrepared] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   const c = campaign.data;
   const platforms = (c?.params.platforms ?? []) as Platform[];
@@ -133,7 +137,24 @@ export function RegisterClip({ id }: { id: bigint }) {
 
   const open = canJoin(c.params, now) && !c.refunded;
   const registered = result ? clips.data?.find((v) => v.clip.id === result.clipId)?.clip : undefined;
-  const canSubmit = open && parsed?.ok && confirmed && startedAt === null;
+  const isDemo = current === "demo";
+  const demoReady = !isDemo || (parsed?.ok && prepared === parsed.id);
+  const canSubmit = open && parsed?.ok && confirmed && demoReady && startedAt === null;
+
+  async function prepareDemo() {
+    if (!parsed?.ok || !me) return;
+    setPreparing(true);
+    try {
+      await bumpDemoVideo(parsed.id, { desc: demoDescription(me.code, c!.params.title), views: 100 });
+      setPrepared(parsed.id);
+      setConfirmed(true);
+      toast.success("Demo videosu hazır", { body: `Açıklamaya ${me.code} yazıldı, izlenme 100.` });
+    } catch (err) {
+      toast.show({ tone: "error", title: "Demo videosu hazırlanamadı", body: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setPreparing(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -262,6 +283,42 @@ export function RegisterClip({ id }: { id: bigint }) {
               ))}
           </label>
 
+          {isDemo && (
+            <div className="rounded-2xl border border-border-strong p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">Demo videosu hazırla</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLink(suggestDemoId(me.code));
+                    setPrepared(null);
+                  }}
+                  className="text-xs text-muted underline underline-offset-4 hover:text-fg"
+                >
+                  Yeni kimlik öner
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                Demo platformunda videonun açıklamasına kodunu ve #ad etiketini yazar, izlenmeyi 100 yapar. Kanıt bu açıklamada kodu arar.
+              </p>
+              {prepared && parsed?.ok && prepared === parsed.id ? (
+                <p className="mt-3 flex items-center gap-2 text-sm">
+                  <CheckDot /> Hazır: <code className="font-mono text-xs">{prepared}</code>
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={prepareDemo}
+                  disabled={!parsed?.ok || preparing}
+                  className="label-mono mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-lime px-5 text-[12px] text-lime-fg disabled:opacity-40"
+                >
+                  {preparing && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
+                  {preparing ? "Hazırlanıyor…" : "Demo videosu hazırla"}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="rounded-2xl bg-panel p-4">
             <p className="text-sm font-medium">Açıklamanda bu kod var mı?</p>
             <p className="mt-1 text-xs text-muted">Kanıt, videonun açıklamasında kodunu arar; yoksa kayıt reddedilir.</p>
@@ -286,6 +343,9 @@ export function RegisterClip({ id }: { id: bigint }) {
           >
             Kanıtla ve kaydet
           </button>
+          {isDemo && parsed?.ok && !demoReady && (
+            <p className="text-center text-xs text-muted">Önce &quot;Demo videosu hazırla&quot; adımını tamamla.</p>
+          )}
         </form>
       )}
     </div>

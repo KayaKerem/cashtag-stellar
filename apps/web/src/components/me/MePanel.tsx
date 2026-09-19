@@ -5,6 +5,7 @@ import { useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { Amount } from "@/components/common/Amount";
 import { CodeBadge } from "@/components/common/CodeBadge";
+import { DemoBoostButton } from "./DemoBoostButton";
 import { EmptyState, Skeleton } from "@/components/common/EmptyState";
 import { PhaseTimeline } from "@/components/common/PhaseTimeline";
 import { StatusPill } from "@/components/common/StatusPill";
@@ -130,6 +131,7 @@ function CampaignBlock({
                   </a>
                   <span className="block max-w-[10rem] truncate font-mono text-[11px] text-muted">{v.clip.video_id}</span>
                   <span className="block text-[11px] text-muted">başlangıç {v.clip.baseline.toLocaleString("en-US")}</span>
+                  {v.clip.platform === "demo" && <DemoBoostButton videoId={v.clip.video_id} />}
                 </td>
                 {Array.from({ length: E }, (_, e) => {
                   const cell = buildCell(c, v, all, epochs, disputes, e, now);
