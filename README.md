@@ -2,7 +2,7 @@
 
 **Verifiable pay-per-reach content campaigns on Stellar — any platform, any content format.**
 
-A brand publishes a brief or an asset and locks a USDC budget in a Soroban escrow with rules that cannot change after launch. Participants who are registered in a per-campaign humanity registry publish **their own content** — a short video, an image, a thread, a plain text post — on **their own social accounts**, with a personal campaign code in the caption or description. The agreed reach metric (views, plays, likes — whatever the campaign pays for) is proven with zkTLS (Reclaim), and the proof is checked **inside the contract**: the attestor signature, the exact URL for that platform, the extraction regexes, and the participant's code in the extracted caption text. Each epoch the budget is split pro-rata over proven metric growth, under a per-1k rate ceiling and per-human caps. Payout transactions cost well under a cent on testnet (measured below), so there is no minimum payout, and participants in any country can be paid.
+A brand publishes a brief or an asset and locks a USDC budget in a Soroban escrow with rules that cannot change after launch. Participants who are registered in a per-campaign humanity registry publish **their own content** — a short video, an image, a thread, a plain text post — on **their own social accounts**, with a personal campaign code in the caption or description. The agreed reach metric (views, plays, likes — whatever the campaign pays for) is proven with zkTLS (Reclaim), and the proof is checked **inside the contract**: the attestor signature, the exact URL for that platform, the extraction regexes, and the participant's code in the extracted caption text. Each epoch the budget is split over proven metric growth: the advertised per-1k rate is a **ceiling** ("up to X per 1,000"), and if the proven reach would cost more than the epoch budget at that ceiling, the epoch budget is shared pro-rata instead — under per-clip and per-human caps. Payout transactions cost well under a cent on testnet (measured below), so there is no minimum payout, and participants in any country can be paid.
 
 The first market we go after is **clipping campaigns**, and the on-chain naming still carries that history: the contract functions are `register_clip` and `submit_proof`, and a "clip" on-chain simply means *a registered post*. Nothing in the contract is video-specific or platform-specific — see [Platforms](#platforms).
 
@@ -93,7 +93,7 @@ create ─▶ humanity ─▶ join (CR code) ─▶ register post (opening proof
 4. **Register the post.** The participant submits the post link. The verifier produces an **opening proof**: the extracted caption contains the code, and the current metric value is N. The contract verifies it and records `baseline = N`, so only growth after registration counts. Each `(platform, post id)` pair can be registered only once, globally. (The on-chain function is `register_clip`, and the registry key is `(platform, video_id)` — historical naming for "a registered post".)
 5. **Closing proofs.** In every epoch's window `[content_end, proof_end)` anyone can submit a fresh proof. If the same post is re-proven in the window, the higher metric value wins. The verifier's keeper does this automatically.
 6. **Bonded disputes.** Anyone can challenge a post-epoch by posting a bond. The clipper responds for free. The arbiter rules on responded disputes only. An unanswered challenge excludes the post. An arbiter who misses the deadline loses by default: the clipper wins. Excluded weight is redistributed to other clippers through the rate. It does not return to the brand.
-7. **Settle.** After `settle_at(e)`, with no open disputes, `settle_epoch` fixes the epoch rate (see below). Unspent budget carries over to the next epoch.
+7. **Settle.** After `settle_at(e)`, with no open disputes, `settle_epoch` fixes the epoch rate at `min(rate cap, 1000 × epoch budget / total eligible weight)` — the advertised rate is an upper bound, and a busy epoch pays its budget out pro-rata instead ([details](#the-rate-is-a-ceiling-not-a-price)). Unspent budget carries over to the next epoch and ends up back with the brand at `refund`.
 8. **Claim.** `claim` pays each post-epoch its share, O(1). Part of it (`holdback_bps`) is held back.
 9. **Holdback.** Epoch e's held share is released only to posts that are still live, meaning they got a closing proof in epoch e+1. Deleted posts forfeit their share to the survivors. The last epoch has no holdback.
 10. **Refund.** After `refund_at = settle_at(last) + claim_grace`, the remaining campaign balance returns to the brand.
@@ -169,13 +169,13 @@ The source is X's **public syndication endpoint** — the same one X's own embed
 
 The two capture groups are named `views` and `desc` because those are the contract's fixed extraction keys: `views` is "the number this platform pays on" and `desc` is "the text that must contain the campaign code". The `metric` field says what the number actually is.
 
-**On `x` that number is likes, not views — and we never call it views.** The syndication endpoint carries `favorite_count` and no impression count, so a campaign on `x` pays **per like**. The capture group is still spelled `views` only because that is the contract's fixed key name; `"metric": "likes"` is what the dashboard and the campaign brief show. This has a direct pricing consequence: **`r_max` for an `x` campaign must be set on a different scale than for a views-based campaign.** Likes run roughly 0.1–1% of impressions, so a rate copied from a views campaign would overpay by two to three orders of magnitude. The rate is "USDC per 1k of *this platform's* metric", and on `x` that is 1k likes.
+**On `x` that number is likes, not views — and we never call it views.** The syndication endpoint carries `favorite_count` and no impression count, so a campaign on `x` pays **per like**. The capture group is still spelled `views` only because that is the contract's fixed key name; `"metric": "likes"` is what the dashboard and the campaign brief show. This has a direct pricing consequence: **`r_max` for an `x` campaign must be set on a different scale than for a views-based campaign.** Likes run roughly 0.1–1% of impressions, so a rate copied from a views campaign would overpay by two to three orders of magnitude. The rate is a ceiling — "up to X USDC per 1k of *this platform's* metric" — and on `x` that is 1k likes.
 
 The `desc` regex is deliberately anchored on `"id_str":"…","text":"` rather than on a bare `"text":"`. X serializes hashtag objects earlier in the payload, and each of them has its own `text` key — a naive `"text":"(?<desc>…)"` match would extract a hashtag instead of the post body, and the campaign code would never be found. Anchoring on the preceding `id_str` field pins the match to the post's own text. The same bytes are pinned on-chain as required `responseMatches`, so a proof produced with a looser regex is rejected.
 
 `fixtures/required-substrings.json` is regenerated from `config/providers.json`, and `scripts/deploy.sh` feeds those exact byte strings to `set_platform(platform, url_prefix, url_suffix, required)`. From then on the contract enforces URL equality and the presence of exactly those `responseMatches` for every proof under that platform.
 
-**The metric is part of the provider config, not of the contract.** A campaign can pay per views, per plays, per likes, or per another agreed metric — the rate `r_max` is simply "USDC per 1k of that metric". Because the required `responseMatches` are pinned per platform, a proof produced with a *different* regex is rejected: a likes regex cannot be passed off as a views regex (attack [A5](#threat--mitigation)).
+**The metric is part of the provider config, not of the contract.** A campaign can pay per views, per plays, per likes, or per another agreed metric — the rate `r_max` is simply the ceiling "up to X USDC per 1k of that metric", and an epoch whose reach exceeds the budget shares that budget [pro-rata](#the-rate-is-a-ceiling-not-a-price). Because the required `responseMatches` are pinned per platform, a proof produced with a *different* regex is rejected: a likes regex cannot be passed off as a views regex (attack [A5](#threat--mitigation)).
 
 ### A live X proof, replayed on-chain
 
@@ -198,106 +198,221 @@ The proof is saved at `fixtures/reclaim/x-live-proof.json` and replayed offline 
 
 ## Architecture
 
+**Proof and payout path.** Who proves what, who signs what, and who can move money.
+
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui, -apple-system, sans-serif","fontSize":"14px","lineColor":"#5b6b7d","textColor":"#16202c","edgeLabelBackground":"#eef2f7","clusterBkg":"#f4f6fa","clusterBorder":"#93a1b3"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":85}}}%%
 flowchart LR
-  Brand(["Brand wallet<br/>Freighter · Stellar Wallets Kit"])
-  Clipper(["Clipper wallet<br/>Freighter · Stellar Wallets Kit"])
-  Arbiter([Arbiter])
-  Web["Next.js dashboard<br/>apps/web"]
-
-  subgraph Stellar["Stellar testnet · Soroban"]
-    CR["cliprail escrow contract<br/>campaigns · epochs · pro-rata settle<br/>holdback · bonded disputes · refund<br/>in-contract zkTLS verify (secp256k1 + keccak)"]
-    HU["humanity contract<br/>register_zk: Groth16 on BN254 (Anon Aadhaar)<br/>per-campaign nullifier bound to wallet<br/>register: relayer fallback"]
-    USDC[("Circle USDC SAC<br/>token-agnostic escrow asset")]
+  subgraph WHO["People and wallets"]
+    direction TB
+    Brand(["Brand<br/>Stellar Wallets Kit"])
+    Clipper(["Clipper<br/>Stellar Wallets Kit"])
+    Arbiter(["Arbiter"])
   end
 
-  subgraph FUND["Funding a campaign — three routes into the same escrow asset"]
-    AN["1 · TRY anchor (tr-mock-anchor)<br/>SEP-1 · 10 · 12 · 38 · 6<br/>TL ⇄ USDC"]
-    SW["2 · Soroswap router (Soroban)<br/>XLM → exact USDC<br/>create_campaign_with_swap"]
-    FW["3 · CctpForwarder (Soroban)<br/>mint_and_forward(message, attestation)<br/>recipient strkey inside hookData"]
+  subgraph OFF["Off-chain — ours, holds no funds"]
+    direction TB
+    Web["Next.js dashboard<br/>apps/web"]
+    ZK["zkFetch prover<br/>live Reclaim mode<br/>simulated for rehearsals"]
+    KP["Keeper<br/>closing proofs · settle<br/>finalize disputes"]
+    RL["Relayer<br/>pays fees only"]
   end
 
-  subgraph VS["Verifier service · holds no funds"]
-    ZK["zkFetch prover<br/>live Reclaim proof (mode: reclaim)<br/>simulated attestor for e2e / rehearsals"]
-    KP["keeper: close proofs,<br/>finalize disputes, settle"]
-    RL["relayer: pays fees"]
-    DM["demo endpoint<br/>/demo/videos/:id"]
+  subgraph PRF["Proof sources"]
+    direction TB
+    AT["Reclaim attestor · TEE<br/>signs URL, metric, caption"]
+    SP[("Social platforms<br/>YouTube · X likes<br/>TikTok · Instagram")]
+    DM["Demo endpoint — ours<br/>/demo/videos/:id"]
+    DEV["Participant device — next<br/>Reclaim app / extension<br/>logged-in session"]
   end
 
-  AT["Reclaim attestor (TEE)<br/>attestor.reclaimprotocol.org<br/>live proof verified on-chain"]
-  SP[("Social platforms<br/>YouTube · X (live: likes) · TikTok · Instagram<br/>post URL + reach metric + caption")]
-  DEV["Participant device — next<br/>Reclaim app / browser extension<br/>fetch from the logged-in session<br/>(TikTok · Instagram · X view counts)"]
-  SRC[("Source chain — USDC burn<br/>Arc Testnet (CCTP domain 26)<br/>Base Sepolia (domain 6) fallback<br/>depositForBurnWithHook")]
-  IRIS["Circle Iris<br/>CCTP V2 attestation<br/>10–13 s, 0 bps"]
-  SE["stellar.expert"]
+  subgraph CHAIN["On-chain — Stellar testnet · Soroban"]
+    direction TB
+    CR["cliprail escrow<br/>epochs · pro-rata settle<br/>holdback · bonded disputes<br/>in-contract zkTLS verify"]
+    HU["humanity registry<br/>register_zk · Groth16 BN254<br/>per-campaign nullifier"]
+    USDC[("Circle USDC SAC<br/>escrow in · payouts out")]
+  end
+
+  SE["stellar.expert<br/>tx + contract links"]
 
   Brand --> Web
   Clipper --> Web
-  Web -- "signed txs: create_campaign(_with_swap) · join ·<br/>register_clip · claim · challenge · refund" --> CR
+  Web -- "signed txs: create_campaign · join<br/>register_clip · claim · challenge · refund" --> CR
   Web -- "register_zk" --> HU
   Web -- "POST /proof · /humanity/*" --> ZK
-  Arbiter -- resolve --> CR
+  Web -- "links" --> SE
+  Arbiter -- "resolve" --> CR
 
-  ZK -- "server-side fetch: public, login-free endpoints<br/>TLS via attestor (live proof)" --> AT
-  Clipper -. "device-side fetch: logged-in session, cookies redacted" .-> DEV
-  DEV -. "same claim shape, same attestor signature" .-> AT
-  AT --> SP
-  AT --> DM
   KP --> ZK
-  ZK --> RL
   KP --> RL
-  RL -- "submit_proof · settle_epoch · finalize_dispute" --> CR
-  RL -. "register (fallback)" .-> HU
+  ZK --> RL
+  RL -- "submit_proof · settle_epoch<br/>finalize_dispute" --> CR
+  RL -. "register — relayer fallback" .-> HU
 
-  CR -- is_verified --> HU
-  CR <-- escrow in and payouts out --> USDC
-  CR -- "swap_tokens_for_exact_tokens<br/>(create_campaign_with_swap)" --> SW
-  SW -- "exact budget in USDC" --> USDC
-  Web -- "TL → USDC (brand) · USDC → TL (clipper)<br/>SEP-10 · SEP-38 quote · SEP-6" --> AN
-  AN -- "USDC payments" --> USDC
-  Brand -- "scripts/cctp: burn USDC on the source chain" --> SRC
-  SRC -- "burn message" --> IRIS
-  IRIS -- "message + attestation" --> FW
-  FW -- "native mint on Stellar (domain 27)<br/>same Circle USDC SAC, no wrapped asset" --> USDC
-  Web -- "tx and contract links" --> SE
+  ZK -- "server-side fetch<br/>public, login-free" --> AT
+  Clipper -. "device-side fetch<br/>cookies redacted" .-> DEV
+  DEV -. "same claim shape,<br/>same attestor signature" .-> AT
+  AT -- "TLS transcript" --> SP
+  AT -- "TLS transcript" --> DM
+
+  CR -- "is_verified" --> HU
+  CR == "escrow in · payouts out" ==> USDC
+
+  classDef chain fill:#bcd8f5,stroke:#1f4e79,stroke-width:1.5px,color:#0f2338
+  classDef ours fill:#c6e8cd,stroke:#2f6f4a,stroke-width:1.5px,color:#10291b
+  classDef ext fill:#f6dca6,stroke:#8a6310,stroke-width:1.5px,color:#3b2a06
+  classDef who fill:#dcd0f2,stroke:#5b3fa8,stroke-width:1.5px,color:#241442
+  classDef money fill:#b6e2dd,stroke:#22696b,stroke-width:1.5px,color:#0f302f
+  classDef next fill:#dfe3e8,stroke:#7b8794,stroke-width:1.5px,stroke-dasharray:5 3,color:#2b3440
+
+  class CR,HU chain
+  class Web,ZK,KP,RL,DM ours
+  class AT,SP,SE ext
+  class Brand,Clipper,Arbiter who
+  class USDC money
+  class DEV next
+
+  style CHAIN fill:#eaf2fc,stroke:#1f4e79,color:#0f2338
+  style OFF fill:#eaf6ee,stroke:#2f6f4a,color:#10291b
+  style PRF fill:#fdf3de,stroke:#8a6310,color:#3b2a06
+  style WHO fill:#f1ebfb,stroke:#5b3fa8,color:#241442
 ```
 
-The three routes in the **Funding** group are the three ways money gets into a campaign — a TRY anchor, a Soroswap swap, or a CCTP bridge — and all three end at the same Circle USDC SAC the escrow holds, so `cliprail` never learns which one was used.
+**Legend —** blue: on-chain Soroban contracts · green: off-chain services we run (they hold no funds) · amber: external / third-party · purple: people and wallets · teal: the escrow asset. **Dashed = not live yet** (the device-side proof path) or fallback-only (the humanity relayer); everything drawn solid runs on testnet today.
 
-Solid edges are live on testnet, and the server-side fetch covers `demo`, `youtube` and `x` (X on likes). Dashed edges are the relayer fallback for humanity and the device-side proof path, which remains next for TikTok, Instagram and X's view counts — it changes only who performs the fetch; the attestor, the claim shape and the in-contract verification stay identical.
+The server-side fetch covers `demo`, `youtube` and `x` (X on likes). The dashed device-side path remains next for TikTok, Instagram and X's view counts — it changes only *who performs the fetch*; the attestor, the claim shape and the in-contract verification stay identical.
+
+**Funding routes.** Three ways money gets into a campaign — a TRY anchor, a Soroswap swap, or a CCTP bridge — all ending in the same Circle USDC SAC the escrow holds, so `cliprail` never learns which one was used.
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui, -apple-system, sans-serif","fontSize":"14px","lineColor":"#5b6b7d","textColor":"#16202c","edgeLabelBackground":"#eef2f7","clusterBkg":"#f4f6fa","clusterBorder":"#93a1b3"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":80}}}%%
+flowchart LR
+  Brand(["Brand<br/>holds TL, XLM or<br/>USDC on another chain"])
+
+  subgraph FUND["Funding routes — three ways in, one escrow asset"]
+    direction TB
+    subgraph R1["1 · TRY anchor (SEP-6)"]
+      AN["tr-mock-anchor<br/>SEP-1 · 10 · 12 · 38 · 6<br/>TL ⇄ USDC"]
+    end
+    subgraph R2["2 · Soroswap (swap-to-fund)"]
+      SW["Soroswap router<br/>swap_tokens_for_exact_tokens<br/>XLM → exact budget"]
+    end
+    subgraph R3["3 · Circle CCTP V2 (bridge-to-fund)"]
+      direction LR
+      SRC[("Source chain USDC<br/>Arc Testnet · domain 26<br/>depositForBurnWithHook")]
+      IRIS["Circle Iris<br/>CCTP V2 attestation<br/>10–13 s · 0 bps"]
+      FW["CctpForwarder<br/>mint_and_forward<br/>recipient in hookData"]
+      SRC -- "burn message" --> IRIS
+      IRIS -- "message + attestation" --> FW
+    end
+  end
+
+  USDC[("Circle USDC SAC<br/>the only asset the<br/>escrow ever sees")]
+  CR["cliprail escrow<br/>create_campaign<br/>balance per campaign"]
+  Clipper(["Clipper<br/>claim · claim_holdback"])
+
+  Brand -- "TL deposit-exchange" --> AN
+  Brand -- "XLM · create_campaign_with_swap" --> SW
+  Brand -- "burn USDC (scripts/cctp)" --> SRC
+
+  AN -- "USDC payment" --> USDC
+  SW -- "exact budget in USDC" --> USDC
+  FW -- "native mint, domain 27<br/>no wrapped asset" --> USDC
+
+  USDC == "budget into escrow" ==> CR
+  CR -- "pro-rata payouts" --> Clipper
+  CR -. "unspent budget · refund" .-> Brand
+  Clipper -- "USDC → TL withdraw-exchange" --> AN
+
+  classDef chain fill:#bcd8f5,stroke:#1f4e79,stroke-width:1.5px,color:#0f2338
+  classDef ext fill:#f6dca6,stroke:#8a6310,stroke-width:1.5px,color:#3b2a06
+  classDef who fill:#dcd0f2,stroke:#5b3fa8,stroke-width:1.5px,color:#241442
+  classDef money fill:#b6e2dd,stroke:#22696b,stroke-width:1.5px,color:#0f302f
+
+  class CR chain
+  class AN,SW,SRC,IRIS,FW ext
+  class Brand,Clipper who
+  class USDC money
+
+  style FUND fill:#fdf3de,stroke:#8a6310,color:#3b2a06
+  style R1 fill:#fbe9c4,stroke:#8a6310,color:#3b2a06
+  style R2 fill:#fbe9c4,stroke:#8a6310,color:#3b2a06
+  style R3 fill:#fbe9c4,stroke:#8a6310,color:#3b2a06
+```
+
+**Legend —** same colours: blue: on-chain Soroban contracts · amber: external / third-party rails (anchor, Soroswap, Circle) · purple: people and wallets · teal: the escrow asset. All three routes have run on testnet; the one dashed edge is the brand refund, which opens only after `refund_at`.
 
 ### Campaign lifecycle
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui, -apple-system, sans-serif","fontSize":"14px","actorBkg":"#dcd0f2","actorBorder":"#5b3fa8","actorTextColor":"#241442","actorLineColor":"#8a97a8","signalColor":"#33414f","signalTextColor":"#16202c","labelBoxBkgColor":"#bcd8f5","labelBoxBorderColor":"#1f4e79","labelTextColor":"#0f2338","loopTextColor":"#0f2338","noteBkgColor":"#fbe9c4","noteBorderColor":"#8a6310","noteTextColor":"#3b2a06","sequenceNumberColor":"#ffffff"}}}%%
 sequenceDiagram
   autonumber
   participant B as Brand
   participant C as Clipper
+  participant V as Verifier / keeper
   participant H as humanity
   participant CR as cliprail
-  participant V as Verifier / keeper
   participant T as USDC SAC
+  participant AN as TRY anchor
 
-  B->>CR: create_campaign(immutable rules, budget) or create_campaign_with_swap(XLM)
-  Note over B,CR: with_swap: cliprail swaps XLM → exact budget via Soroswap in the same tx
-  Note over B,T: the budget can come from the TRY anchor, a Soroswap swap, or a CCTP bridge from another chain
-  CR->>T: budget into escrow
-  C->>H: register_zk(Anon Aadhaar Groth16 proof)
-  Note over H: BN254 pairing check, (campaign, nullifier) ↔ wallet
-  C->>CR: join → code CR-XXXXXX (checks is_verified)
-  C->>V: POST /proof (post link: platform + post id)
-  V->>CR: register post — register_clip(opening proof) → baseline = metric
-  loop every epoch
-    V->>CR: close proof — submit_proof(fresh metric) in proof window (keeper)
-    Note over B,CR: dispute window: bonded challenge, free response, arbiter deadline
-    V->>CR: finalize_dispute, settle_epoch (pro-rata, rate ceiling)
-    C->>CR: claim
-    CR->>T: payout to clipper (minus holdback)
+  rect rgb(214,238,235)
+    Note over B,AN: 1 · Fund — rules become immutable
+    B->>CR: create_campaign(rules, budget)<br/>or create_campaign_with_swap(XLM)
+    CR->>T: budget into escrow
+    Note over B,T: budget may arrive via TRY anchor, Soroswap or CCTP
   end
-  C->>CR: claim holdback (post proven live next epoch)
-  B->>CR: refund after refund_at
-  CR->>T: remaining balance to brand
+
+  rect rgb(221,232,250)
+    Note over B,AN: 2 · Verify human — once per campaign
+    C->>H: register_zk(Anon Aadhaar Groth16)
+    Note over H: BN254 pairing on-chain,<br/>(campaign, nullifier) bound to wallet
+  end
+
+  rect rgb(228,242,225)
+    Note over B,AN: 3 · Post and register — baseline is pinned
+    C->>CR: join
+    CR->>H: is_verified
+    CR-->>C: code CR-XXXXXX for the caption
+    C->>V: POST /proof — post link
+    V->>CR: register_clip(opening proof)
+    Note over V,CR: baseline = metric now, code must be in the caption
+  end
+
+  rect rgb(243,245,248)
+    loop every epoch e
+      rect rgb(250,240,214)
+        Note over B,AN: 4 · Closing proof, then the bonded dispute window
+        V->>CR: submit_proof(fresh metric) in the proof window
+        C->>CR: bonded challenge, free response, arbiter deadline
+        V->>CR: finalize_dispute
+      end
+      rect rgb(233,226,247)
+        Note over B,AN: 5 · Settle and claim — the cap first, then pro-rata
+        V->>CR: settle_epoch, r_eff = min(rate cap, 1000 · B_e / W_e)
+        C->>CR: claim
+        CR->>T: payout minus holdback
+      end
+    end
+  end
+
+  rect rgb(228,242,225)
+    Note over B,AN: 6 · Holdback — released by next-epoch liveness
+    V->>CR: closing proof for e+1 doubles as liveness
+    C->>CR: claim_holdback(e)
+    CR->>T: held share to the survivors
+  end
+
+  rect rgb(232,236,240)
+    Note over B,AN: 7 · Refund and cash out
+    B->>CR: refund after refund_at
+    CR->>T: unspent budget back to the brand
+    C->>AN: SEP-10, SEP-38 quote, SEP-6 withdraw-exchange
+    AN-->>C: TL paid out (testnet sandbox)
+  end
 ```
+
+**Legend —** each coloured band is one lifecycle phase, numbered 1–7; the step numbers on the arrows are the order of the calls. Everything in bands 1–7 has run on testnet (see [the lifecycle run](#full-product-lifecycle-run-testnet)); the TL leg of band 7 is a testnet sandbox anchor.
 
 The verifier has **no authority over funds**. It cannot change a count because the attestor signs it, and it cannot pay anyone. The worst it can do is not submit a proof, and anyone else can submit one in the same window.
 
@@ -312,7 +427,7 @@ w_p   = min(raw_p, cap_views_human)   (per-human cap)
 W_e   = Σ w_p
 
 B_e      = budget/E (+ remainder in last epoch) + carry_e
-r_eff    = W_e == 0 ? 0 : min(r_max, 1000 · B_e / W_e)      (USDC per 1k of the metric)
+r_eff    = W_e == 0 ? 0 : min(r_max, 1000 · B_e / W_e)      (USDC per 1k; r_max is a ceiling)
 spent_e  = r_eff · W_e / 1000 ;   carry_{e+1} = B_e − spent_e
 
 pay_c    = r_eff · w_p · w_c / (raw_p · 1000)
@@ -320,10 +435,31 @@ held_c   = pay_c · holdback_bps / 10000   (0 in the last epoch) ;  immediate_c 
 ```
 
 - **High-water mark baseline.** A post-epoch's baseline is pinned to the post's `hwm` (the highest proven metric value so far) at the first closing proof. A number that drops and rises again is never paid twice.
-- **No race.** While proven reach is low, clippers earn `r_max`. When demand exceeds the budget, the rate falls and everyone shares proportionally. `Σ payouts ≤ budget` always holds.
+- **No race.** While proven reach is low, everyone is paid at the ceiling `r_max`. When the epoch's eligible weight would cost more than `B_e` at that ceiling, the rate falls and the epoch budget is shared pro-rata instead. `Σ payouts ≤ budget` always holds, so nobody can drain the budget and the brand never pays above the ceiling — see [The rate is a ceiling, not a price](#the-rate-is-a-ceiling-not-a-price).
 - **Holdback survivors share:**
   `held_total_e = spent_e · bps / 10000`, `held_survived_e = Σ held_i` over posts proven alive in e+1, and `holdback_claim_i = held_i · held_total_e / held_survived_e`.
 - **Accounting invariant.** Every campaign has its own `balance` ledger, and every outflow is clamped to it. The contract's token balance equals `Σ campaign.balance + open bonds`.
+
+### The rate is a ceiling, not a price
+
+`rate_max_per_1k` (`r_max`) is the **most** a campaign will ever pay per 1,000 of the metric — not a promise of a fixed price per 1k. What is actually fixed is the epoch budget `B_e = budget/E + carry_e`, and the effective rate is
+
+```
+r_eff = min(r_max, 1000 · B_e / W_e)        W_e = total eligible weight in epoch e
+```
+
+Under-subscribed epoch: everyone is paid at the ceiling and the unspent remainder carries into the next epoch, ending up back with the brand at `refund` — it is never shared out. Over-subscribed epoch: `r_eff` drops below the ceiling and the epoch budget is split pro-rata by each participant's eligible weight, after the per-clip (`cap_views_clip`) and per-human (`cap_views_human`) caps have been applied. So no one can drain the budget, and the brand can never overpay above the ceiling.
+
+**Worked example** — the real numbers from the [lifecycle run](#full-product-lifecycle-run-testnet): budget 5 USDC over 2 epochs (`B_e` = 2.5 USDC), ceiling `r_max` = 1 USDC per 1k.
+
+| Epoch | Eligible weight `W_e` | `1000 · B_e / W_e` | `r_eff` | Spent | Left over |
+|---|---|---|---|---|---|
+| e0 — over-subscribed | 6,000 (4,000 + 2,000) | 0.4166666 USDC/1k | **0.4166666** (pro-rata) | 2.4999996 USDC | ~0, carried |
+| e1 — under-subscribed | 1,500 (1,000 + 500) | 1.6666669 USDC/1k | **1.0000000** (the ceiling) | 1.5 USDC | 1.0 USDC → refunded |
+
+In e0 the two clippers had proven 4,000 and 2,000 of weight and were paid 1.3333331 and 0.6666665 USDC — the epoch budget shared 2:1, not 4 and 2 USDC at the advertised rate. In e1 the ceiling bound instead, 1,500 of weight cost only 1.5 USDC, and the 1.0 USDC the epoch did not spend went back to the brand at `refund` (1.0000006 USDC including rounding dust).
+
+**Pool-share mode is roadmap, not implemented.** A pure pool-share campaign — no ceiling at all, the epoch budget always divided by proven weight — would be one extra campaign parameter next to `r_max`; today every campaign runs with the ceiling.
 
 ## Security model
 
@@ -416,15 +552,15 @@ Earlier instance with relayer-only humanity and a self-issued test USDC; kept fo
 | 2 | clipper2 `join` | code CR-YN0D2A | [2b2edd22…](https://stellar.expert/explorer/testnet/tx/2b2edd226a67930353088bea6e623a1b2b24f8cd61d5813d24ac42f2f4ec0160) |
 | 3 | clipper1 `register_clip` (opening proof, code in description) | baseline 100 views | [8c51b35a…](https://stellar.expert/explorer/testnet/tx/8c51b35ab2fc2141b0541c0df141e2efc1a1067dc6f750736a2767c6565fc9ba) |
 | 3 | clipper2 `register_clip` | baseline 100 views | [d3d55bb3…](https://stellar.expert/explorer/testnet/tx/d3d55bb36b93b4f4ba8eff68e979907fd8f3d7b3e7b3b02046c5194f9a9b6d3e) |
-| 3 | Keeper: closing proofs e0 + `settle_epoch` e0 | weights 4000 / 2000; spent 2.4999996 USDC, held 0.4999999 | — |
+| 3 | Keeper: closing proofs e0 + `settle_epoch` e0 | weights 4000 / 2000; rate 0.4166666 USDC/1k — **below** the 1 USDC/1k ceiling, so the epoch budget was shared pro-rata; spent 2.4999996 USDC, held 0.4999999 | — |
 | 3 | clipper1 / clipper2 `claim` e0 | 1.3333331 / 0.6666665 USDC | [a123688b…](https://stellar.expert/explorer/testnet/tx/a123688beb3f242fcffcfe77d0ed116d6a7844b4883414f71487fcf8cb49e360) · [8dc1d336…](https://stellar.expert/explorer/testnet/tx/8dc1d336dafbb266695f84361ee8a4bc1e249f48616b59c3d8e6c55425da4832) |
 | 3 | Keeper: closing proofs e1 (liveness for e0 holdback) | weights 1000 / 500 | — |
 | 3 | clipper1 / clipper2 `claim_holdback` e0 | 0.3333332 / 0.1666666 USDC | [3f559212…](https://stellar.expert/explorer/testnet/tx/3f5592120c44867bab7b969a7dfdc614b59377ba189288e06d21d0e13e8ae23a) · [5c9a0fd1…](https://stellar.expert/explorer/testnet/tx/5c9a0fd17eaaea980d5cd8696d1b57de020615f368b5c669b58985678ed84216) |
-| 3 | Keeper `settle_epoch` e1; clipper1 / clipper2 `claim` e1 | 1.0000000 / 0.5000000 USDC | [c857a66a…](https://stellar.expert/explorer/testnet/tx/c857a66ac0aa5aefa889165be8118f6d0582d06113905a5aa99217abd287d88d) · [e49d5f14…](https://stellar.expert/explorer/testnet/tx/e49d5f14c56e4c05bea4f989ccccef4477f654029764055e7b7bb485c0cbf168) |
+| 3 | Keeper `settle_epoch` e1; clipper1 / clipper2 `claim` e1 | rate **at** the 1 USDC/1k ceiling (weights 1000 / 500, only 1.5 of 2.5 USDC spent); 1.0000000 / 0.5000000 USDC | [c857a66a…](https://stellar.expert/explorer/testnet/tx/c857a66ac0aa5aefa889165be8118f6d0582d06113905a5aa99217abd287d88d) · [e49d5f14…](https://stellar.expert/explorer/testnet/tx/e49d5f14c56e4c05bea4f989ccccef4477f654029764055e7b7bb485c0cbf168) |
 | 4 | clipper1 cashes out all earnings to TRY (SEP-10 → SEP-12 → SEP-38 quote → SEP-6 `withdraw-exchange` → USDC payment) | 2.6666663 USDC → 129.44 TL (48.54 TL/USDC), status `completed`, bank ref FAST-W68GO36XTZ | [b252098a…](https://stellar.expert/explorer/testnet/tx/b252098a198be9555fc08bdf1dc17679701b86223fd2349734c26028849b38c7) |
 | 5 | Brand `refund` after `refund_at` | 1.0000006 USDC unspent budget back to brand | [16847542…](https://stellar.expert/explorer/testnet/tx/1684754223d5e8e5b4351ff3789f832e4872e58ab406403d26d227c795a6b867) |
 
-Totals: clipper1 earned 2.6666663 USDC, clipper2 1.3333331 USDC (2:1, matching their proven view growth); 5 USDC in = 3.9999994 paid out + 1.0000006 refunded (7-decimal rounding dust stays with the brand). The TL payout on the anchor side is simulated (testnet sandbox).
+Totals: clipper1 earned 2.6666663 USDC, clipper2 1.3333331 USDC (2:1, matching their proven view growth); 5 USDC in = 3.9999994 paid out + 1.0000006 refunded (7-decimal rounding dust stays with the brand). The two epochs show both halves of the payout rule — e0 settled *below* the ceiling and shared its budget pro-rata, e1 settled *at* the ceiling and left the rest for the refund; the numbers are walked through in [The rate is a ceiling, not a price](#the-rate-is-a-ceiling-not-a-price). The TL payout on the anchor side is simulated (testnet sandbox).
 
 ## Repository layout
 
@@ -569,7 +705,7 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 
 - **Verify zkTLS in the contract, not in a backend.** The verifier service can only deliver proofs; it cannot change a count or move funds. Cost: ~5M instructions per proof, which Soroban's budget absorbs easily.
 - **Minimal parsing instead of a JSON library.** Soroban contracts have no JSON parser, so `reclaim-verify` rebuilds the canonical claim identifier from bytes and uses a small scanner that only reads the root-level `url`, `responseMatches` and `extractedParameters`. Smaller wasm and a narrow attack surface, at the price of depending on Reclaim's exact serialization (pinned by fixtures).
-- **Pro-rata with a rate ceiling, not first-come-first-served.** No race to claim; `Σ payouts ≤ budget` always holds; unused budget carries over.
+- **Pro-rata with a rate ceiling, not first-come-first-served.** The advertised rate caps what a campaign pays per 1k; an over-subscribed epoch shares its budget pro-rata instead of paying the cap to whoever claims first. No race to claim; `Σ payouts ≤ budget` always holds; unused budget carries over and is refunded ([details](#the-rate-is-a-ceiling-not-a-price)).
 - **Holdback tied to next-epoch liveness.** Discourages post-payout deletion without an extra "prove alive" transaction: the next closing proof doubles as liveness evidence.
 - **Bonded, time-boxed disputes with a default in the clipper's favor.** The arbiter can only rule on answered disputes, and a missed deadline cannot be used to stall payouts.
 - **Per-campaign nullifiers.** A person's identity cannot be linked across campaigns, and a nullifier is spent only within one campaign.
