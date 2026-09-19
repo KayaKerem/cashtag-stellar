@@ -6,6 +6,7 @@
   "scripts": {
     "deploy": "tsx deploy.ts",
     "run": "tsx run.ts",
+    "seed": "tsx seed-demo.ts",
     "e2e": "tsx deploy.ts && tsx run.ts",
     "typecheck": "tsc --noEmit"
   },
