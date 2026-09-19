@@ -105,7 +105,7 @@ for p in youtube demo; do
   suffix=$(jq -r ".$p.urlSuffix // \"\"" "$PROVIDERS")
   [ "$p" = demo ] && prefix="${prefix/https:\/\/DEMO_HOST/$DEMO_PUBLIC_BASE}"
   log "platform $p: $prefix<id>$suffix"
-  invoke "$CLIPRAIL_ID" set_platform --platform "$p" --url_prefix "$(hex "$prefix")" --url_suffix "$(hex "$suffix")" \
+  invoke "$CLIPRAIL_ID" set_platform --platform "$p" --url_prefix "$(hex "$prefix")" --url_suffix "$( [ -n "$suffix" ] && hex "$suffix" || echo '""' )" \
     --required "$(required_hex "$p")"
 done
 
