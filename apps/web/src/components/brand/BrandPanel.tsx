@@ -119,7 +119,7 @@ export function BrandPanel({ id }: { id: bigint }) {
         <Stat k="Total budget" v={<Amount value={p.budget} />} />
         <Stat k="Spent" v={<Amount value={spent} />} hint="Total across settled epochs" />
         <Stat k="Contract balance" v={<Amount value={c.balance} />} hint="Includes unclaimed shares" />
-        <Stat k="Carry-over" v={<Amount value={carryIn(lastSettled)} />} hint="Rolls from the last settled epoch into the next one" />
+        <Stat k="Carry-over" v={<Amount value={carryIn(lastSettled)} />} hint="Unspent budget rolling from the last settled epoch into the next one; whatever is never spent is refunded to you at the end" />
       </div>
 
       <div className="mb-8">
@@ -147,8 +147,14 @@ export function BrandPanel({ id }: { id: bigint }) {
                       <span>
                         W <span className="font-mono text-fg">{st.total_weight.toLocaleString("en-US")}</span>
                       </span>
-                      <span>
-                        rate <Amount value={est.rate} decimals={4} className="text-fg" /> / 1k
+                      <span
+                        title={
+                          est.final
+                            ? "Effective rate for this epoch: min(cap, 1,000 × epoch budget ÷ W)"
+                            : "Estimate at the current W; the effective rate is min(cap, 1,000 × epoch budget ÷ W) and is final at settle"
+                        }
+                      >
+                        {est.final ? "rate" : "rate (est)"} <Amount value={est.rate} decimals={4} className="text-fg" /> / 1k
                       </span>
                       <span>
                         <Amount value={est.spent} className="text-fg" /> / <Amount value={est.budget} />
@@ -165,7 +171,7 @@ export function BrandPanel({ id }: { id: bigint }) {
                       disabledReason={reason}
                       action={() => settle.mutateAsync(e)}
                       successTitle={`Epoch ${e + 1} settled`}
-                      successBody={() => "The rate is final; clippers can claim now."}
+                      successBody={() => "The effective rate for this epoch is final; clippers can claim now."}
                     >
                       Settle epoch
                     </TxButton>

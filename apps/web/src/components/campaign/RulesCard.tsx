@@ -45,11 +45,25 @@ export function RulesCard({ params }: { params: CampaignParams }) {
         )}
       </div>
       <dl className="mt-4">
-        <Row k="Total budget" v={<Amount value={params.budget} />} />
-        <Row k="Rate cap" v={<><Amount value={params.rate_max_per_1k} /> <span className="text-muted">/ 1,000 views</span></>} hint="r_eff = min(cap, 1000·B/W)" />
+        <Row
+          k="Total budget"
+          v={<Amount value={params.budget} />}
+          hint="Split evenly across epochs; what an epoch doesn't spend carries to the next one and is refunded to the brand at the end"
+        />
+        <Row
+          k="Rate cap"
+          v={
+            <>
+              <span className="text-muted">up to</span> <Amount value={params.rate_max_per_1k} />{" "}
+              <span className="text-muted">/ 1,000 views</span>
+              <span className="mt-0.5 block text-xs text-muted">If reach exceeds the epoch budget, it is shared pro-rata</span>
+            </>
+          }
+          hint="A cap, not a fixed price: r_eff = min(cap, 1000 × epoch budget / W), where W is the epoch's eligible weight"
+        />
         <Row k="Cap per clip" v={<span className="font-mono">{n(params.cap_views_clip)} views / epoch</span>} />
         <Row k="Cap per human" v={<span className="font-mono">{n(params.cap_views_human)} views / epoch</span>} />
-        <Row k="Minimum views" v={<span className="font-mono">{n(params.min_views)}</span>} hint="A clip-epoch below this counts as weight 0" />
+        <Row k="Minimum views" v={<span className="font-mono">{n(params.min_views)}</span>} hint="A clip-epoch below this counts as weight 0 and earns nothing" />
         <Row k="Epochs" v={<span className="font-mono">{params.epochs} × {formatDuration(params.epoch_len)}</span>} />
         <Row
           k="Windows"
@@ -60,7 +74,7 @@ export function RulesCard({ params }: { params: CampaignParams }) {
             </span>
           }
         />
-        <Row k="Holdback" v={<span className="font-mono">%{params.holdback_bps / 100}</span>} hint="Released if the video is still live in the next epoch; not applied in the last epoch" />
+        <Row k="Holdback" v={<span className="font-mono">%{params.holdback_bps / 100}</span>} hint="Held back from every payout and released when the video is still live in the next epoch; not applied in the last epoch" />
         <Row k="Challenge bond" v={<Amount value={params.bond} />} />
         <Row k="Arbiter" v={<AddressChip address={params.arbiter} />} />
         <Row k="Platforms" v={params.platforms.map((p) => PLATFORM_LABEL[p] ?? p).join(", ")} />

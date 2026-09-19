@@ -103,8 +103,8 @@ export function buildParams(
   else if (budget > MAX_BUDGET) e.budget = "That budget is too large.";
 
   const rate = usdc(f.rate_max_per_1k);
-  if (rate === null || rate <= 0n) e.rate_max_per_1k = "Enter a rate greater than 0.";
-  else if (rate > MAX_RATE) e.rate_max_per_1k = "That rate is too large.";
+  if (rate === null || rate <= 0n) e.rate_max_per_1k = "Enter a rate cap greater than 0.";
+  else if (rate > MAX_RATE) e.rate_max_per_1k = "That rate cap is too large.";
 
   const capClip = int(f.cap_views_clip);
   if (capClip === null) e.cap_views_clip = "Enter a whole number.";

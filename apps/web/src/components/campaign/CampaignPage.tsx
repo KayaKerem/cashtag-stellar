@@ -114,7 +114,9 @@ export function CampaignPage({ id }: { id: bigint }) {
           <SectionTitle>Epochs</SectionTitle>
           <EpochCards params={p} epochs={epochs.data} />
           <p className="mt-3 text-xs text-muted">
-            Currently in epoch {e + 1}. Before settle, rates are estimates based on the current total weight; they become final at settle.
+            Currently in epoch {e + 1}. The rate is a cap, not a fixed price: an epoch pays min(cap, 1,000 × epoch budget ÷ W), so extra
+            reach shares the epoch budget pro-rata instead of adding to it. Before settle it is an estimate at the current W; unspent budget
+            carries to the next epoch and is refunded to the brand at the end.
           </p>
         </div>
       </div>

@@ -143,7 +143,16 @@ function CampaignBlock({
                             <span className="font-mono text-xs text-muted tabular">w {cell.weight.toLocaleString("en-US")}</span>
                             <span className="text-sm">
                               <Amount value={cell.pay} />
-                              <span className="ml-1 text-[10px] text-muted">{cell.final ? "final" : "estimate"}</span>
+                              <span
+                                className="ml-1 text-[10px] text-muted"
+                                title={
+                                  cell.final
+                                    ? "Final: the epoch is settled at its effective rate"
+                                    : "Estimate at the epoch's current total weight (W); it moves as others earn views, and is final only at settle"
+                                }
+                              >
+                                {cell.final ? "final" : "estimate"}
+                              </span>
                             </span>
                             {cell.held > 0n && (
                               <span className="text-[11px] text-muted">
@@ -164,6 +173,10 @@ function CampaignBlock({
           </tbody>
         </table>
       </div>
+      <p className="mt-3 text-xs text-muted">
+        Estimates move with the epoch&apos;s total weight (W) until it settles: the rate is min(cap, 1,000 × epoch budget ÷ W), so more
+        eligible views mean a smaller share each.
+      </p>
     </section>
   );
 }
@@ -242,8 +255,8 @@ export function MePanel() {
       <div className="mb-8 grid gap-3 sm:grid-cols-3">
         {[
           { k: "Earned", v: totals.earned, hint: "Claimed payouts and holdback" },
-          { k: "Pending", v: totals.pending, hint: "Unclaimed, or not settled yet (estimated)" },
-          { k: "Holdback", v: totals.holdback, hint: "Released if the video is still live in the next epoch" },
+          { k: "Pending", v: totals.pending, hint: "Unclaimed, or not settled yet — estimates move with the epoch's total weight until settle" },
+          { k: "Holdback", v: totals.holdback, hint: "Held back from each payout; released when the video is still live in the next epoch" },
         ].map((t) => (
           <div key={t.k} className="rounded-[20px] border border-border bg-surface p-5 shadow-card" title={t.hint}>
             <p className="label-mono text-[10px] text-muted">{t.k}</p>

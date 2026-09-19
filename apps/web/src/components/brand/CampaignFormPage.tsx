@@ -185,24 +185,24 @@ export function CampaignFormPage() {
             </div>
           </Group>
 
-          <Group title="Budget and rate" desc="The budget is transferred to the contract at creation and split evenly across epochs.">
-            <Field label="Total budget" help="USDC. Each epoch pays out budget ÷ epochs; whatever is left carries into the next epoch." error={shown.budget} suffix="USDC">
+          <Group title="Budget and rate" desc="The budget is locked in the contract at creation and split evenly across epochs. The rate is a cap, not a fixed price per 1,000 views.">
+            <Field label="Total budget" help="USDC, locked on creation. Each epoch's budget is budget ÷ epochs plus anything left unspent earlier; what is never spent is refunded to you at the end." error={shown.budget} suffix="USDC">
               <input {...text("budget")} inputMode="decimal" placeholder="500" />
             </Field>
             <FundingChoice value={fundWith} onChange={setFundWith} budget={budgetValue} />
-            <Field label="Rate cap" help="The most you pay per 1,000 views. If demand is higher, the rate drops pro rata: r = min(cap, 1000·B/W)." error={shown.rate_max_per_1k} suffix="USDC / 1k">
+            <Field label="Rate cap" help="A ceiling, not a fixed price: if an epoch's eligible views would cost more than its budget, that budget is shared pro-rata and the rate drops — r = min(cap, 1000 × epoch budget ÷ W)." error={shown.rate_max_per_1k} suffix="USDC / 1k">
               <input {...text("rate_max_per_1k")} inputMode="decimal" placeholder="1" />
             </Field>
           </Group>
 
           <Group title="Caps" desc="Per-epoch limits against bot views and any one person soaking up the budget.">
-            <Field label="Cap per clip" help="The most views a single clip can count in one epoch." error={shown.cap_views_clip} suffix="views">
+            <Field label="Cap per clip" help="The most views a single clip can count toward the epoch's total weight (W)." error={shown.cap_views_clip} suffix="views">
               <input {...text("cap_views_clip")} inputMode="numeric" />
             </Field>
-            <Field label="Cap per human" help="The most views one person can count across all their clips." error={shown.cap_views_human} suffix="views">
+            <Field label="Cap per human" help="The most views one person can count across all their clips in one epoch." error={shown.cap_views_human} suffix="views">
               <input {...text("cap_views_human")} inputMode="numeric" />
             </Field>
-            <Field label="Minimum views" help="A clip gaining less than this in an epoch counts as 0." error={shown.min_views} suffix="views">
+            <Field label="Minimum views" help="A clip gaining less than this in an epoch counts as 0 and earns nothing." error={shown.min_views} suffix="views">
               <input {...text("min_views")} inputMode="numeric" />
             </Field>
           </Group>
@@ -211,7 +211,7 @@ export function CampaignFormPage() {
             <Field label="Start" help="How many seconds from now it starts (at least 30s, to leave time for signing)." error={shown.start_in} suffix={secs("start_in")}>
               <input {...text("start_in")} inputMode="numeric" />
             </Field>
-            <Field label="Epochs" error={shown.epochs} suffix="max 52">
+            <Field label="Epochs" help="The budget is split evenly across epochs; each epoch settles its own rate." error={shown.epochs} suffix="max 52">
               <input {...text("epochs")} inputMode="numeric" />
             </Field>
             <Field label="Epoch length" help="In seconds." error={shown.epoch_len} suffix={secs("epoch_len")}>
@@ -232,7 +232,7 @@ export function CampaignFormPage() {
           </Group>
 
           <Group title="Challenges and holdback" desc="Bonded challenges, and a holdback against deleted videos.">
-            <Field label="Holdback" help="This share of a payout is released if the video is still live in the next epoch; not applied in the last epoch." error={shown.holdback_pct} suffix="%">
+            <Field label="Holdback" help="Held back from every payout and released when the video is still live in the next epoch; not applied in the last epoch." error={shown.holdback_pct} suffix="%">
               <input {...text("holdback_pct")} inputMode="decimal" />
             </Field>
             <Field label="Challenge bond" help="Posted by both the challenger and the responder; the loser forfeits it." error={shown.bond} suffix="USDC">

@@ -38,16 +38,21 @@ export function EpochCards({ params, epochs }: { params: CampaignParams; epochs:
                 <dd className="font-mono tabular">{st.total_weight.toLocaleString("en-US")}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">Rate / 1,000 views</dt>
+                <dt className="text-xs text-muted">{est.final ? "Effective rate / 1,000 views" : "Estimated rate / 1,000 views"}</dt>
                 <dd>
                   <Amount value={est.rate} decimals={4} />
                 </dd>
+                <p className="mt-0.5 text-[11px] leading-snug text-muted">
+                  {est.final ? "Paid this epoch" : "At the current W; moves until settle"} · cap{" "}
+                  <Amount value={params.rate_max_per_1k} decimals={4} symbol={null} />
+                </p>
               </div>
               <div>
                 <dt className="text-xs text-muted">Epoch budget</dt>
                 <dd>
                   <Amount value={est.budget} />
                 </dd>
+                <p className="mt-0.5 text-[11px] leading-snug text-muted">Unspent carries to the next epoch</p>
               </div>
               <div>
                 <dt className="text-xs text-muted">{est.final ? "Spent" : "Spend (estimated)"}</dt>

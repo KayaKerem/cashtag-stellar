@@ -30,7 +30,7 @@ export type CellAction =
 export interface Cell {
   epoch: number;
   weight: bigint | null;
-  /** Estimated or final total share (immediate + held) */
+  /** Total share (immediate + held): final after settle, otherwise an estimate at the epoch's current total weight */
   pay: bigint;
   immediate: bigint;
   held: bigint;
@@ -128,7 +128,14 @@ export function buildCell(
     return {
       ...base,
       status: "Active",
-      action: { kind: "claim", enabled: false, reason: now < proofEnd(p, e) ? "The proof window is still open" : "The epoch is not settled yet" },
+      action: {
+        kind: "claim",
+        enabled: false,
+        reason:
+          now < proofEnd(p, e)
+            ? "The proof window is still open"
+            : "The epoch is not settled yet — the amount shown is an estimate at the current total weight",
+      },
     };
   }
   if (!ce.claimed) {
