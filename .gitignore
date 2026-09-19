@@ -13,3 +13,4 @@ fixtures/cache/
 .stellar/
 **/test_snapshots/
 services/verifier/.data/
+!packages/*-client/dist/
