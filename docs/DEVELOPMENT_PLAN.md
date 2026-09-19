@@ -265,6 +265,8 @@ pub fn verify(env, proof: &ReclaimProof, attestors: &Vec<BytesN<20>>, owners: &V
 
 ## 7. Görev listesi (GitHub issue'larıyla birebir)
 
+Issue eşlemesi: K01–K19 = #1–#19 · S01–S13 = #20–#32 · X01–X03 = #33–#35 · R01–R04 = #36–#39 — Proje panosu: https://github.com/users/KayaKerem/projects/2
+
 Öncelik: **P0** = teslim için şart, **P1** = hedef, **P2** = stretch (bitmese de proje biter). Tahminler saat cinsinden.
 
 ### Kerem
