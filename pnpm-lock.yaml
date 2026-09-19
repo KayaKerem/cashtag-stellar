@@ -8,6 +8,37 @@ importers:
 
   .: {}
 
+  packages/client:
+    dependencies:
+      '@cliprail/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@stellar/stellar-sdk':
+        specifier: ^17.1.0
+        version: 17.1.0
+      buffer:
+        specifier: 6.0.3
+        version: 6.0.3
+      cliprail-client:
+        specifier: workspace:*
+        version: link:../cliprail-client
+      humanity-client:
+        specifier: workspace:*
+        version: link:../humanity-client
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.2
+        version: 26.6.2
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(vite@8.3.0(@types/node@26.6.2)(esbuild@0.28.2)(tsx@4.23.13))
+
   packages/cliprail-client:
     dependencies:
       '@stellar/stellar-sdk':
