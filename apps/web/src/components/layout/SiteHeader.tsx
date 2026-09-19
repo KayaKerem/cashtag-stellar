@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NAV_ITEMS, isActive } from "./nav";
 import { NetworkBadge } from "./NetworkBadge";
+import { WalletButton } from "@/components/wallet/WalletButton";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function Logo() {
@@ -48,14 +49,7 @@ export function SiteHeader() {
             <NetworkBadge />
           </span>
           <ThemeToggle />
-          {/* S02: WalletButton buraya gelecek */}
-          <button
-            type="button"
-            disabled
-            className="label-mono hidden h-10 rounded-full bg-lime px-5 text-sm text-lime-fg opacity-70 sm:block"
-          >
-            Cüzdan bağla
-          </button>
+          <WalletButton className="hidden sm:block" />
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -86,9 +80,7 @@ export function SiteHeader() {
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
             <NetworkBadge />
-            <button type="button" disabled className="label-mono h-10 rounded-full bg-lime px-5 text-sm text-lime-fg opacity-70">
-              Cüzdan bağla
-            </button>
+            <WalletButton />
           </div>
         </nav>
       )}
