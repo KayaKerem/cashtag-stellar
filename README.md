@@ -15,4 +15,20 @@ Status: hackathon build, Stellar **testnet**.
 
 Monorepo layout: `contracts/` (Soroban, Rust) · `services/verifier/` (Node, zkFetch) · `apps/web/` (Next.js) · `packages/` (generated bindings) · `docs/`.
 
+## Development setup
+
+```bash
+# Rust + Soroban
+rustup default stable && rustup target add wasm32v1-none
+brew install stellar-cli            # v28
+cd contracts && cargo test && stellar contract build
+
+# JS workspace (web, verifier, bindings)
+pnpm install
+```
+
+- `contracts/` — Cargo workspace, `soroban-sdk` 28 (`hazmat-crypto` feature for `secp256k1_recover`).
+- `apps/web` — Next.js (Sena). `services/verifier` — Node/TS. `packages/*` — generated contract bindings.
+- `main` must always build. Pull with `git pull --rebase` before pushing.
+
 Contract IDs, run instructions and demo flow: _TBD (K15, K19)_.

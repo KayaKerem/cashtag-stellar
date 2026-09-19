@@ -1,0 +1,19 @@
+{
+  "youtube": {
+    "urlPrefix": "https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=",
+    "urlSuffix": "",
+    "secretHeader": "x-goog-api-key",
+    "responseMatches": [
+      { "type": "regex", "value": "\"viewCount\":\\s*\"(?<views>\\d+)\"" },
+      { "type": "regex", "value": "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\"" }
+    ]
+  },
+  "demo": {
+    "urlPrefix": "https://DEMO_HOST/demo/videos/",
+    "urlSuffix": "",
+    "responseMatches": [
+      { "type": "regex", "value": "\"viewCount\":\\s*\"(?<views>\\d+)\"" },
+      { "type": "regex", "value": "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\"" }
+    ]
+  }
+}

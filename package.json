@@ -1,0 +1,11 @@
+{
+  "name": "cliprail",
+  "private": true,
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "contracts:test": "cd contracts && cargo test",
+    "contracts:build": "cd contracts && stellar contract build",
+    "verifier:dev": "pnpm --filter verifier dev",
+    "web:dev": "pnpm --filter web dev"
+  }
+}
