@@ -2,7 +2,7 @@
 
 > **Kime:** Sena ve Kerem (ve projeye sonradan katılacak herkes)
 > **Ne zaman:** 19 Eylül 2026 · **Teslim: 20 Eylül 2026, 13:00**
-> **Repo:** https://github.com/KayaKerem/cliprail-stellar · **Görevler:** https://github.com/users/KayaKerem/projects/2 ("ClipRail Hackathon")
+> **Repo:** https://github.com/KayaKerem/cliprail-stellar · **Kanban:** https://github.com/users/KayaKerem/projects/2/views/2 · Kerem: /views/3 · Sena: /views/4
 
 ---
 
