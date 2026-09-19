@@ -1,7 +1,7 @@
 // Business operations shared by HTTP routes and the keeper.
 import { createHash } from "node:crypto";
 import { StrKey } from "@stellar/stellar-sdk";
-import type { Config, Platform } from "./config.js";
+import { isSimulated, type Config, type Platform } from "./config.js";
 import type { Chain } from "./chain.js";
 import { HttpError, type ProofResult, type ProofService } from "./zkfetch.js";
 import { address, bytesN, reclaimProofToScVal, u32, u64 } from "./scval.js";
@@ -9,6 +9,10 @@ import { contentEnd, proofEnd, settleAt, type TimelineParams } from "./timeline.
 
 export const SLACK = 6; // s: ledger time lags wall clock a little
 export const PROOF_MARGIN = 30; // s: don't start a fresh zkFetch this close to proof_end
+/** Simulated proofs are signed locally in ms: only the RPC reads + tx inclusion need to fit. */
+export const SIM_PROOF_MARGIN = 10;
+/** Fresh-proof margin before proof_end for this attestor mode. */
+export const proofMargin = (cfg: Pick<Config, "attestorMode">) => (isSimulated(cfg as Config) ? SIM_PROOF_MARGIN : PROOF_MARGIN);
 
 /** Permanent submit_proof failures: retrying (even with a new proof) cannot help. */
 const PERMANENT = new Set([4, 5, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 22, 27, 31, 35].map((n) => `contract_${n}`));
@@ -31,6 +35,8 @@ export interface PrecheckInput {
   epoch: number;
   now: number;
   haveProof: boolean;
+  /** fresh-proof margin before proof_end (default PROOF_MARGIN) */
+  marginS?: number;
 }
 
 /** Mirrors submit_proof's checks so we never burn a zkFetch on a doomed call. Throws HttpError (codes = contract codes). */
@@ -42,7 +48,7 @@ export function closePrecheck(x: PrecheckInput) {
   const ce = contentEnd(p, e);
   if (now < ce + SLACK) throw E(21, `proof window opens at ${ce} (in ${Math.ceil(ce + SLACK - now)} s)`);
   const pe = proofEnd(p, e);
-  if (now >= pe - (x.haveProof ? SLACK : PROOF_MARGIN)) throw E(8, `proof window closed (proof_end ${pe})`);
+  if (now >= pe - (x.haveProof ? SLACK : (x.marginS ?? PROOF_MARGIN))) throw E(8, `proof window closed (proof_end ${pe})`);
   const st = x.clipEpoch ? tag(x.clipEpoch.status) : "Active";
   if (st === "Excluded") throw E(31, "clip excluded for this epoch");
   if (st !== "Active") throw E(27, "clip epoch is disputed");
@@ -101,7 +107,7 @@ export class Ops {
       ]);
       const j = this.jobs.get(key)!; // registered below before the first await resolves
       j.proofEnd = proofEnd(campaign.params, e);
-      closePrecheck({ campaign, clip, clipEpoch, disputes: disputes ?? [], campaignId, epoch: e, now: this.now(), haveProof: !!j.proof });
+      closePrecheck({ campaign, clip, clipEpoch, disputes: disputes ?? [], campaignId, epoch: e, now: this.now(), haveProof: !!j.proof, marginS: proofMargin(this.cfg) });
       if (!j.proof) {
         if ((j.fetches ?? 0) >= MAX_FETCHES) throw new HttpError(429, "zkFetch attempts exhausted for this clip/epoch", "fetch_limit");
         j.fetches = (j.fetches ?? 0) + 1;

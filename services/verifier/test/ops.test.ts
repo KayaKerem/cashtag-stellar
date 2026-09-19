@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { config } from "../src/config.js";
-import { closePrecheck, Ops, SLACK, type PrecheckInput } from "../src/ops.js";
+import { closePrecheck, Ops, PROOF_MARGIN, SIM_PROOF_MARGIN, SLACK, proofMargin, type PrecheckInput } from "../src/ops.js";
 import { HttpError } from "../src/zkfetch.js";
 
 // start=1000, epoch_len=240 -> content_end(0)=1240, proof_end(0)=1300, settle_at(0)=1391, content_end(1)=1480, proof_end(1)=1540
@@ -37,6 +37,11 @@ describe("closePrecheck", () => {
     expect(code(() => closePrecheck(base({ now: 1271 })))).toBe("contract_8"); // < 30 s left, no proof yet
     expect(code(() => closePrecheck(base({ now: 1280, haveProof: true })))).toBe("ok"); // kept proof may be resent
     expect(code(() => closePrecheck(base({ now: 1300, haveProof: true })))).toBe("contract_8");
+    // simulated attestor: fresh proofs are instant, so the margin shrinks (short demo proof windows)
+    expect(code(() => closePrecheck(base({ now: 1271, marginS: SIM_PROOF_MARGIN })))).toBe("ok");
+    expect(code(() => closePrecheck(base({ now: 1290, marginS: SIM_PROOF_MARGIN })))).toBe("contract_8");
+    expect(proofMargin({ attestorMode: "simulated" })).toBe(SIM_PROOF_MARGIN);
+    expect(proofMargin({ attestorMode: "reclaim" })).toBe(PROOF_MARGIN);
   });
   it("clip epoch status", () => {
     expect(code(() => closePrecheck(base({ clipEpoch: { status: ["Excluded"], views: 0n } })))).toBe("contract_31");

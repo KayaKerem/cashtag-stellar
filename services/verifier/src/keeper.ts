@@ -2,7 +2,7 @@
 //   1) finalize expired disputes  2) settle due epochs (in order)  3) close proofs in the proof window.
 // Chain state is the source of truth; close-proof dedupe/retry lives in Ops.jobs (shared with /proof/submit).
 import { u32, u64 } from "./scval.js";
-import { MAX_FETCHES, PROOF_MARGIN, SLACK, tag, type Ops } from "./ops.js";
+import { MAX_FETCHES, SLACK, proofMargin, tag, type Ops } from "./ops.js";
 import { contentEnd, disputeEnd, proofEnd, refundAt, settleAt, type TimelineParams } from "./timeline.js";
 
 export class Keeper {
@@ -116,8 +116,8 @@ export class Keeper {
         if (st && (tag(st.status) !== "Active" || BigInt(st.views) > 0n)) continue; // excluded/disputed/already proven
         const job = this.ops.jobState(clipId, e);
         if (job?.done || job?.failed || job?.running) continue;
-        // a fresh zkFetch needs PROOF_MARGIN; a kept proof may be re-sent until proof_end
-        if (!job?.proof && (now >= proofEnd(p, e) - PROOF_MARGIN || (job?.fetches ?? 0) >= MAX_FETCHES)) continue;
+        // a fresh zkFetch needs proofMargin(cfg); a kept proof may be re-sent until proof_end
+        if (!job?.proof && (now >= proofEnd(p, e) - proofMargin(cfg) || (job?.fetches ?? 0) >= MAX_FETCHES)) continue;
         void this.act(`submit c${id} clip${clipId} e${e}`, () => this.ops.submitClose(id, clipId, e));
       }
     }

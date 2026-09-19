@@ -36,6 +36,8 @@ const SIM_SOURCE = Keypair.random().publicKey();
 export class Chain {
   server: rpc.Server;
   private queue: Promise<unknown> = Promise.resolve();
+  /** Last sequence number we sent: RPC's getAccount lags behind a pending tx, so back-to-back sends would reuse it. */
+  private lastSeq: bigint | null = null;
   private kp: Keypair | null;
 
   constructor(private cfg: Config = defaultConfig) {
@@ -72,7 +74,9 @@ export class Chain {
     const run = async () => {
       if (!this.kp) throw new HttpError(503, "RELAYER_SECRET missing", "config");
       if (!contractId) throw new HttpError(503, "contract id not configured", "config");
-      const account = await this.server.getAccount(this.kp.publicKey());
+      let account = await this.server.getAccount(this.kp.publicKey());
+      if (this.lastSeq !== null && BigInt(account.sequenceNumber()) < this.lastSeq)
+        account = new Account(this.kp.publicKey(), this.lastSeq.toString());
       const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: this.cfg.networkPassphrase })
         .addOperation(new Contract(contractId).call(method, ...args))
         .setTimeout(60)
@@ -85,8 +89,11 @@ export class Chain {
       }
       prepared.sign(this.kp);
       const sent = await this.server.sendTransaction(prepared);
-      if (sent.status === "ERROR" || sent.status === "TRY_AGAIN_LATER")
+      if (sent.status === "ERROR" || sent.status === "TRY_AGAIN_LATER") {
+        this.lastSeq = null; // resync from RPC next time
         throw new HttpError(502, `send failed: ${sent.status} ${sent.errorResult?.toXDR("base64") ?? ""}`, "send_failed");
+      }
+      this.lastSeq = BigInt(prepared.sequence);
       return sent.hash;
     };
     const p = this.queue.then(run, run);
