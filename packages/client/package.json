@@ -11,7 +11,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx test/chain.smoke.ts"
+    "smoke": "tsx test/chain.smoke.ts",
+    "smoke:write": "tsx test/chain.write-smoke.ts"
   },
   "dependencies": {
     "@cliprail/shared": "workspace:*",
