@@ -1,0 +1,15 @@
+{
+  "attestorSecret": "0xf1493165bfdf5677d8deec270ad51cb2e74b4a892373618bb4d0e817a85e02c9",
+  "attestorAddress": "0xa02aec92a8bdcbd9a910b43dfd755340f1289143",
+  "owner": "0x732456af65a53384cf71a174865dd31414df4c6b",
+  "ownerSecret": "0xbfc7f5192b8517d6190bccb2bf534b86c03997c6cacfc3a4fe606891e6ca83d1",
+  "timestampS": 1758240000,
+  "epoch": 1,
+  "parameters": "{\"body\":\"\",\"method\":\"GET\",\"responseMatches\":[{\"type\":\"regex\",\"value\":\"\\\"viewCount\\\":\\\\s*\\\"(?<views>\\\\d+)\\\"\"},{\"type\":\"regex\",\"value\":\"\\\"description\\\":\\\\s*\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}],\"responseRedactions\":[],\"url\":\"https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=dQw4w9WgXcQ\"}",
+  "context": "{\"contextAddress\":\"0x0\",\"contextMessage\":\"cliprail:c1:e1\",\"extractedParameters\":{\"desc\":\"Official video. Join the campaign: CR-7F3K9Q\\\\nLinks: https://example.com/?a=1&b=2 \\\\\\\"quoted\\\\\\\" \\\\\\\\ backslash é 🎉 fake \\\\\\\"viewCount\\\\\\\":\\\\\\\"999\\\\\\\" and \\\\\\\"views\\\\\\\":\\\\\\\"888\\\\\\\"\",\"views\":\"1234567\"},\"providerHash\":\"0xa058c1b0997d173fbd84aa29d828967239b4c699eba7f71faa16ad88d98c2321\"}",
+  "identifier": "0xd4d6690744dd24356a9aa0982a0490b8b51bff20b5a98d4d504e5711ad4f8f28",
+  "signData": "0xd4d6690744dd24356a9aa0982a0490b8b51bff20b5a98d4d504e5711ad4f8f28\n0x732456af65a53384cf71a174865dd31414df4c6b\n1758240000\n1",
+  "digest": "0x39d74646c55908d40fb241ac6bdc3cd0566d527923f0a5a0408de4abcb30b9df",
+  "signature": "0xab65d5438bd51c8d71e523cb6b77054a24c4704a3c4bda77453b6a45c39619903cd0b212348263fe46d7fbdd0919893697f469b80d8b01a43d4c8a562eaa5de81b",
+  "sameAsSignMessage": true
+}

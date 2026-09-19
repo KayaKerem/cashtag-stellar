@@ -11,3 +11,4 @@ fixtures/cache/
 .DS_Store
 .soroban/
 .stellar/
+**/test_snapshots/
