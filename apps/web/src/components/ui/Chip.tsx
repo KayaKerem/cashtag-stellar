@@ -8,7 +8,7 @@ export function CheckDot({ className = "" }: { className?: string }) {
   );
 }
 
-/** Beyaz pill + lime tik (hero altındaki özellik çipleri) */
+/** White pill + lime check (the feature chips under the hero) */
 export function FeatureChip({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface py-1.5 pl-1.5 pr-3.5 text-[13px] font-medium shadow-chip">
@@ -18,7 +18,7 @@ export function FeatureChip({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Küçük etiket çipi (hero üstü) */
+/** Small label chip (above the hero) */
 export function TagChip({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[13px] font-medium shadow-chip">

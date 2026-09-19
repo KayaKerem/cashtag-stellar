@@ -30,7 +30,7 @@ export type CellAction =
 export interface Cell {
   epoch: number;
   weight: bigint | null;
-  /** Tahmini ya da kesin toplam pay (immediate + held) */
+  /** Estimated or final total share (immediate + held) */
   pay: bigint;
   immediate: bigint;
   held: bigint;
@@ -39,11 +39,11 @@ export interface Cell {
   status: PillStatus | null;
   action: CellAction | null;
   note?: string;
-  /** Artık alınamayacak kısımlar (süresi geçmiş claim, yanan holdback): toplamlara girmez */
+  /** Parts that can no longer be claimed (expired claim, forfeited holdback): excluded from totals */
   lost?: { immediate?: boolean; held?: boolean };
 }
 
-/** Katılımcının bir dönemdeki ham ağırlığı: dışlanmamış kliplerinin w_clip toplamı (kontratla aynı). */
+/** A participant's raw weight in an epoch: the sum of w_clip over their non-excluded clips (same as the contract). */
 function participantRaw(all: ClipView[], owner: string, e: number): bigint {
   let raw = 0n;
   for (const v of all) {
@@ -55,8 +55,8 @@ function participantRaw(all: ClipView[], owner: string, e: number): bigint {
 }
 
 /**
- * Bir klip-dönem hücresi için ödeme tahmini, durum ve (fazına göre) aksiyon.
- * Pencere kuralları @cliprail/shared'deki can* fonksiyonlarıyla kontratla aynı.
+ * The payout estimate, status and (phase-dependent) action for one clip-epoch cell.
+ * Window rules come from the can* helpers in @cliprail/shared, identical to the contract.
  */
 export function buildCell(
   c: CampaignView,
@@ -72,21 +72,21 @@ export function buildCell(
   const st = epochs?.[e];
   const empty: Cell = { epoch: e, weight: null, pay: 0n, immediate: 0n, held: 0n, holdbackPayout: 0n, final: false, status: null, action: null };
 
-  if (e < view.clip.first_epoch) return { ...empty, note: "Kayıttan önce" };
+  if (e < view.clip.first_epoch) return { ...empty, note: "Before registration" };
 
-  // Kapanış kanıtı henüz yok
+  // No closing proof yet
   if (!ce) {
     if (canSubmitProof(p, e, now)) return { ...empty, status: "Pending", action: { kind: "close", enabled: true } };
     if (now < contentEnd(p, e))
       return {
         ...empty,
         status: "Pending",
-        action: { kind: "close", enabled: false, reason: `Kanıt penceresi ${formatDuration(contentEnd(p, e) - now)} sonra açılır` },
+        action: { kind: "close", enabled: false, reason: `The proof window opens in ${formatDuration(contentEnd(p, e) - now)}` },
       };
-    return { ...empty, note: "Kanıt gönderilmedi" };
+    return { ...empty, note: "No proof submitted" };
   }
 
-  // Ödeme: settle sonrası kesin oran, öncesi o anki W ile tahmin
+  // Payout: the final rate after settle, an estimate from the current W before it
   const est = st ? estimateEpoch(p, e, st, e > 0 ? epochs?.[e - 1] : null) : null;
   const raw = participantRaw(all, view.clip.owner, e);
   const wP = participantWeight(p, raw);
@@ -105,8 +105,8 @@ export function buildCell(
     action: null,
   };
 
-  if (ce.status === "Excluded") return { ...base, status: "Excluded", note: "İtirazı kaybettin; bu dönem ödemesi yok" };
-  if (ce.status === "Responded") return { ...base, status: "Responded", note: "Hakem kararı bekleniyor" };
+  if (ce.status === "Excluded") return { ...base, status: "Excluded", note: "You lost the challenge; no payout this epoch" };
+  if (ce.status === "Responded") return { ...base, status: "Responded", note: "Waiting for the arbiter's decision" };
   if (ce.status === "Challenged") {
     const d = disputes?.find((x) => x.clip_id === view.clip.id && x.epoch === e && x.status === "Open");
     if (!d) return { ...base, status: "Challenged" };
@@ -115,45 +115,45 @@ export function buildCell(
       status: "Challenged",
       action: canRespond(p, e, now)
         ? { kind: "respond", enabled: true, disputeId: d.id }
-        : { kind: "respond", enabled: false, disputeId: d.id, reason: "Cevap süresi doldu" },
+        : { kind: "respond", enabled: false, disputeId: d.id, reason: "The response window has closed" },
     };
   }
 
   // Active
   if (canSubmitProof(p, e, now)) {
-    // Pencere açıkken daha yüksek izlenmeyle yeniden kanıt gönderilebilir
-    return { ...base, status: "Active", action: { kind: "close", enabled: true }, note: "Pencere açık; tekrar kanıt gönderebilirsin" };
+    // While the window is open, a new proof with a higher view count can be submitted
+    return { ...base, status: "Active", action: { kind: "close", enabled: true }, note: "The window is open; you can submit a new proof" };
   }
   if (!st?.settled) {
     return {
       ...base,
       status: "Active",
-      action: { kind: "claim", enabled: false, reason: now < proofEnd(p, e) ? "Kanıt penceresi sürüyor" : "Dönem henüz settle edilmedi" },
+      action: { kind: "claim", enabled: false, reason: now < proofEnd(p, e) ? "The proof window is still open" : "The epoch is not settled yet" },
     };
   }
   if (!ce.claimed) {
-    if (pay === 0n) return { ...base, status: "Active", note: "Bu dönem ödeme yok (ağırlık 0)" };
+    if (pay === 0n) return { ...base, status: "Active", note: "No payout this epoch (weight 0)" };
     if (!canClaim(p, now)) {
-      return { ...base, status: "Active", note: "Claim süresi doldu; pay markaya iade edildi", lost: { immediate: true, held: true } };
+      return { ...base, status: "Active", note: "The claim window closed; the share went back to the brand", lost: { immediate: true, held: true } };
     }
     return { ...base, status: "Claimable", action: { kind: "claim", enabled: true } };
   }
 
   // Claim edildi → holdback
   if (split.held === 0n || e >= lastEpoch(p)) return { ...base, status: "Claimed" };
-  if (ce.holdback_claimed) return { ...base, status: "Claimed", note: "Holdback da alındı" };
+  if (ce.holdback_claimed) return { ...base, status: "Claimed", note: "Holdback claimed too" };
   if (!ce.alive) {
-    // Pencere proof_end(e+1) anında açılır (lib.rs claim_holdback: now >= proof_end(e+1))
+    // The window opens at proof_end(e+1) (lib.rs claim_holdback: now >= proof_end(e+1))
     if (now >= holdbackReleaseEnd(p, e))
-      return { ...base, status: "Claimed", note: "Holdback yandı (sonraki dönem kanıtı gelmedi)", lost: { held: true } };
+      return { ...base, status: "Claimed", note: "Holdback forfeited (no proof in the next epoch)", lost: { held: true } };
     return {
       ...base,
       status: "Holdback",
-      action: { kind: "holdback", enabled: false, reason: "Sonraki dönem kapanış kanıtı bekleniyor" },
+      action: { kind: "holdback", enabled: false, reason: "Waiting for the next epoch's closing proof" },
     };
   }
-  if (now >= refundAt(p)) return { ...base, status: "Claimed", note: "Holdback süresi doldu", lost: { held: true } };
-  if (holdbackPayout === 0n) return { ...base, status: "Claimed", note: "Holdback payı 0", lost: { held: true } };
+  if (now >= refundAt(p)) return { ...base, status: "Claimed", note: "The holdback window has closed", lost: { held: true } };
+  if (holdbackPayout === 0n) return { ...base, status: "Claimed", note: "Holdback share is 0", lost: { held: true } };
   if (canClaimHoldback(p, e, now)) return { ...base, status: "Holdback", action: { kind: "holdback", enabled: true } };
   return {
     ...base,
@@ -161,7 +161,7 @@ export function buildCell(
     action: {
       kind: "holdback",
       enabled: false,
-      reason: now >= refundAt(p) ? "Süre doldu" : `${formatDuration(holdbackReleaseEnd(p, e) - now)} sonra açılır`,
+      reason: now >= refundAt(p) ? "The window has closed" : `Opens in ${formatDuration(holdbackReleaseEnd(p, e) - now)}`,
     },
   };
 }

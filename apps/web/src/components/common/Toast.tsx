@@ -16,7 +16,7 @@ interface ToastItem {
 interface ToastApi {
   show(t: Omit<ToastItem, "id">): void;
   success(title: string, opts?: { body?: React.ReactNode; txHash?: string }): void;
-  /** Kontrat hata kodu → Türkçe mesaj (INTERFACES §2.3) */
+  /** Contract error code -> readable message (INTERFACES §2.3) */
   error(err: unknown, title?: string): void;
 }
 
@@ -48,7 +48,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     () => ({
       show,
       success: (title, opts) => show({ tone: "success", title, ...opts }),
-      error: (err, title = "İşlem başarısız") => show({ tone: "error", title, body: errorMessage(err) }),
+      error: (err, title = "Transaction failed") => show({ tone: "error", title, body: errorMessage(err) }),
     }),
     [show],
   );
@@ -76,7 +76,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}
-                aria-label="Kapat"
+                aria-label="Close"
                 className="grid size-6 place-items-center rounded-full text-muted hover:bg-surface-2"
               >
                 ×
@@ -91,6 +91,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function useToast(): ToastApi {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast, ToastProvider içinde kullanılmalı");
+  if (!ctx) throw new Error("useToast must be used inside ToastProvider");
   return ctx;
 }

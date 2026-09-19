@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "ClipRail · Kanıtlanabilir izlenme başına ödeme";
+export const alt = "ClipRail · Provable pay-per-view";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -44,18 +44,18 @@ export default function OgImage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ fontSize: 76, fontWeight: 600, letterSpacing: -3, lineHeight: 1.05 }}>
-            Her izlenme kanıtlı.
+            Every view is proven.
           </div>
           <div style={{ fontSize: 76, fontWeight: 600, letterSpacing: -3, lineHeight: 1.05, color: "#dbff00" }}>
-            Her ödeme kurala bağlı.
+            Every payout follows the rules.
           </div>
         </div>
         <div style={{ display: "flex", gap: 16, fontSize: 28, color: "#c7c9cc" }}>
-          <span>Sayı doğru</span>
+          <span>Numbers proven</span>
           <span style={{ color: "#555" }}>·</span>
-          <span>Kişi tek</span>
+          <span>One human, once</span>
           <span style={{ color: "#555" }}>·</span>
-          <span>Kurallar değişmez</span>
+          <span>Rules never change</span>
         </div>
       </div>
     ),

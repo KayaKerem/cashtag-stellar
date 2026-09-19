@@ -5,4 +5,4 @@ export default function Page() {
   return <CampaignFormPage />;
 }
 
-export const metadata: Metadata = { title: "Yeni kampanya", description: "Bütçeyi kilitle, kuralları belirle." };
+export const metadata: Metadata = { title: "New campaign", description: "Lock the budget, set the rules." };

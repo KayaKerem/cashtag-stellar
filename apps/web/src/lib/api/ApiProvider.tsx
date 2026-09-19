@@ -14,7 +14,7 @@ const ROLE_KEY = "cliprail.mockRole";
 interface ApiContextValue {
   api: CliprailApi;
   mode: ApiMode;
-  /** İşlemleri imzalayan hesap: chain'de bağlı cüzdan, mock'ta cüzdan ya da seçili rol */
+  /** The account that signs: the connected wallet in chain mode, the wallet or the selected role in mock */
   account: string | null;
   mockRole: MockRole;
   setMockRole(role: MockRole): void;
@@ -22,7 +22,7 @@ interface ApiContextValue {
 
 const ApiContext = createContext<ApiContextValue | null>(null);
 
-// Query key'lerinde bigint var; varsayılan hash JSON.stringify ile bigint'te patlar
+// Query keys contain bigints; the default hash uses JSON.stringify, which throws on bigint
 function hashKey(key: readonly unknown[]): string {
   return JSON.stringify(key, (_k, v) => (typeof v === "bigint" ? `${v}n` : v));
 }
@@ -41,7 +41,7 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
   const account =
     API_MODE === "chain" ? wallet.address : (wallet.address ?? MOCK_ACCOUNTS[mockRole]);
 
-  // Mock API'nin "bağlı hesap"ı her çağrıda buradan okunur; API'yi yeniden kurmaya gerek yok
+  // The mock API reads its "connected account" from here on every call, so it never needs rebuilding
   const accountRef = useRef(account);
   accountRef.current = account;
   const walletRef = useRef(wallet);
@@ -69,7 +69,7 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
       }),
   );
 
-  // Hesap değişince hesaba bağlı sorgular (katılım, insanlık) yenilensin
+  // When the account changes, refresh the account-scoped queries (participation, humanity)
   useEffect(() => {
     queryClient.invalidateQueries();
   }, [account, queryClient]);
@@ -99,6 +99,6 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
 
 export function useApi(): ApiContextValue {
   const ctx = useContext(ApiContext);
-  if (!ctx) throw new Error("useApi, ApiProvider içinde kullanılmalı");
+  if (!ctx) throw new Error("useApi must be used inside ApiProvider");
   return ctx;
 }

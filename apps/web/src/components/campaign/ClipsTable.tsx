@@ -10,19 +10,19 @@ const n = (v: bigint) => v.toLocaleString("en-US");
 
 export function ClipsTable({ clips, epochs, me }: { clips: ClipView[]; epochs: number; me: string | null }) {
   if (!clips.length) {
-    return <EmptyState title="Henüz klip yok" description="Katılan clipper'lar klip kaydettikçe burada görünür." />;
+    return <EmptyState title="No clips yet" description="Clips show up here as clippers register them." />;
   }
   return (
     <div className="overflow-x-auto rounded-[20px] border border-border bg-surface shadow-card">
       <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs text-muted">
-            <th className="px-4 py-3 font-normal">Klip</th>
-            <th className="px-4 py-3 font-normal">Sahip</th>
-            <th className="px-4 py-3 text-right font-normal">Başlangıç</th>
+            <th className="px-4 py-3 font-normal">Clip</th>
+            <th className="px-4 py-3 font-normal">Owner</th>
+            <th className="px-4 py-3 text-right font-normal">Baseline</th>
             {Array.from({ length: epochs }, (_, e) => (
               <th key={e} className="px-4 py-3 text-right font-normal">
-                Dönem {e + 1}
+                Epoch {e + 1}
               </th>
             ))}
           </tr>

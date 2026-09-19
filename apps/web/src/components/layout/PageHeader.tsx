@@ -21,7 +21,7 @@ export function PageHeader({
 export function Placeholder({ task }: { task: string }) {
   return (
     <div className="rounded-[20px] border border-dashed border-border-strong bg-panel p-10 text-center text-sm text-muted">
-      Bu sayfa {task} görevinde doldurulacak.
+      This page will be filled in during {task}.
     </div>
   );
 }

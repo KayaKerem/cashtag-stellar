@@ -12,7 +12,7 @@ export interface VerifierHealth {
   attestor?: string;
 }
 
-/** Verifier `/health`: ağ, kontrat ID'leri ve attestor modu. Yalnız chain modunda sorgulanır. */
+/** Verifier `/health`: network, contract IDs and attestor mode. Only queried in chain mode. */
 export function useVerifierHealth() {
   return useQuery({
     queryKey: ["verifier", "health", CHAIN_CONFIG.verifierUrl],

@@ -1,6 +1,6 @@
 import { formatUsdc } from "@cliprail/shared";
 
-/** i128 (7 ondalık) tutarı USDC olarak gösterir. */
+/** Renders an i128 amount (7 decimals) as USDC. */
 export function Amount({
   value,
   symbol = "USDC",

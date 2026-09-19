@@ -43,7 +43,7 @@ export default function ComponentsPage() {
   const now = useNow();
   const [mode, setMode] = useState<"live" | "before">("live");
 
-  // Demo zaman çizelgesi: 60 sn önce başlamış, 2 × 300 sn dönem (ARCHITECTURE §6 demo değerleri)
+  // Demo timeline: started 60s ago, 2 × 300s epochs (ARCHITECTURE §6 demo values)
   const [start] = useState(() => BigInt(Math.floor(Date.now() / 1000)) - 60n);
   const params = {
     start: mode === "live" ? start : start + 600n,
@@ -57,15 +57,15 @@ export default function ComponentsPage() {
 
   return (
     <>
-      <PageHeader title="Bileşenler" description="S04 ortak bileşenlerinin vitrini (geliştirme sayfası)." />
+      <PageHeader title="Components" description="Showcase of the S04 shared components (development page)." />
       <div className="grid gap-5">
         <Section title="PhaseTimeline">
           <div className="mb-3 flex gap-2">
             <button type="button" onClick={() => setMode("live")} className={`rounded-full px-3 py-1 text-xs ${mode === "live" ? "bg-ink text-ink-fg" : "bg-surface-2"}`}>
-              Başlamış
+              Started
             </button>
             <button type="button" onClick={() => setMode("before")} className={`rounded-full px-3 py-1 text-xs ${mode === "before" ? "bg-ink text-ink-fg" : "bg-surface-2"}`}>
-              Başlamamış
+              Not started
             </button>
           </div>
           <PhaseTimeline params={params} now={now} />
@@ -102,22 +102,22 @@ export default function ComponentsPage() {
             <div className="flex flex-wrap gap-2">
               <TxButton
                 action={() => new Promise<{ txHash: string }>((r) => setTimeout(() => r({ txHash: FAKE_HASH }), 1200))}
-                successTitle="Claim edildi"
-                successBody={() => "12.40 USDC cüzdanına gönderildi."}
+                successTitle="Claimed"
+                successBody={() => "12.40 USDC sent to your wallet."}
               >
-                Başarılı tx
+                Successful tx
               </TxButton>
               <TxButton
                 variant="outline"
                 action={() => new Promise<{ txHash: string }>((_, rej) => setTimeout(() => rej(new Error("Error(Contract, #8)")), 900))}
                 successTitle="-"
               >
-                Kontrat hatası
+                Contract error
               </TxButton>
-              <TxButton variant="outline" disabledReason="Kanıt penceresi henüz açılmadı" action={async () => ({ txHash: "" })} successTitle="-">
-                Pasif
+              <TxButton variant="outline" disabledReason="The proof window hasn't opened yet" action={async () => ({ txHash: "" })} successTitle="-">
+                Disabled
               </TxButton>
-              <button type="button" onClick={() => toast.error(new Error("Error(Contract, #7)"), "Katılım başarısız")} className="rounded-full bg-surface-2 px-4 text-xs">
+              <button type="button" onClick={() => toast.error(new Error("Error(Contract, #7)"), "Join failed")} className="rounded-full bg-surface-2 px-4 text-xs">
                 ErrorToast (#7)
               </button>
             </div>
@@ -125,9 +125,9 @@ export default function ComponentsPage() {
 
           <Section title="EmptyState · Skeleton">
             <EmptyState
-              title="Henüz klip yok"
-              description="Bir kampanyaya katıl, kodu videonun açıklamasına ekle ve linki kaydet."
-              action={<ButtonLink href="/" variant="outline">Kampanyalara göz at</ButtonLink>}
+              title="No clips yet"
+              description="Join a campaign, add the code to the video description and register the link."
+              action={<ButtonLink href="/" variant="outline">Browse campaigns</ButtonLink>}
             />
             <div className="mt-4 space-y-2">
               <Skeleton className="h-4 w-2/3" />

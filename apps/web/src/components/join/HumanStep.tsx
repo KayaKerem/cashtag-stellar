@@ -9,9 +9,9 @@ import { errorMessage } from "@/lib/api/errors";
 import { useWrite } from "@/lib/api/hooks";
 
 const STAGES = [
-  { label: "ZK kanıtı üretiliyor", hint: "Aadhaar test verisinden Groth16 kanıtı (~20–30 sn)." },
-  { label: "İmza", hint: "Cüzdanında imza isteği çıkarsa onayla." },
-  { label: "Zincire yazılıyor", hint: "Humanity kontratı kanıtı Soroban'da doğruluyor." },
+  { label: "Generating the ZK proof", hint: "A Groth16 proof from Aadhaar test data (~20–30s)." },
+  { label: "Signing", hint: "Approve the signature request in your wallet." },
+  { label: "Writing on-chain", hint: "The humanity contract verifies the proof on Soroban." },
 ];
 
 function Progress({ startedAt }: { startedAt: number }) {
@@ -26,7 +26,7 @@ function Progress({ startedAt }: { startedAt: number }) {
       <div className="flex items-center gap-2 text-sm font-medium">
         <span className="size-2 rounded-full bg-lime pulse-lime" aria-hidden />
         {STAGES[stage].label}…
-        <span className="ml-auto font-mono text-xs text-muted tabular">{Math.floor(t)} sn</span>
+        <span className="ml-auto font-mono text-xs text-muted tabular">{Math.floor(t)}s</span>
       </div>
       <ol className="mt-3 space-y-2">
         {STAGES.map((s, i) => (
@@ -50,17 +50,18 @@ function Progress({ startedAt }: { startedAt: number }) {
 const short = (h: string) => (h.length > 18 ? `${h.slice(0, 10)}…${h.slice(-6)}` : h);
 
 /**
- * Katılım 2. adımı: tek insan kanıtı.
- * Birincil yol on-chain ZK (Anon Aadhaar Groth16 → humanity.register_zk); yedek relayer demo kaydı.
+ * Step 2 of joining: proof of a unique human.
+ * The primary path is on-chain ZK (Anon Aadhaar Groth16 -> humanity.register_zk); the fallback is a
+ * relayer-backed demo registration.
  */
 export type ZkResult = { nullifier: string; txHash: string };
 
-/** ZK doğrulaması sonrası: kısaltılmış nullifier + tx + gizlilik açıklaması. */
+/** After ZK verification: shortened nullifier + tx + a note on privacy. */
 export function ZkDoneCard({ result }: { result: ZkResult }) {
   return (
     <div className="rounded-2xl bg-panel p-4 text-sm">
       <p className="flex items-center gap-2 font-medium">
-        <CheckDot /> ZK ile doğrulandı
+        <CheckDot /> Verified with ZK
       </p>
       <p className="mt-2 text-muted">
         Nullifier{" "}
@@ -69,7 +70,7 @@ export function ZkDoneCard({ result }: { result: ZkResult }) {
         </code>
       </p>
       <p className="mt-2 text-xs text-muted">
-        Kimliğin ifşa edilmedi. Kontrata yalnızca bu kampanya için tek kullanımlık bir nullifier yazıldı; aynı kişi başka bir cüzdanla ikinci kez katılamaz.
+        Your identity was never revealed. Only a one-time nullifier for this campaign was written to the contract, so the same person can&apos;t join again with another wallet.
       </p>
       <TxLink hash={result.txHash} className="mt-2" />
     </div>
@@ -95,7 +96,7 @@ export function HumanStep({ campaignId, onZkDone }: { campaignId: bigint; onZkDo
       onZkDone?.(r);
     } catch (e) {
       if (isCliprailError(e) && e.source === "humanity" && e.code === 2) {
-        setSybil(identity || "bu kimlik");
+        setSybil(identity || "this identity");
       } else {
         setError(errorMessage(e));
       }
@@ -109,19 +110,19 @@ export function HumanStep({ campaignId, onZkDone }: { campaignId: bigint; onZkDo
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-border-strong p-4">
-        <p className="text-sm font-medium">ZK ile doğrula (Aadhaar)</p>
+        <p className="text-sm font-medium">Verify with ZK (Aadhaar)</p>
         <p className="mt-1 text-xs text-muted">
-          Anon Aadhaar kanıtı Soroban&apos;da on-chain doğrulanır. Kimlik bilgin paylaşılmaz; kampanyaya özel bir nullifier üretilir.
+          The Anon Aadhaar proof is verified on-chain on Soroban. Your identity data is never shared; a campaign-specific nullifier is derived instead.
         </p>
 
         <details className="mt-3 text-xs">
-          <summary className="cursor-pointer text-muted hover:text-fg">Gelişmiş (demo): kimlik seç</summary>
+          <summary className="cursor-pointer text-muted hover:text-fg">Advanced (demo): pick an identity</summary>
           <p className="mt-2 text-muted">
-            Aynı test kimliğini iki farklı cüzdanda dene: ikinci deneme sybil olarak reddedilir.
+            Try the same test identity on two different wallets: the second attempt is rejected as a sybil.
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {[
-              { v: "", l: "Cüzdana özel" },
+              { v: "", l: "Wallet-specific" },
               { v: "alice", l: "alice" },
               { v: "bob", l: "bob" },
             ].map((o) => (
@@ -140,9 +141,9 @@ export function HumanStep({ campaignId, onZkDone }: { campaignId: bigint; onZkDo
 
         {sybil && (
           <div role="alert" className="mt-3 rounded-xl bg-danger-soft p-3 text-sm text-danger">
-            <p className="font-medium">Sybil engellendi</p>
+            <p className="font-medium">Sybil blocked</p>
             <p className="mt-0.5">
-              &quot;{sybil}&quot; kimliği bu kampanyada başka bir cüzdanla zaten doğrulanmış. Aynı kişi ikinci kez katılamaz (NullifierUsed).
+              The identity &quot;{sybil}&quot; has already been verified in this campaign with another wallet. The same person can&apos;t join twice (NullifierUsed).
             </p>
           </div>
         )}
@@ -157,20 +158,20 @@ export function HumanStep({ campaignId, onZkDone }: { campaignId: bigint; onZkDo
           onClick={proveZk}
           className="label-mono mt-3 inline-flex h-10 items-center rounded-full bg-ink px-5 text-[12px] text-ink-fg hover:opacity-90"
         >
-          ZK ile doğrula
+          Verify with ZK
         </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-        ZK çalışmıyorsa:
+        If ZK doesn&apos;t work:
         <TxButton
           variant="outline"
           className="h-8 px-3 text-[10px]"
           action={() => demo.mutateAsync(undefined)}
-          successTitle="Demo kaydı tamam"
-          successBody={() => "Relayer bu cüzdanı kampanya için tek insan olarak kaydetti."}
+          successTitle="Demo registration done"
+          successBody={() => "The relayer registered this wallet as a unique human for the campaign."}
         >
-          Demo kaydı
+          Demo registration
         </TxButton>
       </div>
     </div>

@@ -18,15 +18,15 @@ import { useNow } from "@/lib/hooks/useNow";
 import { PLATFORM_LABEL, videoUrl } from "@/lib/video";
 
 const PLACEHOLDER: Record<string, string> = {
-  youtube: "https://youtube.com/shorts/… ya da https://youtu.be/…",
+  youtube: "https://youtube.com/shorts/… or https://youtu.be/…",
   demo: "demo-video-01",
 };
 
-// Kanıt üretimi 5–30 sn sürer; aşamalar süreye göre yaklaşık gösterilir
+// Proof generation takes 5–30s; the stages are approximated from the elapsed time
 const STAGES = [
-  { key: "proof", label: "Kanıt üretiliyor (zkTLS)", hint: "Verifier izlenmeyi ve açıklamayı platformdan kanıtlıyor." },
-  { key: "sign", label: "İmza", hint: "Cüzdanında imza isteği çıkarsa onayla." },
-  { key: "submit", label: "Gönderim", hint: "Kontrat kanıtı doğruluyor ve klibi kaydediyor." },
+  { key: "proof", label: "Generating the proof (zkTLS)", hint: "The verifier proves the view count and the description from the platform." },
+  { key: "sign", label: "Signing", hint: "Approve the signature request in your wallet." },
+  { key: "submit", label: "Submitting", hint: "The contract verifies the proof and registers the clip." },
 ];
 
 function Progress({ startedAt }: { startedAt: number }) {
@@ -41,7 +41,7 @@ function Progress({ startedAt }: { startedAt: number }) {
       <div className="flex items-center gap-2">
         <span className="size-2 rounded-full bg-lime pulse-lime" aria-hidden />
         <span className="text-sm font-medium">{STAGES[stage].label}…</span>
-        <span className="ml-auto font-mono text-xs text-muted tabular">{Math.floor(elapsed)} sn</span>
+        <span className="ml-auto font-mono text-xs text-muted tabular">{Math.floor(elapsed)}s</span>
       </div>
       <ol className="mt-4 space-y-2.5">
         {STAGES.map((s, i) => (
@@ -63,7 +63,7 @@ function Progress({ startedAt }: { startedAt: number }) {
           </li>
         ))}
       </ol>
-      <p className="mt-4 text-xs text-muted">Bu işlem genellikle 5–30 saniye sürer. Sayfayı kapatma.</p>
+      <p className="mt-4 text-xs text-muted">This usually takes 5–30 seconds. Don&apos;t close the page.</p>
     </div>
   );
 }
@@ -86,7 +86,7 @@ export function RegisterClip({ id }: { id: bigint }) {
   const [confirmed, setConfirmed] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [result, setResult] = useState<{ clipId: bigint; txHash: string } | null>(null);
-  // Demo platformu: açıklamasına kod yazılmış video kimliği
+  // Demo platform: the video ID whose description already carries the code
   const [prepared, setPrepared] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
 
@@ -99,22 +99,22 @@ export function RegisterClip({ id }: { id: bigint }) {
   if (!c) {
     return (
       <EmptyState
-        title="Kampanya bulunamadı"
+        title="Campaign not found"
         description={campaign.error ? errorMessage(campaign.error) : undefined}
-        action={<ButtonLink href="/" variant="outline">Kampanyalara dön</ButtonLink>}
+        action={<ButtonLink href="/" variant="outline">Back to campaigns</ButtonLink>}
       />
     );
   }
   if (mode === "chain" && !wallet.connected) {
     return (
       <div className="mx-auto max-w-2xl">
-        <PageHeader title="Klip kaydet" />
+        <PageHeader title="Register clip" />
         <EmptyState
-          title="Cüzdanını bağla"
-          description="Klip kaydetmek için kampanyaya katıldığın cüzdanı bağla."
+          title="Connect your wallet"
+          description="Connect the wallet you joined the campaign with to register a clip."
           action={
             <button type="button" onClick={() => wallet.connect()} className="label-mono h-10 rounded-full bg-lime px-5 text-[12px] text-lime-fg">
-              Cüzdan bağla
+              Connect wallet
             </button>
           }
         />
@@ -125,11 +125,11 @@ export function RegisterClip({ id }: { id: bigint }) {
   if (!me) {
     return (
       <div className="mx-auto max-w-2xl">
-        <PageHeader title="Klip kaydet" />
+        <PageHeader title="Register clip" />
         <EmptyState
-          title="Önce kampanyaya katıl"
-          description="Klip kaydetmek için bu kampanyaya katılmış olman ve kodunu videonun açıklamasına eklemiş olman gerekir."
-          action={<ButtonLink href={`/c/${c.id}/join`}>Katıl</ButtonLink>}
+          title="Join the campaign first"
+          description="To register a clip you need to have joined this campaign and added your code to the video description."
+          action={<ButtonLink href={`/c/${c.id}/join`}>Join</ButtonLink>}
         />
       </div>
     );
@@ -148,9 +148,9 @@ export function RegisterClip({ id }: { id: bigint }) {
       await bumpDemoVideo(parsed.id, { desc: demoDescription(me.code, c!.params.title), views: 100 });
       setPrepared(parsed.id);
       setConfirmed(true);
-      toast.success("Demo videosu hazır", { body: `Açıklamaya ${me.code} yazıldı, izlenme 100.` });
+      toast.success("Demo video ready", { body: `${me.code} was written to the description and views set to 100.` });
     } catch (err) {
-      toast.show({ tone: "error", title: "Demo videosu hazırlanamadı", body: err instanceof Error ? err.message : String(err) });
+      toast.show({ tone: "error", title: "Couldn't prepare the demo video", body: err instanceof Error ? err.message : String(err) });
     } finally {
       setPreparing(false);
     }
@@ -163,9 +163,9 @@ export function RegisterClip({ id }: { id: bigint }) {
     try {
       const res = await register.mutateAsync({ platform: current, videoId: parsed.id });
       setResult(res);
-      toast.success(`Klip #${res.clipId} kaydedildi`, { txHash: res.txHash });
+      toast.success(`Clip #${res.clipId} registered`, { txHash: res.txHash });
     } catch (err) {
-      toast.error(err, "Klip kaydedilemedi");
+      toast.error(err, "Couldn't register the clip");
     } finally {
       setStartedAt(null);
     }
@@ -174,31 +174,31 @@ export function RegisterClip({ id }: { id: bigint }) {
   if (result) {
     return (
       <div className="mx-auto max-w-2xl">
-        <PageHeader title="Klip kaydedildi" description="Açılış kanıtı kontratta doğrulandı. Bundan sonraki izlenme artışı sayılır." />
+        <PageHeader title="Clip registered" description="The opening proof was verified in the contract. Views from here on count." />
         <div className="rounded-[20px] border border-border bg-surface p-6 shadow-card">
           <div className="flex items-center gap-3">
             <CheckDot className="size-7" />
-            <p className="display text-xl">Klip #{result.clipId.toString()}</p>
+            <p className="display text-xl">Clip #{result.clipId.toString()}</p>
           </div>
           <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
             <div>
-              <dt className="text-xs text-muted">Başlangıç izlenmesi (baseline)</dt>
+              <dt className="text-xs text-muted">Baseline views</dt>
               <dd className="font-mono text-2xl tabular">
                 {registered ? registered.baseline.toLocaleString("en-US") : <Skeleton className="mt-1 h-7 w-24" />}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted">İşlem</dt>
+              <dt className="text-xs text-muted">Transaction</dt>
               <dd className="mt-1.5">
                 <TxLink hash={result.txHash} />
               </dd>
             </div>
           </dl>
           <p className="mt-4 text-sm text-muted">
-            Kazanç, her dönemin sonunda kanıtlanan izlenmenin bu değerin üstüne çıkan kısmından hesaplanır.
+            Earnings are calculated from the views proven at the end of each epoch above this baseline.
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
-            <ButtonLink href="/me">Panelime git</ButtonLink>
+            <ButtonLink href="/me">Go to my dashboard</ButtonLink>
             <button
               type="button"
               onClick={() => {
@@ -208,7 +208,7 @@ export function RegisterClip({ id }: { id: bigint }) {
               }}
               className="label-mono h-10 rounded-full border border-border-strong px-5 text-[12px] hover:bg-surface-2"
             >
-              Başka klip kaydet
+              Register another clip
             </button>
           </div>
         </div>
@@ -219,18 +219,18 @@ export function RegisterClip({ id }: { id: bigint }) {
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        title="Klip kaydet"
+        title="Register clip"
         description={
           <>
-            <span className="text-fg">{c.params.title || `Kampanya #${c.id}`}</span> · linkini gir; açılış kanıtı zkTLS ile
-            üretilir.
+            <span className="text-fg">{c.params.title || `Campaign #${c.id}`}</span> · paste your link; the opening proof is
+            generated with zkTLS.
           </>
         }
       />
 
       {!open && (
         <p className="mb-5 rounded-2xl bg-warning-soft px-4 py-3 text-sm text-warning">
-          Kayıt süresi doldu; son dönemin içerik aşaması bitti.
+          Registration is closed; the content phase of the last epoch is over.
         </p>
       )}
 
@@ -258,7 +258,7 @@ export function RegisterClip({ id }: { id: bigint }) {
           </div>
 
           <label className="block">
-            <span className="text-sm font-medium">{current === "demo" ? "Demo video kimliği ya da linki" : "Video linki"}</span>
+            <span className="text-sm font-medium">{current === "demo" ? "Demo video ID or link" : "Video link"}</span>
             <input
               value={link}
               onChange={(e) => setLink(e.target.value)}
@@ -273,9 +273,9 @@ export function RegisterClip({ id }: { id: bigint }) {
             {parsed &&
               (parsed.ok ? (
                 <span className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-                  Video kimliği <code className="rounded bg-row px-1.5 py-0.5 font-mono text-fg">{parsed.id}</code>
+                  Video ID <code className="rounded bg-row px-1.5 py-0.5 font-mono text-fg">{parsed.id}</code>
                   <a href={videoUrl(current, parsed.id)} target="_blank" rel="noreferrer" className="underline underline-offset-4">
-                    aç ↗
+                    open ↗
                   </a>
                 </span>
               ) : (
@@ -286,7 +286,7 @@ export function RegisterClip({ id }: { id: bigint }) {
           {isDemo && (
             <div className="rounded-2xl border border-border-strong p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium">Demo videosu hazırla</p>
+                <p className="text-sm font-medium">Prepare the demo video</p>
                 <button
                   type="button"
                   onClick={() => {
@@ -295,15 +295,15 @@ export function RegisterClip({ id }: { id: bigint }) {
                   }}
                   className="text-xs text-muted underline underline-offset-4 hover:text-fg"
                 >
-                  Yeni kimlik öner
+                  Suggest a new ID
                 </button>
               </div>
               <p className="mt-1 text-xs text-muted">
-                Demo platformunda videonun açıklamasına kodunu ve #ad etiketini yazar, izlenmeyi 100 yapar. Kanıt bu açıklamada kodu arar.
+                Writes your code and the #ad tag into the video description on the demo platform and sets views to 100. The proof looks for the code in that description.
               </p>
               {prepared && parsed?.ok && prepared === parsed.id ? (
                 <p className="mt-3 flex items-center gap-2 text-sm">
-                  <CheckDot /> Hazır: <code className="font-mono text-xs">{prepared}</code>
+                  <CheckDot /> Ready: <code className="font-mono text-xs">{prepared}</code>
                 </p>
               ) : (
                 <button
@@ -313,15 +313,15 @@ export function RegisterClip({ id }: { id: bigint }) {
                   className="label-mono mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-lime px-5 text-[12px] text-lime-fg disabled:opacity-40"
                 >
                   {preparing && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
-                  {preparing ? "Hazırlanıyor…" : "Demo videosu hazırla"}
+                  {preparing ? "Preparing…" : "Prepare the demo video"}
                 </button>
               )}
             </div>
           )}
 
           <div className="rounded-2xl bg-panel p-4">
-            <p className="text-sm font-medium">Açıklamanda bu kod var mı?</p>
-            <p className="mt-1 text-xs text-muted">Kanıt, videonun açıklamasında kodunu arar; yoksa kayıt reddedilir.</p>
+            <p className="text-sm font-medium">Is this code in your description?</p>
+            <p className="mt-1 text-xs text-muted">The proof looks for your code in the video description; without it the registration is rejected.</p>
             <div className="mt-3">
               <CodeBadge code={me.code} size="sm" />
             </div>
@@ -332,7 +332,7 @@ export function RegisterClip({ id }: { id: bigint }) {
                 onChange={(e) => setConfirmed(e.target.checked)}
                 className="mt-0.5 size-4 accent-[var(--lime)]"
               />
-              Evet, <span className="font-mono">{me.code}</span> videonun açıklamasında.
+              Yes, <span className="font-mono">{me.code}</span> is in the video description.
             </label>
           </div>
 
@@ -341,10 +341,10 @@ export function RegisterClip({ id }: { id: bigint }) {
             disabled={!canSubmit}
             className="label-mono inline-flex h-12 w-full items-center justify-center rounded-full bg-ink text-sm text-ink-fg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Kanıtla ve kaydet
+            Prove and register
           </button>
           {isDemo && parsed?.ok && !demoReady && (
-            <p className="text-center text-xs text-muted">Önce &quot;Demo videosu hazırla&quot; adımını tamamla.</p>
+            <p className="text-center text-xs text-muted">Finish the &quot;Prepare the demo video&quot; step first.</p>
           )}
         </form>
       )}

@@ -5,12 +5,12 @@ import { useMemo, useRef } from "react";
 import { useWallet } from "@/lib/wallet/WalletProvider";
 import { API_MODE } from "./config";
 
-/** TL ⇄ USDC anchor'ının home domain'i (env yoksa etkinliğin TR mock anchor'ı) */
+/** Home domain of the TRY <-> USDC anchor (falls back to the event TR mock anchor) */
 export const ANCHOR_HOME_DOMAIN = defaultTryAnchorHomeDomain();
 
 /**
- * TL yatır / TL'ye çek işlemleri (SEP-6 + SEP-10 + SEP-12 + SEP-38). Chain modda cüzdan imzalar,
- * mock modda anında ve çevrimdışı tamamlanır.
+ * Deposit TRY / withdraw to TRY (SEP-6 + SEP-10 + SEP-12 + SEP-38). In chain mode the wallet signs;
+ * in mock mode it completes instantly and offline.
  */
 export function useTryRamp(): TryRamp {
   const wallet = useWallet();
@@ -22,7 +22,7 @@ export function useTryRamp(): TryRamp {
       createTryRamp(API_MODE, {
         homeDomain: ANCHOR_HOME_DOMAIN,
         signer: { signTransaction: (xdr, opts) => walletRef.current.signTransaction(xdr, opts) },
-        // mock: adımlar okunabilsin diye küçük gecikme
+        // mock: a small delay so the steps stay readable
         stepDelayMs: API_MODE === "mock" ? 500 : 0,
       }),
     [],

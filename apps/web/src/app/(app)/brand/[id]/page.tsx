@@ -10,5 +10,5 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `Marka paneli · Kampanya #${id}`, description: "Bütçe, itiraz, settle ve iade." };
+  return { title: `Brand panel · Campaign #${id}`, description: "Budget, challenges, settle and refund." };
 }

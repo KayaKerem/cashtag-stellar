@@ -1,4 +1,4 @@
-// INTERFACES §5 tipleri @cliprail/shared'de; web tek yerden buradan kullanır.
+// The INTERFACES §5 types live in @cliprail/shared; the web app re-exports them from here.
 export type {
   CampaignParams,
   CampaignParamsInput,

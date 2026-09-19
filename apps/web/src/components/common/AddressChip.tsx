@@ -11,11 +11,11 @@ export function AddressChip({ address, label, you }: { address: string; label?: 
       <a href={explorerAddressUrl(address)} target="_blank" rel="noreferrer" title={address} className="hover:underline">
         {shortAddress(address)}
       </a>
-      {you && <span className="rounded-full bg-lime px-1.5 font-sans text-[10px] text-lime-fg">sen</span>}
+      {you && <span className="rounded-full bg-lime px-1.5 font-sans text-[10px] text-lime-fg">you</span>}
       <button
         type="button"
         onClick={() => copy(address)}
-        aria-label="Adresi kopyala"
+        aria-label="Copy address"
         className="grid size-5 place-items-center rounded-full text-muted hover:bg-surface hover:text-fg"
       >
         {copied ? "✓" : (

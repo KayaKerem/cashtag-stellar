@@ -6,14 +6,14 @@ import { MOCK_ROLES, useApi, type MockRole } from "@/lib/api/ApiProvider";
 import { useWallet } from "@/lib/wallet/WalletProvider";
 
 const LABELS: Record<MockRole, string> = {
-  brand: "Marka",
-  arbiter: "Hakem",
+  brand: "Brand",
+  arbiter: "Arbiter",
   clipper1: "Clipper 1",
   clipper2: "Clipper 2",
   clipper3: "Clipper 3",
 };
 
-/** Yalnız mock modunda: cüzdan bağlı değilken hangi rolle gezildiğini seçer. */
+/** Mock mode only: picks which role you browse as while no wallet is connected. */
 export function MockRoleSwitcher() {
   const { mode, mockRole, setMockRole } = useApi();
   const { connected } = useWallet();
@@ -25,7 +25,7 @@ export function MockRoleSwitcher() {
       <select
         value={mockRole}
         onChange={(e) => setMockRole(e.target.value as MockRole)}
-        aria-label="Mock rolü"
+        aria-label="Mock role"
         className="h-8 rounded-full bg-surface-2 px-2.5 text-xs outline-none"
       >
         {MOCK_ROLES.map((r) => (

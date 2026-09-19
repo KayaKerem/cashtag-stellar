@@ -6,20 +6,20 @@ import { useCampaigns } from "@/lib/api/hooks";
 import { errorMessage } from "@/lib/api/errors";
 
 const PHASE_TEXT: Record<string, string> = {
-  upcoming: "Başlamadı",
-  content: "İçerik",
-  proof: "Kanıt",
-  challenge: "İtiraz",
-  response: "Cevap",
-  arbiter: "Hakem",
+  upcoming: "Not started",
+  content: "Content",
+  proof: "Proof",
+  challenge: "Challenge",
+  response: "Response",
+  arbiter: "Arbiter",
   settleable: "Settle",
 };
 
 function status(c: CampaignView, now: bigint) {
-  if (c.refunded) return { label: "Bitti", live: false };
+  if (c.refunded) return { label: "Finished", live: false };
   const e = Math.min(currentEpoch(c.params, now), c.params.epochs - 1);
   const phase = phaseOf(c.params, e, now);
-  return { label: `Dönem ${e + 1}/${c.params.epochs} · ${PHASE_TEXT[phase] ?? phase}`, live: phase !== "upcoming" };
+  return { label: `Epoch ${e + 1}/${c.params.epochs} · ${PHASE_TEXT[phase] ?? phase}`, live: phase !== "upcoming" };
 }
 
 export function CampaignList() {
@@ -41,9 +41,9 @@ export function CampaignList() {
   if (!data?.length) {
     return (
       <div className="rounded-[20px] border border-dashed border-border-strong bg-panel p-10 text-center text-sm text-muted">
-        Henüz kampanya yok.{" "}
+        No campaigns yet.{" "}
         <Link href="/brand/new" className="text-fg underline underline-offset-4">
-          İlk kampanyayı kur
+          Create the first one
         </Link>
       </div>
     );
@@ -64,18 +64,18 @@ export function CampaignList() {
               <span className="label-mono text-[10px] text-muted">{s.label}</span>
               <span className="ml-auto font-mono text-xs text-muted">#{c.id.toString()}</span>
             </div>
-            <h3 className="display mt-4 line-clamp-2 text-xl leading-snug">{c.params.title || `Kampanya #${c.id}`}</h3>
+            <h3 className="display mt-4 line-clamp-2 text-xl leading-snug">{c.params.title || `Campaign #${c.id}`}</h3>
             <dl className="mt-auto grid grid-cols-3 gap-2 pt-6 text-xs">
               <div>
-                <dt className="text-muted">Bütçe</dt>
+                <dt className="text-muted">Budget</dt>
                 <dd className="font-mono text-sm tabular">{formatUsdc(c.params.budget, { maxDecimals: 2, group: "," })}</dd>
               </div>
               <div>
-                <dt className="text-muted">Kalan</dt>
+                <dt className="text-muted">Remaining</dt>
                 <dd className="font-mono text-sm tabular">{formatUsdc(c.balance, { maxDecimals: 2, group: "," })}</dd>
               </div>
               <div className="text-right">
-                <dt className="text-muted">Katılımcı · klip</dt>
+                <dt className="text-muted">Participants · clips</dt>
                 <dd className="font-mono text-sm tabular">
                   {c.participants} · {c.clips}
                 </dd>

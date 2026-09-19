@@ -70,9 +70,9 @@ export function JoinFlow({ id }: { id: bigint }) {
   if (!c) {
     return (
       <EmptyState
-        title="Kampanya bulunamadı"
+        title="Campaign not found"
         description={campaign.error ? errorMessage(campaign.error) : undefined}
-        action={<ButtonLink href="/" variant="outline">Kampanyalara dön</ButtonLink>}
+        action={<ButtonLink href="/" variant="outline">Back to campaigns</ButtonLink>}
       />
     );
   }
@@ -91,33 +91,33 @@ export function JoinFlow({ id }: { id: bigint }) {
   const s3: StepState = joined ? "done" : walletOk && isHuman ? "current" : "locked";
 
   const sampleDesc = joined
-    ? `#ad ${p.title} için hazırlanmış bir klip. ClipRail kodu: ${joined.code}`
+    ? `#ad A clip made for ${p.title}. ClipRail code: ${joined.code}`
     : "";
 
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        title="Kampanyaya katıl"
+        title="Join the campaign"
         description={
           <>
-            <span className="text-fg">{p.title || `Kampanya #${c.id}`}</span> · üç adımda katıl, kodunu al, videonun
-            açıklamasına ekle.
+            <span className="text-fg">{p.title || `Campaign #${c.id}`}</span> · join in three steps, get your code,
+            and add it to your video description.
           </>
         }
       />
 
       {!open && !joined && (
         <p className="mb-5 rounded-2xl bg-warning-soft px-4 py-3 text-sm text-warning">
-          Bu kampanyanın katılım süresi doldu; son dönemin içerik aşaması bittiği için yeni katılım alınmıyor.
+          Joining is closed for this campaign: the content phase of the last epoch is over, so no new participants are accepted.
         </p>
       )}
 
       <ol className="space-y-3">
-        <Step n={1} title="Cüzdanını bağla" state={s1}>
+        <Step n={1} title="Connect your wallet" state={s1}>
           {walletOk && account ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <AddressChip address={account} you />
-              {mode === "mock" && !wallet.connected && <span className="text-muted">Mock rolü (sağ alttan değiştirilebilir)</span>}
+              {mode === "mock" && !wallet.connected && <span className="text-muted">Mock role (change it at the bottom right)</span>}
             </div>
           ) : (
             <button
@@ -125,39 +125,39 @@ export function JoinFlow({ id }: { id: bigint }) {
               onClick={() => wallet.connect()}
               className="label-mono h-10 rounded-full bg-lime px-5 text-[12px] text-lime-fg hover:opacity-90"
             >
-              Cüzdan bağla
+              Connect wallet
             </button>
           )}
         </Step>
 
-        <Step n={2} title="İnsan doğrulaması" state={s2}>
+        <Step n={2} title="Human verification" state={s2}>
           {!needsHuman ? (
-            <p className="text-sm text-muted">Bu kampanya tek insan doğrulaması istemiyor.</p>
+            <p className="text-sm text-muted">This campaign doesn&apos;t require human verification.</p>
           ) : humanLoading ? (
             <Skeleton className="h-24" />
           ) : s2 === "done" ? (
             zkResult ? (
               <ZkDoneCard result={zkResult} />
             ) : (
-              <p className="text-sm text-muted">Bu kampanya için tek ve gerçek bir insan olarak kaydın var.</p>
+              <p className="text-sm text-muted">You&apos;re already registered as a unique human for this campaign.</p>
             )
           ) : s2 === "current" ? (
             <HumanStep campaignId={id} onZkDone={setZkResult} />
           ) : (
-            <p className="text-sm text-muted">Önce cüzdanını bağla.</p>
+            <p className="text-sm text-muted">Connect your wallet first.</p>
           )}
         </Step>
 
-        <Step n={3} title="Katıl ve kodunu al" state={s3}>
+        <Step n={3} title="Join and get your code" state={s3}>
           {partLoading || humanLoading ? (
             <Skeleton className="h-10 w-32" />
           ) : joined ? (
             <div className="space-y-4">
               <CodeBadge code={joined.code} />
               <div className="rounded-2xl bg-panel p-4 text-sm">
-                <p className="font-medium">Bu kodu videonun açıklamasına ekle</p>
+                <p className="font-medium">Add this code to your video description</p>
                 <p className="mt-1 text-muted">
-                  Kanıt, açıklamada bu kodu arar. Kod yoksa klip kaydı reddedilir. Reklam olduğunu belirtmek için #ad ekle.
+                  The proof looks for this code in the description. Without it, the clip is rejected. Add #ad to disclose the promotion.
                 </p>
                 <div className="mt-3 flex items-start gap-2 rounded-xl border border-border bg-surface p-3">
                   <p className="min-w-0 flex-1 break-words font-mono text-xs">{sampleDesc}</p>
@@ -165,23 +165,23 @@ export function JoinFlow({ id }: { id: bigint }) {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <ButtonLink href={`/c/${c.id}/register`}>Klibini kaydet</ButtonLink>
+                <ButtonLink href={`/c/${c.id}/register`}>Register your clip</ButtonLink>
                 <ButtonLink href={`/c/${c.id}`} variant="outline">
-                  Kampanya sayfası
+                  Campaign page
                 </ButtonLink>
               </div>
             </div>
           ) : s3 === "current" ? (
             <TxButton
               action={() => join.mutateAsync(id)}
-              successTitle="Kampanyaya katıldın"
-              successBody={(r) => `Kodun: ${r.code}`}
-              disabledReason={open ? null : "Katılım süresi doldu"}
+              successTitle="You joined the campaign"
+              successBody={(r) => `Your code: ${r.code}`}
+              disabledReason={open ? null : "Joining is closed"}
             >
-              Katıl
+              Join
             </TxButton>
           ) : (
-            <p className="text-sm text-muted">Önceki adımları tamamla.</p>
+            <p className="text-sm text-muted">Complete the previous steps first.</p>
           )}
         </Step>
       </ol>

@@ -32,7 +32,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-4 px-4 sm:px-6">
         <Logo />
-        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex" aria-label="Ana menü">
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex" aria-label="Main menu">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}
@@ -55,7 +55,7 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            aria-label="Menü"
+            aria-label="Menu"
             aria-expanded={open}
             className="inline-flex size-10 items-center justify-center rounded-full border border-border-strong md:hidden"
           >
@@ -66,7 +66,7 @@ export function SiteHeader() {
         </div>
       </div>
       {open && (
-        <nav className="border-t border-border px-4 py-3 md:hidden" aria-label="Mobil menü">
+        <nav className="border-t border-border px-4 py-3 md:hidden" aria-label="Mobile menu">
           <div className="flex flex-col gap-1">
             {NAV_ITEMS.map((item) => (
               <Link

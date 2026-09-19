@@ -29,27 +29,26 @@ function CellActionButton({ c, clipId, cell }: { c: CampaignView; clipId: bigint
   const respond = useWrite((a, disputeId: bigint) => a.respond(disputeId), { campaignId: id });
   const a = cell.action;
   if (!a) return null;
-  const reason = a.enabled ? null : (a.reason ?? "Şu an yapılamaz");
+  const reason = a.enabled ? null : (a.reason ?? "Not available right now");
   const cls = "h-8 px-3 text-[10px]";
 
   switch (a.kind) {
     case "close":
       return (
-        <TxButton className={cls} variant="outline" disabledReason={reason} action={() => close.mutateAsync(undefined)} successTitle="Kapanış kanıtı gönderildi" successBody={() => "Verifier kanıtı üretti ve kontrata iletti."}>
-          Kapanış kanıtı
+        <TxButton className={cls} variant="outline" disabledReason={reason} action={() => close.mutateAsync(undefined)} successTitle="Closing proof submitted" successBody={() => "The verifier generated the proof and submitted it to the contract."}>
+          Closing proof
         </TxButton>
       );
     case "claim":
       return (
-        <TxButton className={cls} disabledReason={reason} action={() => claim.mutateAsync(undefined)} successTitle="Ödeme alındı" successBody={(r) => <Amount value={r.amount} />}>
-          {/* lang=en: Türkçe büyük harf dönüşümü "CLAİM" yapmasın */}
-          <span lang="en">Claim</span>
+        <TxButton className={cls} disabledReason={reason} action={() => claim.mutateAsync(undefined)} successTitle="Payout claimed" successBody={(r) => <Amount value={r.amount} />}>
+          Claim
         </TxButton>
       );
     case "holdback":
       return (
-        <TxButton className={cls} disabledReason={reason} action={() => hb.mutateAsync(undefined)} successTitle="Holdback alındı" successBody={(r) => <Amount value={r.amount} />}>
-          <span lang="en">Holdback claim</span>
+        <TxButton className={cls} disabledReason={reason} action={() => hb.mutateAsync(undefined)} successTitle="Holdback claimed" successBody={(r) => <Amount value={r.amount} />}>
+          Claim holdback
         </TxButton>
       );
     case "respond":
@@ -61,17 +60,17 @@ function CellActionButton({ c, clipId, cell }: { c: CampaignView; clipId: bigint
             disabledReason={reason}
             action={() => {
               const ok = window.confirm(
-                `İtiraza cevap vermek için ${Number(c.params.bond) / 1e7} USDC teminat yatıracaksın. Hakem aleyhine karar verirse teminatı kaybedersin; lehine karar verirse iki teminatı da alırsın. Devam edilsin mi?`,
+                `Responding to this challenge posts a ${Number(c.params.bond) / 1e7} USDC bond. If the arbiter rules against you, you lose it; if they rule for you, you take both bonds. Continue?`,
               );
               if (!ok) return Promise.reject(new Cancelled());
               return respond.mutateAsync(a.disputeId);
             }}
-            successTitle="İtiraza cevap verildi"
-            successBody={() => "Karar hakemde."}
+            successTitle="Response submitted"
+            successBody={() => "It's up to the arbiter now."}
           >
-            İtiraza cevap ver
+            Respond to the challenge
           </TxButton>
-          <span className="text-[10px] text-muted">Teminat: <Amount value={c.params.bond} /></span>
+          <span className="text-[10px] text-muted">Bond: <Amount value={c.params.bond} /></span>
         </span>
       );
   }
@@ -99,12 +98,12 @@ function CampaignBlock({
     <section className="rounded-[20px] border border-border bg-surface p-4 shadow-card sm:p-5">
       <div className="flex flex-wrap items-center gap-3">
         <Link href={`/c/${c.id}`} className="display text-xl hover:underline">
-          {c.params.title || `Kampanya #${c.id}`}
+          {c.params.title || `Campaign #${c.id}`}
         </Link>
         {code && <CodeBadge code={code} size="sm" />}
         {canJoin(c.params, now) && !c.refunded && (
           <ButtonLink href={`/c/${c.id}/register`} variant="soft" className="ml-auto">
-            Klip ekle
+            Add clip
           </ButtonLink>
         )}
       </div>
@@ -115,10 +114,10 @@ function CampaignBlock({
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
-              <th className="py-2 pr-3 font-normal">Klip</th>
+              <th className="py-2 pr-3 font-normal">Clip</th>
               {Array.from({ length: E }, (_, e) => (
                 <th key={e} className="px-3 py-2 font-normal">
-                  Dönem {e + 1}
+                  Epoch {e + 1}
                 </th>
               ))}
             </tr>
@@ -131,7 +130,7 @@ function CampaignBlock({
                     <span className="text-muted">#{v.clip.id.toString()}</span> {PLATFORM_LABEL[v.clip.platform] ?? v.clip.platform}
                   </a>
                   <span className="block max-w-[10rem] truncate font-mono text-[11px] text-muted">{v.clip.video_id}</span>
-                  <span className="block text-[11px] text-muted">başlangıç {v.clip.baseline.toLocaleString("en-US")}</span>
+                  <span className="block text-[11px] text-muted">baseline {v.clip.baseline.toLocaleString("en-US")}</span>
                   {v.clip.platform === "demo" && <DemoBoostButton videoId={v.clip.video_id} />}
                 </td>
                 {Array.from({ length: E }, (_, e) => {
@@ -144,11 +143,11 @@ function CampaignBlock({
                             <span className="font-mono text-xs text-muted tabular">w {cell.weight.toLocaleString("en-US")}</span>
                             <span className="text-sm">
                               <Amount value={cell.pay} />
-                              <span className="ml-1 text-[10px] text-muted">{cell.final ? "kesin" : "tahmini"}</span>
+                              <span className="ml-1 text-[10px] text-muted">{cell.final ? "final" : "estimate"}</span>
                             </span>
                             {cell.held > 0n && (
                               <span className="text-[11px] text-muted">
-                                hemen <Amount value={cell.immediate} symbol={null} /> · holdback <Amount value={cell.held} symbol={null} />
+                                now <Amount value={cell.immediate} symbol={null} /> · holdback <Amount value={cell.held} symbol={null} />
                               </span>
                             )}
                           </>
@@ -200,13 +199,13 @@ export function MePanel() {
   if (mode === "chain" && !wallet.connected) {
     return (
       <>
-        <PageHeader title="Panelim" description="Kliplerin, dönem durumları ve kazançların." />
+        <PageHeader title="My dashboard" description="Your clips, epoch status and earnings." />
         <EmptyState
-          title="Cüzdanını bağla"
-          description="Panelini görmek için kliplerini kaydettiğin cüzdanı bağla."
+          title="Connect your wallet"
+          description="Connect the wallet you registered your clips with to see your dashboard."
           action={
             <button type="button" onClick={() => wallet.connect()} className="label-mono h-10 rounded-full bg-lime px-5 text-[12px] text-lime-fg">
-              Cüzdan bağla
+              Connect wallet
             </button>
           }
         />
@@ -235,16 +234,16 @@ export function MePanel() {
   return (
     <>
       <PageHeader
-        title="Panelim"
-        description="Kliplerin, dönem durumları ve kazançların. Aksiyonlar yalnızca ilgili aşamada açılır."
+        title="My dashboard"
+        description="Your clips, epoch status and earnings. Actions unlock only during the matching phase."
         actions={<TryRampButton kind="withdraw" />}
       />
 
       <div className="mb-8 grid gap-3 sm:grid-cols-3">
         {[
-          { k: "Kazanılan", v: totals.earned, hint: "Claim edilen ödemeler ve holdback" },
-          { k: "Bekleyen", v: totals.pending, hint: "Claim edilmemiş ya da henüz settle edilmemiş (tahmini)" },
-          { k: "Holdback", v: totals.holdback, hint: "Video sonraki dönemde yayındaysa serbest kalır" },
+          { k: "Earned", v: totals.earned, hint: "Claimed payouts and holdback" },
+          { k: "Pending", v: totals.pending, hint: "Unclaimed, or not settled yet (estimated)" },
+          { k: "Holdback", v: totals.holdback, hint: "Released if the video is still live in the next epoch" },
         ].map((t) => (
           <div key={t.k} className="rounded-[20px] border border-border bg-surface p-5 shadow-card" title={t.hint}>
             <p className="label-mono text-[10px] text-muted">{t.k}</p>
@@ -262,9 +261,9 @@ export function MePanel() {
         </div>
       ) : blocks.length === 0 ? (
         <EmptyState
-          title="Henüz klip yok"
-          description="Bir kampanyaya katıl, kodunu videonun açıklamasına ekle ve linkini kaydet."
-          action={<ButtonLink href="/" variant="outline">Kampanyalara göz at</ButtonLink>}
+          title="No clips yet"
+          description="Join a campaign, add your code to the video description and register the link."
+          action={<ButtonLink href="/" variant="outline">Browse campaigns</ButtonLink>}
         />
       ) : (
         <div className="space-y-6">

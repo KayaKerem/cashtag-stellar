@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useToast } from "./Toast";
 
-/** Kullanıcı onay penceresinde vazgeçti: toast gösterilmez. */
+/** The user cancelled in the confirmation dialog: no toast is shown. */
 export class Cancelled extends Error {
   constructor() {
     super("cancelled");
@@ -18,8 +18,8 @@ const VARIANT: Record<Variant, string> = {
 };
 
 /**
- * Tıkla → imzala → bekle → başarı toast'ı + TxLink. Hata olursa Türkçe mesajlı toast.
- * `disabledReason` verilirse buton pasif olur ve sebep tooltip olarak görünür.
+ * Click -> sign -> wait -> success toast + TxLink. On failure, a toast with a readable message.
+ * With `disabledReason` the button is disabled and the reason shows as a tooltip.
  */
 export function TxButton<T extends { txHash: string }>({
   action,
@@ -68,9 +68,9 @@ export function TxButton<T extends { txHash: string }>({
         className={`label-mono inline-flex h-10 items-center justify-center gap-2 rounded-full px-5 text-[12px] transition disabled:cursor-not-allowed disabled:opacity-45 ${VARIANT[variant]} ${className}`}
       >
         {pending && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
-        {pending ? "İmzalanıyor…" : children}
+        {pending ? "Signing…" : children}
       </button>
-      {/* Dokunmatik ekranda tooltip yok: sebebi butonun altında göster */}
+      {/* No tooltips on touch screens: show the reason under the button */}
       {disabledReason && !pending && <span className="mt-1 max-w-[14rem] text-[10px] leading-tight text-muted sm:hidden">{disabledReason}</span>}
     </span>
   );

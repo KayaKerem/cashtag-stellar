@@ -32,7 +32,7 @@ export function WalletButton({ className = "" }: { className?: string }) {
         disabled={!ready}
         className={`label-mono h-10 rounded-full bg-lime px-5 text-sm text-lime-fg transition hover:opacity-90 disabled:opacity-60 ${className}`}
       >
-        Cüzdan bağla
+        Connect wallet
       </button>
     );
   }
@@ -66,7 +66,7 @@ export function WalletButton({ className = "" }: { className?: string }) {
         >
           <p className="px-2.5 pb-2 pt-1.5 font-mono text-[11px] break-all text-muted">{address}</p>
           <button type="button" role="menuitem" onClick={copy} className="w-full rounded-xl px-2.5 py-2 text-left text-sm hover:bg-surface-2">
-            {copied ? "Kopyalandı ✓" : "Adresi kopyala"}
+            {copied ? "Copied ✓" : "Copy address"}
           </button>
           <a
             role="menuitem"
@@ -75,7 +75,7 @@ export function WalletButton({ className = "" }: { className?: string }) {
             rel="noreferrer"
             className="block rounded-xl px-2.5 py-2 text-sm hover:bg-surface-2"
           >
-            stellar.expert&apos;te gör ↗
+            View on stellar.expert ↗
           </a>
           <button
             type="button"
@@ -86,7 +86,7 @@ export function WalletButton({ className = "" }: { className?: string }) {
             }}
             className="w-full rounded-xl px-2.5 py-2 text-left text-sm text-danger hover:bg-danger-soft"
           >
-            Bağlantıyı kes
+            Disconnect
           </button>
         </div>
       )}

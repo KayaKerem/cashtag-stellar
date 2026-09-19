@@ -11,11 +11,11 @@ const SEG_COLOR: Record<string, string> = {
   arbiter: "bg-danger/40",
 };
 const SEG_SHORT: Record<string, string> = {
-  content: "İçerik",
-  proof: "Kanıt",
-  challenge: "İtiraz",
-  response: "Cevap",
-  arbiter: "Hakem",
+  content: "Content",
+  proof: "Proof",
+  challenge: "Challenge",
+  response: "Response",
+  arbiter: "Arbiter",
 };
 
 type Params = Pick<
@@ -24,8 +24,8 @@ type Params = Pick<
 >;
 
 /**
- * Dönemleri yatay çubuklarda gösterir: içerik → kanıt → itiraz → cevap → hakem, ardından settle.
- * Aktif aşama vurgulanır ve bitişine geri sayım gösterilir. `now` verilmezse canlı saat kullanılır.
+ * Shows epochs as horizontal bars: content -> proof -> challenge -> response -> arbiter, then settle.
+ * The active phase is highlighted with a countdown to its end. Without `now`, a live clock is used.
  */
 export function PhaseTimeline({ params, now: nowProp, compact }: { params: Params; now?: bigint; compact?: boolean }) {
   const liveNow = useNow();
@@ -33,14 +33,14 @@ export function PhaseTimeline({ params, now: nowProp, compact }: { params: Param
   const rows = timelineRows(params as CampaignParams, now);
   const refund = refundAt(params as CampaignParams);
 
-  // Her dönem: içerik başlangıcından settle anına kadar
+  // Each epoch: from the start of content to the settle moment
   const epochs = Array.from({ length: params.epochs }, (_, e) => {
     const segs = rows.filter((r) => r.epoch === e && r.phase !== "settleable");
     const settle = rows.find((r) => r.epoch === e && r.phase === "settleable")!;
     return { e, segs, settle, from: segs[0].start, to: settle.start };
   });
 
-  // Şu an en son başlamış aktif aşama (dönemler üst üste binebilir; en yeni dönemi göster)
+  // The most recently started active phase (epochs can overlap; show the newest one)
   const active: TimelineRow | undefined = [...rows]
     .filter((r) => r.active && r.phase !== "settleable" && r.phase !== "refund")
     .sort((a, b) => Number(b.start - a.start))[0];
@@ -53,20 +53,20 @@ export function PhaseTimeline({ params, now: nowProp, compact }: { params: Param
         <span className={`size-2 rounded-full ${active ? "pulse-lime bg-lime" : "bg-border-strong"}`} aria-hidden />
         <span className="text-sm font-medium">
           {notStarted
-            ? "Kampanya başlamadı"
+            ? "Campaign hasn't started"
             : refundOpen
-              ? "Kampanya bitti · iade açık"
+              ? "Campaign over · refund open"
               : active
                 ? active.label
-                : "Settle / claim zamanı"}
+                : "Settle / claim time"}
         </span>
         <span className="font-mono text-sm tabular text-muted">
           {notStarted
-            ? `başlamasına ${formatDuration(params.start - now)}`
+            ? `starts in ${formatDuration(params.start - now)}`
             : active?.end
-              ? `${formatDuration(active.end - now)} kaldı`
+              ? `${formatDuration(active.end - now)} left`
               : !refundOpen
-                ? `iadeye ${formatDuration(refund - now)}`
+                ? `refund in ${formatDuration(refund - now)}`
                 : ""}
         </span>
       </div>
@@ -77,7 +77,7 @@ export function PhaseTimeline({ params, now: nowProp, compact }: { params: Param
           const settled = now >= settle.start;
           return (
             <div key={e} className="flex items-center gap-3">
-              <span className="w-16 shrink-0 text-xs text-muted">Dönem {e + 1}</span>
+              <span className="w-16 shrink-0 text-xs text-muted">Epoch {e + 1}</span>
               <div className="flex h-7 flex-1 overflow-hidden rounded-lg bg-row">
                 {segs.map((s) => {
                   const w = (Number((s.end ?? s.start) - s.start) / total) * 100;
@@ -106,7 +106,7 @@ export function PhaseTimeline({ params, now: nowProp, compact }: { params: Param
               </div>
               <span
                 className={`label-mono w-16 shrink-0 text-right text-[10px] ${settled ? "text-fg" : "text-muted"}`}
-                title="Bu andan sonra settle edilebilir"
+                title="Settleable from this point on"
               >
                 {settled ? "Settle ✓" : "Settle"}
               </span>

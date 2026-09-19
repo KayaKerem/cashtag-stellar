@@ -5,4 +5,4 @@ export default function Page() {
   return <MePanel />;
 }
 
-export const metadata: Metadata = { title: "Panelim", description: "Kliplerin, dönem durumları ve kazançların." };
+export const metadata: Metadata = { title: "My dashboard", description: "Your clips, epoch status and earnings." };

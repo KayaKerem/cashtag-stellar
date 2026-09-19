@@ -7,8 +7,8 @@ export interface DemoVideo {
 }
 
 /**
- * Demo platformundaki videoyu günceller (verifier `POST /demo/videos/:id/bump`).
- * `desc` açıklamayı yazar, `views` sayıyı ayarlar, `delta` artırır. Mock modunda ağ çağrısı yapılmaz.
+ * Updates a video on the demo platform (verifier `POST /demo/videos/:id/bump`).
+ * `desc` sets the description, `views` sets the count, `delta` increments it. No network call in mock mode.
  */
 export async function bumpDemoVideo(id: string, body: { views?: number; delta?: number; desc?: string }): Promise<DemoVideo> {
   if (API_MODE !== "chain") {
@@ -25,16 +25,16 @@ export async function bumpDemoVideo(id: string, body: { views?: number; delta?: 
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = res.status === 401 ? "Verifier yazma izni reddedildi (WRITE_TOKEN)." : data?.error ?? `Verifier hatası (${res.status})`;
+    const msg = res.status === 401 ? "The verifier rejected the write (WRITE_TOKEN)." : data?.error ?? `Verifier error (${res.status})`;
     throw new Error(msg);
   }
   return data as DemoVideo;
 }
 
-/** Demo açıklaması: kod + reklam etiketi (kanıt açıklamada kodu arar). */
-export const demoDescription = (code: string, title: string) => `${code} #ad ${title || "ClipRail"} kampanyası için demo klip`;
+/** Demo description: the code + the ad tag (the proof looks for the code in the description). */
+export const demoDescription = (code: string, title: string) => `${code} #ad Demo clip for the ${title || "ClipRail"} campaign`;
 
-/** Demo video kimliği önerisi: küçük harf, rakam, tire (≤ 32). */
+/** Suggested demo video ID: lowercase letters, digits and dashes (<= 32). */
 export function suggestDemoId(code: string): string {
   const rand = Math.random().toString(36).slice(2, 7);
   return `clip-${code.replace(/^CR-/, "").toLowerCase()}-${rand}`.slice(0, 32);

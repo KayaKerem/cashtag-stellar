@@ -43,17 +43,17 @@ function Stat({ k, v, hint }: { k: string; v: React.ReactNode; hint?: string }) 
 
 function settleReason(c: CampaignView, epochs: EpochState[], e: number, now: bigint): string | null {
   const st = epochs[e];
-  if (st.settled) return "Settle edildi";
-  if (!canSettle(c.params, e, now)) return `${formatDuration(settleAt(c.params, e) - now)} sonra settle edilebilir`;
-  if (st.open_disputes > 0) return `${st.open_disputes} açık itiraz sonuçlanmalı`;
-  if (e > 0 && !epochs[e - 1].settled) return "Önce önceki dönem settle edilmeli";
+  if (st.settled) return "Settled";
+  if (!canSettle(c.params, e, now)) return `Settleable in ${formatDuration(settleAt(c.params, e) - now)}`;
+  if (st.open_disputes > 0) return `${st.open_disputes} open challenge(s) must be resolved first`;
+  if (e > 0 && !epochs[e - 1].settled) return "The previous epoch must be settled first";
   return null;
 }
 
 function finalizeReason(c: CampaignView, d: Dispute, now: bigint): string | null {
-  if (d.status === "Open") return now >= disputeEnd(c.params, d.epoch) ? null : `Cevap süresi ${formatDuration(disputeEnd(c.params, d.epoch) - now)} sonra biter`;
-  if (d.status === "Responded") return now >= settleAt(c.params, d.epoch) ? null : "Hakem kararı bekleniyor";
-  return "Sonuçlandı";
+  if (d.status === "Open") return now >= disputeEnd(c.params, d.epoch) ? null : `The response window closes in ${formatDuration(disputeEnd(c.params, d.epoch) - now)}`;
+  if (d.status === "Responded") return now >= settleAt(c.params, d.epoch) ? null : "Waiting for the arbiter's decision";
+  return "Resolved";
 }
 
 export function BrandPanel({ id }: { id: bigint }) {
@@ -78,9 +78,9 @@ export function BrandPanel({ id }: { id: bigint }) {
   if (!c) {
     return (
       <EmptyState
-        title="Kampanya bulunamadı"
+        title="Campaign not found"
         description={campaign.error ? errorMessage(campaign.error) : undefined}
-        action={<ButtonLink href="/" variant="outline">Kampanyalara dön</ButtonLink>}
+        action={<ButtonLink href="/" variant="outline">Back to campaigns</ButtonLink>}
       />
     );
   }
@@ -90,36 +90,36 @@ export function BrandPanel({ id }: { id: bigint }) {
   const eps = epochs.data;
   const spent = eps ? eps.reduce((s, st, e) => s + (st.settled ? st.spent : 0n), 0n) : 0n;
   const lastSettled = eps ? [...eps].reverse().find((st) => st.settled) ?? null : null;
-  const refundReason = c.refunded ? "İade alındı" : canRefund(p, now) ? null : `${formatDuration(refundAt(p) - now)} sonra`;
+  const refundReason = c.refunded ? "Refund claimed" : canRefund(p, now) ? null : `In ${formatDuration(refundAt(p) - now)}`;
 
   return (
     <>
       <PageHeader
-        title={p.title || `Kampanya #${c.id}`}
+        title={p.title || `Campaign #${c.id}`}
         description={
           <span className="flex flex-wrap items-center gap-2">
-            Marka paneli · <AddressChip address={c.brand} you={isBrand} />
+            Brand panel · <AddressChip address={c.brand} you={isBrand} />
           </span>
         }
         actions={
           <>
             {isBrand && <TryRampButton kind="deposit" />}
-            <ButtonLink href={`/c/${c.id}`} variant="outline">Public sayfa</ButtonLink>
+            <ButtonLink href={`/c/${c.id}`} variant="outline">Public page</ButtonLink>
           </>
         }
       />
 
       {!isBrand && (
         <p className="mb-6 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info">
-          Bu kampanyanın markası değilsin; panel salt okunur. İtiraz, settle ve iade aksiyonları yalnızca markaya açık.
+          You&apos;re not the brand for this campaign, so this panel is read-only. Challenge, settle and refund actions are open to the brand only.
         </p>
       )}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat k="Toplam bütçe" v={<Amount value={p.budget} />} />
-        <Stat k="Harcanan" v={<Amount value={spent} />} hint="Settle edilmiş dönemlerin toplamı" />
-        <Stat k="Kontrattaki bakiye" v={<Amount value={c.balance} />} hint="Claim edilmemiş paylar dahil" />
-        <Stat k="Devreden" v={<Amount value={carryIn(lastSettled)} />} hint="Son settle edilen dönemden sonrakine geçen" />
+        <Stat k="Total budget" v={<Amount value={p.budget} />} />
+        <Stat k="Spent" v={<Amount value={spent} />} hint="Total across settled epochs" />
+        <Stat k="Contract balance" v={<Amount value={c.balance} />} hint="Includes unclaimed shares" />
+        <Stat k="Carry-over" v={<Amount value={carryIn(lastSettled)} />} hint="Rolls from the last settled epoch into the next one" />
       </div>
 
       <div className="mb-8">
@@ -127,7 +127,7 @@ export function BrandPanel({ id }: { id: bigint }) {
       </div>
 
       <section className="mb-10">
-        <h2 className="display mb-4 text-2xl">Dönemler</h2>
+        <h2 className="display mb-4 text-2xl">Epochs</h2>
         {!eps ? (
           <Skeleton className="h-40" />
         ) : (
@@ -139,8 +139,8 @@ export function BrandPanel({ id }: { id: bigint }) {
               return (
                 <div key={e} className="flex flex-col gap-3 rounded-[20px] border border-border bg-surface p-4 shadow-card sm:flex-row sm:items-center">
                   <div className="w-24 shrink-0">
-                    <p className="display text-lg">Dönem {e + 1}</p>
-                    <p className="label-mono text-[10px] text-muted">{est.final ? "Settle edildi" : "Tahmini"}</p>
+                    <p className="display text-lg">Epoch {e + 1}</p>
+                    <p className="label-mono text-[10px] text-muted">{est.final ? "Settled" : "Estimated"}</p>
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap justify-between gap-x-4 text-xs text-muted">
@@ -148,14 +148,14 @@ export function BrandPanel({ id }: { id: bigint }) {
                         W <span className="font-mono text-fg">{st.total_weight.toLocaleString("en-US")}</span>
                       </span>
                       <span>
-                        oran <Amount value={est.rate} decimals={4} className="text-fg" /> / 1k
+                        rate <Amount value={est.rate} decimals={4} className="text-fg" /> / 1k
                       </span>
                       <span>
                         <Amount value={est.spent} className="text-fg" /> / <Amount value={est.budget} />
                       </span>
-                      {st.open_disputes > 0 && <span className="text-warning">{st.open_disputes} açık itiraz</span>}
+                      {st.open_disputes > 0 && <span className="text-warning">{st.open_disputes} open challenges</span>}
                     </div>
-                    <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-row" aria-label={`Bütçenin %${pct} kadarı`}>
+                    <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-row" aria-label={`${pct}% of the budget`}>
                       <div className={`h-full rounded-full ${est.final ? "bg-lime" : "bg-lime/50"}`} style={{ width: `${Math.min(100, pct)}%` }} />
                     </div>
                   </div>
@@ -164,10 +164,10 @@ export function BrandPanel({ id }: { id: bigint }) {
                       variant="outline"
                       disabledReason={reason}
                       action={() => settle.mutateAsync(e)}
-                      successTitle={`Dönem ${e + 1} settle edildi`}
-                      successBody={() => "Oran kesinleşti; clipper'lar claim edebilir."}
+                      successTitle={`Epoch ${e + 1} settled`}
+                      successBody={() => "The rate is final; clippers can claim now."}
                     >
-                      Dönemi settle et
+                      Settle epoch
                     </TxButton>
                   )}
                 </div>
@@ -178,21 +178,21 @@ export function BrandPanel({ id }: { id: bigint }) {
       </section>
 
       <section className="mb-10">
-        <h2 className="display mb-4 text-2xl">Klipler</h2>
+        <h2 className="display mb-4 text-2xl">Clips</h2>
         {!clips.data ? (
           <Skeleton className="h-40" />
         ) : clips.data.length === 0 ? (
-          <EmptyState title="Henüz klip yok" />
+          <EmptyState title="No clips yet" />
         ) : (
           <div className="overflow-x-auto rounded-[20px] border border-border bg-surface shadow-card">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted">
-                  <th className="px-4 py-3 font-normal">Klip</th>
-                  <th className="px-4 py-3 font-normal">Sahip</th>
+                  <th className="px-4 py-3 font-normal">Clip</th>
+                  <th className="px-4 py-3 font-normal">Owner</th>
                   {Array.from({ length: p.epochs }, (_, e) => (
                     <th key={e} className="px-4 py-3 font-normal">
-                      Dönem {e + 1}
+                      Epoch {e + 1}
                     </th>
                   ))}
                 </tr>
@@ -213,16 +213,16 @@ export function BrandPanel({ id }: { id: bigint }) {
                       const ce = v.epochs[e];
                       const open = canChallenge(p, e, now);
                       const why = !ce
-                        ? "Bu dönem kanıt yok"
+                        ? "No proof for this epoch"
                         : ce.status !== "Active"
-                          ? "Bu klip-dönem için itiraz zaten var"
+                          ? "This clip-epoch already has a challenge"
                           : ce.weight === 0n
-                            ? "Ağırlık 0; itiraz gereksiz"
+                            ? "Weight is 0; no need to challenge"
                             : open
                               ? null
                               : now < proofEnd(p, e)
-                                ? `İtiraz ${formatDuration(proofEnd(p, e) - now)} sonra açılır`
-                                : "İtiraz penceresi kapandı";
+                                ? `Challenges open in ${formatDuration(proofEnd(p, e) - now)}`
+                                : "The challenge window has closed";
                       return (
                         <td key={e} className="px-4 py-3">
                           <div className="flex flex-col items-start gap-1.5">
@@ -242,7 +242,7 @@ export function BrandPanel({ id }: { id: bigint }) {
                                   onClick={() => setChallengeFor({ clip: v, e })}
                                   className="label-mono h-8 rounded-full border border-danger/40 px-3 text-[10px] text-danger transition hover:bg-danger-soft disabled:cursor-not-allowed disabled:opacity-40"
                                 >
-                                  İtiraz et
+                                  Challenge
                                 </button>
                               </span>
                             )}
@@ -259,11 +259,11 @@ export function BrandPanel({ id }: { id: bigint }) {
       </section>
 
       <section className="mb-10">
-        <h2 className="display mb-4 text-2xl">İtirazlar</h2>
+        <h2 className="display mb-4 text-2xl">Challenges</h2>
         {!disputes.data ? (
           <Skeleton className="h-24" />
         ) : disputes.data.length === 0 ? (
-          <EmptyState title="İtiraz yok" />
+          <EmptyState title="No challenges" />
         ) : (
           <ul className="space-y-3">
             {disputes.data.map((d) => {
@@ -275,7 +275,7 @@ export function BrandPanel({ id }: { id: bigint }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs text-muted">#{d.id.toString()}</span>
                       <span className="text-sm">
-                        Klip #{d.clip_id.toString()} · Dönem {d.epoch + 1}
+                        Clip #{d.clip_id.toString()} · Epoch {d.epoch + 1}
                       </span>
                       <StatusPill status={d.status} />
                     </div>
@@ -286,10 +286,10 @@ export function BrandPanel({ id }: { id: bigint }) {
                       variant="outline"
                       disabledReason={reason}
                       action={() => finalize.mutateAsync(d.id)}
-                      successTitle="İtiraz sonuçlandı"
-                      successBody={() => (d.status === "Open" ? "Cevap gelmedi: klip dışlandı, teminatın iade edildi." : "Hakem süresi doldu: clipper kazandı.")}
+                      successTitle="Challenge resolved"
+                      successBody={() => (d.status === "Open" ? "No response: the clip is excluded and your bond is returned." : "The arbiter window ran out: the clipper wins.")}
                     >
-                      Sonuçlandır
+                      Finalize
                     </TxButton>
                   )}
                 </li>
@@ -302,26 +302,26 @@ export function BrandPanel({ id }: { id: bigint }) {
       {isBrand && (
         <section className="flex flex-col gap-3 rounded-[20px] border border-border bg-panel p-5 sm:flex-row sm:items-center">
           <div className="flex-1">
-            <h2 className="display text-xl">İade</h2>
+            <h2 className="display text-xl">Refund</h2>
             <p className="mt-1 text-sm text-muted">
-              Claim süresi bitince harcanmayan bütçe, yanan holdback ve claim edilmemiş paylar markaya döner. Şu an kontratta{" "}
-              <Amount value={c.balance} className="text-fg" /> var.
+              When the claim window ends, unspent budget, forfeited holdback and unclaimed shares go back to the brand. The contract currently holds{" "}
+              <Amount value={c.balance} className="text-fg" />.
             </p>
           </div>
           <TxButton
             disabledReason={refundReason}
             action={() => refund.mutateAsync(undefined)}
-            successTitle="İade alındı"
+            successTitle="Refund claimed"
             successBody={(r) => <Amount value={r.amount} />}
           >
-            İade al
+            Claim refund
           </TxButton>
         </section>
       )}
 
       {challengeFor && (
         <ChallengeDialog
-          clipLabel={`Klip #${challengeFor.clip.clip.id} · ${PLATFORM_LABEL[challengeFor.clip.clip.platform] ?? challengeFor.clip.clip.platform}`}
+          clipLabel={`Clip #${challengeFor.clip.clip.id} · ${PLATFORM_LABEL[challengeFor.clip.clip.platform] ?? challengeFor.clip.clip.platform}`}
           epoch={challengeFor.e}
           bond={p.bond}
           onClose={() => setChallengeFor(null)}

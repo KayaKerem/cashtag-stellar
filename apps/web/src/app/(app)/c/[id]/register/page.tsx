@@ -10,5 +10,5 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `Klip kaydet · Kampanya #${id}`, description: "Linkini gir; açılış kanıtı zkTLS ile üretilir." };
+  return { title: `Register clip · Campaign #${id}`, description: "Paste your link; the opening proof is generated with zkTLS." };
 }

@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "./ApiProvider";
 
-/** Faz ve zaman çizelgesi verisi bu aralıkla tazelenir (DEVELOPMENT_PLAN §6: 5 sn) */
+/** Phase and timeline data refresh on this interval (DEVELOPMENT_PLAN §6: 5s) */
 export const LIVE_MS = 5_000;
 
 export const qk = {
@@ -41,7 +41,7 @@ export function useEpoch(id: bigint | null, e: number) {
   });
 }
 
-/** Kampanyanın tüm dönem durumları (dönem sayısı kampanyadan gelir) */
+/** Every epoch state of a campaign (the epoch count comes from the campaign) */
 export function useEpochs(id: bigint | null, epochs: number | undefined) {
   const { api } = useApi();
   return useQuery({
@@ -91,8 +91,8 @@ export function useDisputes(id: bigint | null) {
 }
 
 /**
- * Yazma işlemi: API'yi çağırır, başarıda ilgili kampanyanın (ya da tüm) sorgularını tazeler.
- * Kullanım: const join = useWrite((api, id: bigint) => api.join(id), { campaignId });
+ * A write: calls the API and, on success, refreshes that campaign's queries (or all of them).
+ * Usage: const join = useWrite((api, id: bigint) => api.join(id), { campaignId });
  */
 export function useWrite<TArgs, TResult extends { txHash: string }>(
   fn: (api: ReturnType<typeof useApi>["api"], args: TArgs) => Promise<TResult>,

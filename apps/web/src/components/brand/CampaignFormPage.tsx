@@ -111,29 +111,29 @@ export function CampaignFormPage() {
       return;
     }
     if (!params) {
-      toast.show({ tone: "error", title: "Formda düzeltilmesi gereken alanlar var" });
+      toast.show({ tone: "error", title: "Some fields still need fixing" });
       return;
     }
     try {
       if (fundWith === "xlm") {
         const res = await createSwap.mutateAsync(params);
-        toast.success(`Kampanya #${res.id} kuruldu`, {
+        toast.success(`Campaign #${res.id} created`, {
           txHash: res.txHash,
-          body: "XLM Soroswap'ta USDC'ye çevrilip kontrata kilitlendi.",
+          body: "Your XLM was swapped for USDC on Soroswap and locked in the contract.",
         });
         router.push(`/c/${res.id}`);
       } else {
         const res = await create.mutateAsync(params);
-        toast.success(`Kampanya #${res.id} kuruldu`, { txHash: res.txHash, body: "Bütçe kontrata kilitlendi." });
+        toast.success(`Campaign #${res.id} created`, { txHash: res.txHash, body: "The budget is locked in the contract." });
         router.push(`/c/${res.id}`);
       }
     } catch (err) {
-      if (fundWith === "xlm") toast.show({ tone: "error", title: "Kampanya kurulamadı", body: swapErrorMessage(err) });
-      else toast.error(err, "Kampanya kurulamadı");
+      if (fundWith === "xlm") toast.show({ tone: "error", title: "Couldn't create the campaign", body: swapErrorMessage(err) });
+      else toast.error(err, "Couldn't create the campaign");
     }
   }
 
-  // Önizleme: form geçerli olmasa da okunabilen alanlarla zaman çizelgesi
+  // Preview: a timeline from whatever fields are readable, even if the form is not valid yet
   const preview = (() => {
     const n = (v: string, d: number) => (/^\d+$/.test(v) ? BigInt(v) : BigInt(d));
     const epochs = Math.min(Math.max(Number(n(form.epochs, 1)), 1), 8);
@@ -151,8 +151,8 @@ export function CampaignFormPage() {
   return (
     <>
       <PageHeader
-        title="Yeni kampanya"
-        description="Bütçeyi kilitle, kuralları belirle. Kampanya kurulduktan sonra kurallar kimse tarafından değiştirilemez."
+        title="New campaign"
+        description="Lock the budget, set the rules. Once the campaign is created, no one can change them."
         actions={
           <>
             <TryRampButton kind="deposit" />
@@ -164,7 +164,7 @@ export function CampaignFormPage() {
               }}
               className="label-mono h-10 rounded-full border border-border-strong px-5 text-[12px] hover:bg-surface-2"
             >
-              Demo ön ayarı
+              Demo preset
             </button>
           </>
         }
@@ -172,82 +172,82 @@ export function CampaignFormPage() {
 
       <form onSubmit={submit} noValidate className="grid gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
         <div className="grid gap-5">
-          <Group title="Kampanya" desc="Clipper'ların göreceği ad ve kaynak içerik.">
+          <Group title="Campaign" desc="The name clippers see, and the source content.">
             <div className="sm:col-span-2">
-              <Field label="Başlık" error={shown.title} suffix={`${new TextEncoder().encode(form.title).length}/64`}>
-                <input {...text("title")} placeholder="Yaz koleksiyonu klipleri" />
+              <Field label="Title" error={shown.title} suffix={`${new TextEncoder().encode(form.title).length}/64`}>
+                <input {...text("title")} placeholder="Summer collection clips" />
               </Field>
             </div>
             <div className="sm:col-span-2">
-              <Field label="Brief / kaynak video linki" help="İsteğe bağlı. Clipper'ların keseceği ana içerik." error={shown.brief_url}>
+              <Field label="Brief / source video link" help="Optional. The main content clippers will cut from." error={shown.brief_url}>
                 <input {...text("brief_url")} placeholder="https://…" inputMode="url" />
               </Field>
             </div>
           </Group>
 
-          <Group title="Bütçe ve oran" desc="Bütçe kampanya kurulurken kontrata transfer edilir ve dönemlere eşit bölünür.">
-            <Field label="Toplam bütçe" help="USDC. Her dönem bütçe/dönem sayısı kadar dağıtılır; harcanmayan sonraki döneme devreder." error={shown.budget} suffix="USDC">
+          <Group title="Budget and rate" desc="The budget is transferred to the contract at creation and split evenly across epochs.">
+            <Field label="Total budget" help="USDC. Each epoch pays out budget ÷ epochs; whatever is left carries into the next epoch." error={shown.budget} suffix="USDC">
               <input {...text("budget")} inputMode="decimal" placeholder="500" />
             </Field>
             <FundingChoice value={fundWith} onChange={setFundWith} budget={budgetValue} />
-            <Field label="Oran tavanı" help="1000 izlenme başına en fazla ödeme. Talep fazlaysa oran orantılı düşer: r = min(tavan, 1000·B/W)." error={shown.rate_max_per_1k} suffix="USDC / 1k">
+            <Field label="Rate cap" help="The most you pay per 1,000 views. If demand is higher, the rate drops pro rata: r = min(cap, 1000·B/W)." error={shown.rate_max_per_1k} suffix="USDC / 1k">
               <input {...text("rate_max_per_1k")} inputMode="decimal" placeholder="1" />
             </Field>
           </Group>
 
-          <Group title="Tavanlar" desc="Bot izlenmeye ve tek kişinin bütçeyi yutmasına karşı dönem başına sınırlar.">
-            <Field label="Klip başına tavan" help="Bir klibin bir dönemde sayılacak en fazla izlenmesi." error={shown.cap_views_clip} suffix="izlenme">
+          <Group title="Caps" desc="Per-epoch limits against bot views and any one person soaking up the budget.">
+            <Field label="Cap per clip" help="The most views a single clip can count in one epoch." error={shown.cap_views_clip} suffix="views">
               <input {...text("cap_views_clip")} inputMode="numeric" />
             </Field>
-            <Field label="İnsan başına tavan" help="Bir kişinin tüm klipleri toplamında sayılacak en fazla izlenme." error={shown.cap_views_human} suffix="izlenme">
+            <Field label="Cap per human" help="The most views one person can count across all their clips." error={shown.cap_views_human} suffix="views">
               <input {...text("cap_views_human")} inputMode="numeric" />
             </Field>
-            <Field label="Minimum izlenme" help="Bir klibin dönemde bundan az artışı 0 sayılır." error={shown.min_views} suffix="izlenme">
+            <Field label="Minimum views" help="A clip gaining less than this in an epoch counts as 0." error={shown.min_views} suffix="views">
               <input {...text("min_views")} inputMode="numeric" />
             </Field>
           </Group>
 
-          <Group title="Zaman çizelgesi" desc="Her dönem: içerik → kanıt → itiraz → cevap → hakem → settle. Pencereler dönem süresine sığmalı.">
-            <Field label="Başlangıç" help="Şu andan kaç saniye sonra başlasın (en az 30 sn; imza süresi için)." error={shown.start_in} suffix={secs("start_in")}>
+          <Group title="Timeline" desc="Every epoch: content → proof → challenge → response → arbiter → settle. The windows must fit inside the epoch.">
+            <Field label="Start" help="How many seconds from now it starts (at least 30s, to leave time for signing)." error={shown.start_in} suffix={secs("start_in")}>
               <input {...text("start_in")} inputMode="numeric" />
             </Field>
-            <Field label="Dönem sayısı" error={shown.epochs} suffix="en fazla 52">
+            <Field label="Epochs" error={shown.epochs} suffix="max 52">
               <input {...text("epochs")} inputMode="numeric" />
             </Field>
-            <Field label="Dönem süresi" help="Saniye." error={shown.epoch_len} suffix={secs("epoch_len")}>
+            <Field label="Epoch length" help="In seconds." error={shown.epoch_len} suffix={secs("epoch_len")}>
               <input {...text("epoch_len")} inputMode="numeric" />
             </Field>
-            <Field label="Kanıt penceresi" help="Dönem bitince kapanış kanıtlarının gönderildiği süre." error={shown.proof_window} suffix={secs("proof_window")}>
+            <Field label="Proof window" help="How long closing proofs can be submitted after an epoch ends." error={shown.proof_window} suffix={secs("proof_window")}>
               <input {...text("proof_window")} inputMode="numeric" />
             </Field>
-            <Field label="İtiraz penceresi" help="Yarısı itiraz açmak, yarısı cevap vermek için." error={shown.dispute_window} suffix={secs("dispute_window")}>
+            <Field label="Challenge window" help="Half for opening challenges, half for responding to them." error={shown.dispute_window} suffix={secs("dispute_window")}>
               <input {...text("dispute_window")} inputMode="numeric" />
             </Field>
-            <Field label="Hakem penceresi" help="Cevaplanmış itirazlara hakemin karar süresi." error={shown.arbiter_window} suffix={secs("arbiter_window")}>
+            <Field label="Arbiter window" help="How long the arbiter has to decide challenges that got a response." error={shown.arbiter_window} suffix={secs("arbiter_window")}>
               <input {...text("arbiter_window")} inputMode="numeric" />
             </Field>
-            <Field label="Claim süresi" help="Son settle'dan sonra claim için kalan süre; sonra kalan bakiye markaya döner. En az bir dönem." error={shown.claim_grace} suffix={secs("claim_grace")}>
+            <Field label="Claim window" help="How long claims stay open after the last settle; the remaining balance then goes back to the brand. At least one epoch." error={shown.claim_grace} suffix={secs("claim_grace")}>
               <input {...text("claim_grace")} inputMode="numeric" />
             </Field>
           </Group>
 
-          <Group title="İtiraz ve holdback" desc="Teminatlı itiraz ve silinen videolara karşı tutma payı.">
-            <Field label="Holdback" help="Payın bu kısmı video sonraki dönemde yayındaysa serbest kalır; son dönemde uygulanmaz." error={shown.holdback_pct} suffix="%">
+          <Group title="Challenges and holdback" desc="Bonded challenges, and a holdback against deleted videos.">
+            <Field label="Holdback" help="This share of a payout is released if the video is still live in the next epoch; not applied in the last epoch." error={shown.holdback_pct} suffix="%">
               <input {...text("holdback_pct")} inputMode="decimal" />
             </Field>
-            <Field label="İtiraz teminatı" help="İtiraz eden ve cevap veren yatırır; kaybeden kaybeder." error={shown.bond} suffix="USDC">
+            <Field label="Challenge bond" help="Posted by both the challenger and the responder; the loser forfeits it." error={shown.bond} suffix="USDC">
               <input {...text("bond")} inputMode="decimal" />
             </Field>
             <div className="sm:col-span-2">
-              <Field label="Hakem adresi" help="Cevaplanmış itirazlara karar verir. Marka olamaz. Varsayılan: ekip hakem hesabı." error={shown.arbiter}>
+              <Field label="Arbiter address" help="Decides challenges that got a response. Can&apos;t be the brand. Defaults to the team arbiter account." error={shown.arbiter}>
                 <input {...text("arbiter")} className={`${inputCls(shown.arbiter)} font-mono text-xs`} spellCheck={false} />
               </Field>
             </div>
           </Group>
 
-          <Group title="Platformlar ve kimlik" desc="Kanıtı kabul edilecek platformlar ve tek insan şartı.">
+          <Group title="Platforms and identity" desc="The platforms proofs are accepted from, and the unique-human requirement.">
             <div className="sm:col-span-2">
-              <span className="text-sm font-medium">Platformlar</span>
+              <span className="text-sm font-medium">Platforms</span>
               <div className="mt-2 flex flex-wrap gap-2">
                 {(["youtube", "demo"] as Platform[]).map((p) => {
                   const on = form.platforms.includes(p);
@@ -259,7 +259,7 @@ export function CampaignFormPage() {
                       aria-pressed={on}
                       className={`rounded-full border px-4 py-2 text-sm transition ${on ? "border-transparent bg-lime text-lime-fg" : "border-border-strong hover:bg-surface-2"}`}
                     >
-                      {p === "youtube" ? "YouTube" : "Demo (canlı gösterim)"}
+                      {p === "youtube" ? "YouTube" : "Demo (live demo)"}
                     </button>
                   );
                 })}
@@ -274,8 +274,8 @@ export function CampaignFormPage() {
                 className="mt-0.5 size-4 accent-[var(--lime)]"
               />
               <span className="text-sm">
-                <span className="font-medium">Tek insan zorunlu</span>
-                <span className="block text-muted">Katılmadan önce insan doğrulaması gerekir; bir kişi kampanyaya bir kez katılır.</span>
+                <span className="font-medium">Require human verification</span>
+                <span className="block text-muted">Verification is required before joining; one person joins a campaign once.</span>
               </span>
             </label>
           </Group>
@@ -286,12 +286,12 @@ export function CampaignFormPage() {
           <div className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
             <p className="text-sm text-muted">
               {fundWith === "xlm"
-                ? "Gönderdiğinde XLM tek işlemde Soroswap'ta USDC'ye çevrilir ve kontrata kilitlenir; takas başarısız olursa hiçbir şey kilitlenmez."
-                : "Gönderdiğinde bütçe cüzdanından kontrata transfer edilir."}{" "}
-              Bu kurallar sonradan <strong className="text-fg">değiştirilemez</strong>.
+                ? "On submit, your XLM is swapped for USDC on Soroswap and locked in the contract in one transaction; if the swap fails, nothing is locked."
+                : "On submit, the budget is transferred from your wallet to the contract."}{" "}
+              These rules <strong className="text-fg">can never be changed</strong> afterwards.
             </p>
             {touched && Object.keys(errors).length > 0 && (
-              <p className="mt-3 text-sm text-danger">{Object.keys(errors).length} alanda hata var.</p>
+              <p className="mt-3 text-sm text-danger">{Object.keys(errors).length} field(s) need fixing.</p>
             )}
             <button
               type="submit"
@@ -299,7 +299,7 @@ export function CampaignFormPage() {
               className="label-mono mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink text-sm text-ink-fg transition hover:opacity-90 disabled:opacity-50"
             >
               {pending && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
-              {needWallet ? "Önce cüzdan bağla" : pending ? "İmzalanıyor…" : fundWith === "xlm" ? "XLM ile fonla ve kur" : "Kampanyayı kur"}
+              {needWallet ? "Connect a wallet first" : pending ? "Signing…" : fundWith === "xlm" ? "Fund with XLM and create" : "Create campaign"}
             </button>
           </div>
         </aside>

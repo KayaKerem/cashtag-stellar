@@ -7,16 +7,16 @@ export const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015";
 type Kit = typeof import("@creit.tech/stellar-wallets-kit").StellarWalletsKit;
 
 export interface WalletState {
-  /** Kit yüklendi ve kayıtlı oturum okundu */
+  /** The kit is loaded and any stored session has been read */
   ready: boolean;
   address: string | null;
   connected: boolean;
-  /** Cüzdanın bildirdiği ağ; bilinmiyorsa null */
+  /** The network reported by the wallet; null when unknown */
   networkPassphrase: string | null;
   isTestnet: boolean;
   connect(): Promise<string | null>;
   disconnect(): Promise<void>;
-  /** @cliprail/client Signer ile aynı imza */
+  /** Same signature as the @cliprail/client Signer */
   signTransaction(xdr: string, opts: { networkPassphrase: string; address?: string }): Promise<{ signedTxXdr: string }>;
   getAddress(): Promise<string>;
 }
@@ -49,7 +49,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       kitRef.current = kit;
       const { KitEventType } = await import("@creit.tech/stellar-wallets-kit/types");
-      // STATE_UPDATED açılışta da tetiklenir: kayıtlı adres ve ağ buradan gelir
+      // STATE_UPDATED also fires on load: the stored address and network arrive here
       off = kit.on(KitEventType.STATE_UPDATED, (e) => {
         setAddress(e.payload.address ?? null);
         setNetworkPassphrase(e.payload.networkPassphrase ?? null);
@@ -58,7 +58,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         const { address: a } = await kit.getAddress();
         if (!cancelled && a) setAddress(a);
       } catch {
-        // bağlı cüzdan yok
+        // no wallet connected
       }
       if (!cancelled) setReady(true);
     })();
@@ -77,12 +77,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         const net = await kit.getNetwork();
         setNetworkPassphrase(net.networkPassphrase);
       } catch {
-        // bazı cüzdanlar ağ bilgisini vermiyor
+        // some wallets do not report the network
       }
       return a;
     } catch (e) {
-      // code -1: kullanıcı modalı kapattı; diğerleri gerçek cüzdan hatası
-      if ((e as { code?: number })?.code !== -1) console.warn("Cüzdan bağlanamadı", e);
+      // code -1: the user closed the modal; anything else is a real wallet error
+      if ((e as { code?: number })?.code !== -1) console.warn("Wallet connection failed", e);
       return null;
     }
   }, []);
@@ -106,7 +106,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const getAddress = useCallback(async () => {
     const kit = await getKit();
     const { address: a } = await kit.getAddress();
-    if (!a) throw new Error("Cüzdan bağlı değil");
+    if (!a) throw new Error("Wallet not connected");
     return a;
   }, []);
 
@@ -130,6 +130,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
 export function useWallet(): WalletState {
   const ctx = useContext(WalletContext);
-  if (!ctx) throw new Error("useWallet, WalletProvider içinde kullanılmalı");
+  if (!ctx) throw new Error("useWallet must be used inside WalletProvider");
   return ctx;
 }

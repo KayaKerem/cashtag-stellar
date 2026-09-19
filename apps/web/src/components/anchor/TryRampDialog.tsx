@@ -20,24 +20,24 @@ const STEPS: Record<RampKind, AnchorRampStep[]> = {
 
 const COPY: Record<RampKind, { title: string; desc: string; amountLabel: string; unit: string; placeholder: string; button: string }> = {
   deposit: {
-    title: "TL yatır",
-    desc: "Banka havalesiyle TL gönder, cüzdanına USDC gelsin. Kampanya bütçesi bu USDC ile kilitlenir.",
-    amountLabel: "Yatırılacak tutar",
-    unit: "TL",
+    title: "Deposit TRY",
+    desc: "Send TRY by bank transfer and get USDC in your wallet. The campaign budget is locked with that USDC.",
+    amountLabel: "Amount to deposit",
+    unit: "TRY",
     placeholder: "5000",
-    button: "TL yatır",
+    button: "Deposit TRY",
   },
   withdraw: {
-    title: "TL'ye çek",
-    desc: "Kazandığın USDC'yi anchor'a gönder, banka hesabına TL gelsin.",
-    amountLabel: "Çekilecek tutar",
+    title: "Withdraw to TRY",
+    desc: "Send the USDC you earned to the anchor and get TRY in your bank account.",
+    amountLabel: "Amount to withdraw",
     unit: "USDC",
     placeholder: "5",
-    button: "TL'ye çek",
+    button: "Withdraw to TRY",
   },
 };
 
-/** TL 2, USDC 7 ondalık (client `checkAmount` ile aynı sınır) */
+/** TRY 2 decimals, USDC 7 (the same limit as the client `checkAmount`) */
 const DECIMALS: Record<RampKind, number> = { deposit: 2, withdraw: 7 };
 const IBAN_RE = /^TR\d{24}$/;
 
@@ -46,7 +46,7 @@ function normalizeAmount(v: string, decimals: number): string | null {
   return new RegExp(`^\\d+(\\.\\d{1,${decimals}})?$`).test(t) && Number(t) > 0 ? t : null;
 }
 
-/** Yazmayı bitirince (400 ms) değeri verir; canlı kur sorgusu her tuşta gitmesin */
+/** Returns the value once typing stops (400 ms), so the live rate query does not fire on every key */
 function useDebounced<T>(value: T, ms = 400): T {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -82,7 +82,7 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
   const ibanBad = kind === "withdraw" && ibanClean !== "" && !IBAN_RE.test(ibanClean);
   const debounced = useDebounced(parsed);
 
-  // Onay öncesi gösterge kur (SEP-38 price; cüzdan ve giriş gerekmez)
+  // Indicative rate before confirmation (SEP-38 price; no wallet or sign-in needed)
   const price = useQuery({
     queryKey: ["anchor", "price", ANCHOR_HOME_DOMAIN, kind, debounced],
     queryFn: () => ramp.priceTRY({ direction: kind, amount: debounced! }),
@@ -94,15 +94,15 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
 
   const needWallet = mode === "chain" && !wallet.connected;
   const disabledReason = needWallet
-    ? "Önce cüzdan bağla"
+    ? "Connect a wallet first"
     : !parsed
       ? amount.trim()
-        ? `Geçersiz tutar (en fazla ${DECIMALS[kind]} ondalık)`
-        : "Tutar gir"
+        ? `Invalid amount (at most ${DECIMALS[kind]} decimals)`
+        : "Enter an amount"
       : ibanBad
-        ? "IBAN TR ile başlayan 26 karakter olmalı"
+        ? "The IBAN must be 26 characters starting with TR"
         : !account
-          ? "Hesap yok"
+          ? "No account"
           : null;
 
   async function run() {
@@ -132,7 +132,7 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
       ref={ref}
       onClose={onClose}
       onCancel={(e) => {
-        if (running) e.preventDefault(); // işlem sürerken Esc ile kapanmasın
+        if (running) e.preventDefault(); // do not let Esc close it mid-transaction
       }}
       className="m-auto w-[min(92vw,520px)] rounded-[20px] border border-border bg-surface p-0 text-fg shadow-float backdrop:bg-black/50"
     >
@@ -171,7 +171,7 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
               <label className="mt-3 block">
                 <span className="flex items-baseline justify-between text-sm font-medium">
                   IBAN
-                  <span className="font-mono text-[11px] font-normal text-muted">isteğe bağlı (test)</span>
+                  <span className="font-mono text-[11px] font-normal text-muted">optional (test)</span>
                 </span>
                 <input
                   value={iban}
@@ -181,15 +181,15 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
                   spellCheck={false}
                   className={`mt-1.5 h-11 w-full rounded-xl border bg-surface px-3.5 font-mono text-sm outline-none transition focus:border-fg disabled:opacity-60 ${ibanBad ? "border-danger" : "border-border-strong"}`}
                 />
-                <span className="mt-1 block text-xs text-muted">Boş bırakırsan anchor'ın test IBAN'ına ödenir (simüle FAST ödemesi).</span>
+                <span className="mt-1 block text-xs text-muted">Leave it empty to pay out to the anchor&apos;s test IBAN (a simulated FAST payment).</span>
               </label>
             )}
 
             <div className="mt-4 rounded-2xl bg-panel p-4 text-sm" aria-live="polite">
               {!parsed ? (
-                <p className="text-muted">Kur için tutar gir.</p>
+                <p className="text-muted">Enter an amount to see the rate.</p>
               ) : price.isLoading || debounced !== parsed ? (
-                <p className="text-muted">Kur teklifi alınıyor…</p>
+                <p className="text-muted">Getting the rate quote…</p>
               ) : price.error ? (
                 <p className="text-danger">{errorMessage(price.error)}</p>
               ) : price.data ? (
@@ -201,15 +201,15 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
                   </p>
                   <p className="mt-1 text-xs text-muted">
                     {price.data.tryPerUsdc !== undefined && formatTryRate(price.data.tryPerUsdc)}
-                    {price.data.feeTotal && ` · ücret ${price.data.feeAsset?.startsWith("iso4217") ? formatTry(price.data.feeTotal) : `${Number(price.data.feeTotal).toFixed(4)} USDC`}`}
-                    {" · "}gösterge kur, onayda SEP-38 teklifi sabitlenir
+                    {price.data.feeTotal && ` · fee ${price.data.feeAsset?.startsWith("iso4217") ? formatTry(price.data.feeTotal) : `${Number(price.data.feeTotal).toFixed(4)} USDC`}`}
+                    {" · "}indicative rate; a SEP-38 quote is locked on confirmation
                   </p>
                 </>
               ) : null}
             </div>
 
             {step && (
-              <ol className="mt-4 space-y-1.5 text-sm" aria-label="İşlem adımları">
+              <ol className="mt-4 space-y-1.5 text-sm" aria-label="Transaction steps">
                 {steps.map((s, i) => {
                   const state = error && i === stepIdx ? "error" : i < stepIdx || step === "done" ? "done" : i === stepIdx ? "active" : "todo";
                   return (
@@ -238,11 +238,11 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
 
             {kind === "deposit" && (
               <p className="mt-4 text-xs text-muted">
-                Cüzdan onayları: USDC trustline (yoksa) ve anchor girişi (SEP-10). Test anchor'ında havale simüle edilir, KYC otomatik onaylanır.
+                Wallet approvals: a USDC trustline (if missing) and the anchor sign-in (SEP-10). On the test anchor the bank transfer is simulated and KYC is auto-approved.
               </p>
             )}
             {kind === "withdraw" && (
-              <p className="mt-4 text-xs text-muted">Cüzdan onayları: anchor girişi (SEP-10) ve anchor hesabına memo'lu USDC ödemesi.</p>
+              <p className="mt-4 text-xs text-muted">Wallet approvals: the anchor sign-in (SEP-10) and a USDC payment to the anchor account with a memo.</p>
             )}
 
             <div className="mt-5 flex justify-end gap-2">
@@ -252,7 +252,7 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
                 disabled={running}
                 className="label-mono h-10 rounded-full border border-border-strong px-5 text-[12px] hover:bg-surface-2 disabled:opacity-50"
               >
-                {error ? "Kapat" : "Vazgeç"}
+                {error ? "Close" : "Cancel"}
               </button>
               <span title={disabledReason ?? undefined}>
                 <button
@@ -263,7 +263,7 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
                   className="label-mono inline-flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-[12px] text-ink-fg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {running && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
-                  {needWallet ? "Cüzdan bağla" : running ? "Sürüyor…" : error ? "Tekrar dene" : c.button}
+                  {needWallet ? "Connect wallet" : running ? "Working…" : error ? "Try again" : c.button}
                 </button>
               </span>
             </div>
@@ -271,8 +271,8 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
         )}
 
         <p className="mt-5 border-t border-border pt-3 text-[11px] leading-relaxed text-muted">
-          Anchor, SEP-10/12/38 ve SEP-6 standartlarıyla TL ↔ Stellar varlığı dönüşümü yapar. BiLira gibi gerçek Türk anchor&apos;ları aynı SEP
-          arayüzünü kullanır; yalnızca anchor adresi değişir (<span className="font-mono">{ANCHOR_HOME_DOMAIN}</span>).
+          The anchor converts between TRY and Stellar assets over SEP-10/12/38 and SEP-6. Real Turkish anchors such as BiLira use the same
+          SEP interface; only the anchor address changes (<span className="font-mono">{ANCHOR_HOME_DOMAIN}</span>).
         </p>
       </div>
     </dialog>
@@ -294,7 +294,7 @@ function ResultView({ result }: { result: Result }) {
   return (
     <div className="mt-5">
       <div className="rounded-2xl bg-success-soft p-4">
-        <p className="label-mono text-[10px] text-success">Tamamlandı · {r.statusLabel}</p>
+        <p className="label-mono text-[10px] text-success">Completed · {r.statusLabel}</p>
         <p className="mt-1.5 font-mono text-2xl tabular">
           {result.kind === "deposit" ? `+${Number(result.r.usdcReceived).toFixed(2)} USDC` : formatTry(result.r.tryPaidOut)}
         </p>
@@ -303,13 +303,13 @@ function ResultView({ result }: { result: Result }) {
       <div className="mt-3 divide-y divide-border rounded-2xl border border-border px-4">
         {result.kind === "deposit" ? (
           <>
-            <Row k="Gönderilen" v={formatTry(result.r.amountTRY)} />
-            {result.r.feeTRY && <Row k="Anchor ücreti" v={formatTry(result.r.feeTRY)} />}
-            {result.r.bankName && <Row k="Banka" v={result.r.bankName} />}
+            <Row k="Sent" v={formatTry(result.r.amountTRY)} />
+            {result.r.feeTRY && <Row k="Anchor fee" v={formatTry(result.r.feeTRY)} />}
+            {result.r.bankName && <Row k="Bank" v={result.r.bankName} />}
             {result.r.iban && <Row k="Anchor IBAN" v={<span className="font-mono text-xs">{result.r.iban}</span>} />}
             {result.r.reference && (
               <Row
-                k="Havale referansı"
+                k="Transfer reference"
                 v={
                   <span className="inline-flex items-center gap-2">
                     <span className="font-mono text-xs">{result.r.reference}</span>
@@ -321,18 +321,18 @@ function ResultView({ result }: { result: Result }) {
           </>
         ) : (
           <>
-            <Row k="Gönderilen" v={`${Number(result.r.amountUSDC).toFixed(2)} USDC`} />
-            {result.r.feeTRY && <Row k="Anchor ücreti" v={formatTry(result.r.feeTRY)} />}
-            {result.r.iban && <Row k="Ödenen IBAN" v={<span className="font-mono text-xs">{result.r.iban}</span>} />}
-            {result.r.payoutReference && <Row k="Ödeme referansı" v={<span className="font-mono text-xs">{result.r.payoutReference}</span>} />}
+            <Row k="Sent" v={`${Number(result.r.amountUSDC).toFixed(2)} USDC`} />
+            {result.r.feeTRY && <Row k="Anchor fee" v={formatTry(result.r.feeTRY)} />}
+            {result.r.iban && <Row k="Paid-out IBAN" v={<span className="font-mono text-xs">{result.r.iban}</span>} />}
+            {result.r.payoutReference && <Row k="Payout reference" v={<span className="font-mono text-xs">{result.r.payoutReference}</span>} />}
           </>
         )}
-        {stellarHash && <Row k="Stellar işlemi" v={<TxLink hash={stellarHash} />} />}
+        {stellarHash && <Row k="Stellar transaction" v={<TxLink hash={stellarHash} />} />}
       </div>
       <div className="mt-5 flex justify-end">
         <form method="dialog">
           <button type="submit" className="label-mono h-10 rounded-full bg-ink px-5 text-[12px] text-ink-fg hover:opacity-90">
-            Tamam
+            Done
           </button>
         </form>
       </div>
@@ -340,7 +340,7 @@ function ResultView({ result }: { result: Result }) {
   );
 }
 
-/** "TL yatır" / "TL'ye çek" düğmesi + dialog */
+/** The "Deposit TRY" / "Withdraw to TRY" button + dialog */
 export function TryRampButton({ kind, className = "", variant = "outline" }: { kind: RampKind; className?: string; variant?: "outline" | "soft" }) {
   const [open, setOpen] = useState(false);
   const cls =

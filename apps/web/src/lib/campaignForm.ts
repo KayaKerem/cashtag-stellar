@@ -1,6 +1,6 @@
 import { parseUsdc, type CampaignParamsInput, type Platform } from "@cliprail/shared";
 
-/** Form alanları (hepsi metin; birimler: USDC, saniye, izlenme). */
+/** Form fields (all text; units: USDC, seconds, views). */
 export interface CampaignForm {
   title: string;
   brief_url: string;
@@ -9,14 +9,14 @@ export interface CampaignForm {
   cap_views_clip: string;
   cap_views_human: string;
   min_views: string;
-  start_in: string; // şu andan kaç saniye sonra başlasın
+  start_in: string; // how many seconds from now it starts
   epochs: string;
   epoch_len: string;
   proof_window: string;
   dispute_window: string;
   arbiter_window: string;
   claim_grace: string;
-  holdback_pct: string; // yüzde (0–100); kontrata bps olarak gider
+  holdback_pct: string; // percent (0–100); sent to the contract as bps
   bond: string;
   arbiter: string;
   platforms: Platform[];
@@ -25,7 +25,7 @@ export interface CampaignForm {
 
 export type FormErrors = Partial<Record<keyof CampaignForm, string>>;
 
-// Kontrattaki sınırlar (contracts/cliprail/src/epoch.rs)
+// The limits enforced by the contract (contracts/cliprail/src/epoch.rs)
 const MAX_TITLE = 64;
 const MAX_URL = 200;
 const MAX_EPOCHS = 52;
@@ -33,7 +33,7 @@ const MAX_CAP_VIEWS = 1_000_000_000_000n;
 const MAX_RATE = 1_000_000_000_000n;
 const MAX_BUDGET = 1_000_000_000_000_000n;
 
-// E2E instance'ta yalnız `demo` kayıtlı; farklı kurulumda NEXT_PUBLIC_PLATFORMS=youtube,demo
+// Only `demo` is registered on the e2e instance; use NEXT_PUBLIC_PLATFORMS=youtube,demo elsewhere
 const DEFAULT_PLATFORMS = (process.env.NEXT_PUBLIC_PLATFORMS ?? "demo")
   .split(",")
   .map((s) => s.trim())
@@ -41,7 +41,7 @@ const DEFAULT_PLATFORMS = (process.env.NEXT_PUBLIC_PLATFORMS ?? "demo")
 
 export function demoPreset(arbiter: string): CampaignForm {
   return {
-    title: "Demo kampanyası",
+    title: "Demo campaign",
     brief_url: "",
     budget: "20",
     rate_max_per_1k: "1",
@@ -83,8 +83,8 @@ function usdc(v: string): bigint | null {
 }
 
 /**
- * Formu doğrular ve kontrata gidecek parametreleri üretir. Kurallar kontratın
- * validate_params'ıyla aynı; ihlal edilirse alan başına Türkçe hata döner.
+ * Validates the form and builds the parameters sent to the contract. The rules mirror the
+ * contract's validate_params; a violation returns a per-field error message.
  */
 export function buildParams(
   f: CampaignForm,
@@ -93,60 +93,60 @@ export function buildParams(
 ): { params: CampaignParamsInput | null; errors: FormErrors } {
   const e: FormErrors = {};
 
-  if (!f.title.trim()) e.title = "Başlık gerekli.";
-  else if (utf8Len(f.title) > MAX_TITLE) e.title = `En fazla ${MAX_TITLE} bayt.`;
-  if (f.brief_url && !/^https?:\/\//.test(f.brief_url)) e.brief_url = "http(s):// ile başlayan bir link gir.";
-  else if (utf8Len(f.brief_url) > MAX_URL) e.brief_url = `En fazla ${MAX_URL} bayt.`;
+  if (!f.title.trim()) e.title = "A title is required.";
+  else if (utf8Len(f.title) > MAX_TITLE) e.title = `At most ${MAX_TITLE} bytes.`;
+  if (f.brief_url && !/^https?:\/\//.test(f.brief_url)) e.brief_url = "Enter a link starting with http(s)://.";
+  else if (utf8Len(f.brief_url) > MAX_URL) e.brief_url = `At most ${MAX_URL} bytes.`;
 
   const budget = usdc(f.budget);
-  if (budget === null || budget <= 0n) e.budget = "0'dan büyük bir tutar gir.";
-  else if (budget > MAX_BUDGET) e.budget = "Bütçe çok büyük.";
+  if (budget === null || budget <= 0n) e.budget = "Enter an amount greater than 0.";
+  else if (budget > MAX_BUDGET) e.budget = "That budget is too large.";
 
   const rate = usdc(f.rate_max_per_1k);
-  if (rate === null || rate <= 0n) e.rate_max_per_1k = "0'dan büyük bir oran gir.";
-  else if (rate > MAX_RATE) e.rate_max_per_1k = "Oran çok büyük.";
+  if (rate === null || rate <= 0n) e.rate_max_per_1k = "Enter a rate greater than 0.";
+  else if (rate > MAX_RATE) e.rate_max_per_1k = "That rate is too large.";
 
   const capClip = int(f.cap_views_clip);
-  if (capClip === null) e.cap_views_clip = "Tam sayı gir.";
-  else if (capClip > MAX_CAP_VIEWS) e.cap_views_clip = "Tavan çok büyük.";
+  if (capClip === null) e.cap_views_clip = "Enter a whole number.";
+  else if (capClip > MAX_CAP_VIEWS) e.cap_views_clip = "That cap is too large.";
   const capHuman = int(f.cap_views_human);
-  if (capHuman === null) e.cap_views_human = "Tam sayı gir.";
-  else if (capHuman > MAX_CAP_VIEWS) e.cap_views_human = "Tavan çok büyük.";
-  else if (capClip !== null && capHuman < capClip) e.cap_views_human = "İnsan tavanı klip tavanından küçük olmamalı.";
+  if (capHuman === null) e.cap_views_human = "Enter a whole number.";
+  else if (capHuman > MAX_CAP_VIEWS) e.cap_views_human = "That cap is too large.";
+  else if (capClip !== null && capHuman < capClip) e.cap_views_human = "The per-human cap can't be lower than the per-clip cap.";
   const minViews = int(f.min_views);
-  if (minViews === null) e.min_views = "Tam sayı gir.";
+  if (minViews === null) e.min_views = "Enter a whole number.";
 
   const startIn = int(f.start_in);
-  if (startIn === null) e.start_in = "Saniye cinsinden tam sayı gir (0 = hemen).";
+  if (startIn === null) e.start_in = "Enter a whole number of seconds (0 = right away).";
   const epochs = int(f.epochs);
-  if (epochs === null || epochs < 1n) e.epochs = "En az 1 dönem.";
-  else if (epochs > BigInt(MAX_EPOCHS)) e.epochs = `En fazla ${MAX_EPOCHS} dönem.`;
+  if (epochs === null || epochs < 1n) e.epochs = "At least 1 epoch.";
+  else if (epochs > BigInt(MAX_EPOCHS)) e.epochs = `At most ${MAX_EPOCHS} epochs.`;
 
   const epochLen = int(f.epoch_len);
   const proof = int(f.proof_window);
   const dispute = int(f.dispute_window);
   const arbiterW = int(f.arbiter_window);
   const grace = int(f.claim_grace);
-  if (proof === null) e.proof_window = "Tam sayı gir.";
-  if (dispute === null) e.dispute_window = "Tam sayı gir.";
-  else if (dispute < 2n) e.dispute_window = "En az 2 sn (yarısı itiraz, yarısı cevap).";
-  if (arbiterW === null) e.arbiter_window = "Tam sayı gir.";
-  if (epochLen === null || epochLen <= 0n) e.epoch_len = "0'dan büyük olmalı.";
+  if (proof === null) e.proof_window = "Enter a whole number.";
+  if (dispute === null) e.dispute_window = "Enter a whole number.";
+  else if (dispute < 2n) e.dispute_window = "At least 2s (half for challenges, half for responses).";
+  if (arbiterW === null) e.arbiter_window = "Enter a whole number.";
+  if (epochLen === null || epochLen <= 0n) e.epoch_len = "Must be greater than 0.";
   else if (proof !== null && dispute !== null && arbiterW !== null && epochLen < proof + dispute + arbiterW)
-    e.epoch_len = `Dönem süresi kanıt + itiraz + hakem pencerelerinin toplamından (${proof + dispute + arbiterW} sn) kısa olamaz.`;
-  if (grace === null) e.claim_grace = "Tam sayı gir.";
-  else if (epochLen !== null && grace < epochLen) e.claim_grace = "Claim süresi en az bir dönem uzunluğunda olmalı.";
+    e.epoch_len = `The epoch can't be shorter than the proof + challenge + arbiter windows combined (${proof + dispute + arbiterW}s).`;
+  if (grace === null) e.claim_grace = "Enter a whole number.";
+  else if (epochLen !== null && grace < epochLen) e.claim_grace = "The claim window must be at least one epoch long.";
 
   const hb = Number(f.holdback_pct);
-  if (!/^\d+(\.\d{1,2})?$/.test(f.holdback_pct.trim()) || hb < 0 || hb > 100) e.holdback_pct = "0–100 arası bir yüzde gir.";
+  if (!/^\d+(\.\d{1,2})?$/.test(f.holdback_pct.trim()) || hb < 0 || hb > 100) e.holdback_pct = "Enter a percentage between 0 and 100.";
 
   const bond = usdc(f.bond);
-  if (bond === null || bond <= 0n) e.bond = "Teminat 0'dan büyük olmalı (bedava itiraz herkesin klip dışlamasına izin verir).";
+  if (bond === null || bond <= 0n) e.bond = "The bond must be greater than 0 (free challenges would let anyone exclude clips).";
 
-  if (!isStellarAddress(f.arbiter)) e.arbiter = "Geçerli bir Stellar adresi (G…) gir.";
-  else if (brand && f.arbiter === brand) e.arbiter = "Hakem, markanın kendisi olamaz.";
+  if (!isStellarAddress(f.arbiter)) e.arbiter = "Enter a valid Stellar address (G…).";
+  else if (brand && f.arbiter === brand) e.arbiter = "The arbiter can't be the brand.";
 
-  if (!f.platforms.length) e.platforms = "En az bir platform seç.";
+  if (!f.platforms.length) e.platforms = "Pick at least one platform.";
 
   if (Object.keys(e).length) return { params: null, errors: e };
 
@@ -160,7 +160,7 @@ export function buildParams(
       cap_views_clip: capClip!,
       cap_views_human: capHuman!,
       min_views: minViews!,
-      // İmzalama birkaç saniye sürebilir; kontrat start ≥ now istiyor
+      // Signing can take a few seconds, and the contract requires start >= now
       start: now + (startIn! < 30n ? 30n : startIn!),
       epoch_len: epochLen!,
       epochs: Number(epochs!),

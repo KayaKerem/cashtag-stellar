@@ -14,10 +14,10 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      aria-label="Temayı değiştir"
+      aria-label="Toggle theme"
       className="inline-flex size-10 items-center justify-center rounded-full border border-border-strong text-fg/80 transition hover:text-fg"
     >
-      {/* Ay koyu temada gizlenir, güneş açık temada */}
+      {/* The moon hides in dark mode, the sun in light mode */}
       <svg viewBox="0 0 24 24" className="size-4 dark:hidden" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
         <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
       </svg>

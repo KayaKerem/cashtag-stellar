@@ -5,4 +5,4 @@ export default function Page() {
   return <ArbiterPage />;
 }
 
-export const metadata: Metadata = { title: "Hakem", description: "Cevaplanmış itirazlara karar ver." };
+export const metadata: Metadata = { title: "Arbiter", description: "Decide the challenges that got a response." };

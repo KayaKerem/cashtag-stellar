@@ -1,8 +1,8 @@
 export const NAV_ITEMS = [
-  { href: "/", label: "Kampanyalar" },
-  { href: "/brand/new", label: "Marka" },
-  { href: "/me", label: "Panelim" },
-  { href: "/arbiter", label: "Hakem" },
+  { href: "/", label: "Campaigns" },
+  { href: "/brand/new", label: "Brand" },
+  { href: "/me", label: "My dashboard" },
+  { href: "/arbiter", label: "Arbiter" },
 ] as const;
 
 export function isActive(pathname: string, href: string) {

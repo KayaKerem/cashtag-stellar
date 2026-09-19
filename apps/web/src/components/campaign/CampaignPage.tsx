@@ -46,9 +46,9 @@ export function CampaignPage({ id }: { id: bigint }) {
   if (campaign.error || !c) {
     return (
       <EmptyState
-        title="Kampanya bulunamadı"
+        title="Campaign not found"
         description={campaign.error ? errorMessage(campaign.error) : undefined}
-        action={<ButtonLink href="/" variant="outline">Kampanyalara dön</ButtonLink>}
+        action={<ButtonLink href="/" variant="outline">Back to campaigns</ButtonLink>}
       />
     );
   }
@@ -62,34 +62,34 @@ export function CampaignPage({ id }: { id: bigint }) {
     <div className="space-y-10">
       <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <p className="label-mono text-[11px] text-muted">Kampanya #{c.id.toString()}</p>
-          <h1 className="display mt-2 text-3xl sm:text-4xl">{p.title || `Kampanya #${c.id}`}</h1>
+          <p className="label-mono text-[11px] text-muted">Campaign #{c.id.toString()}</p>
+          <h1 className="display mt-2 text-3xl sm:text-4xl">{p.title || `Campaign #${c.id}`}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <AddressChip address={c.brand} label="Marka" you={c.brand === account} />
+            <AddressChip address={c.brand} label="Brand" you={c.brand === account} />
             {p.brief_url && (
               <a href={p.brief_url} target="_blank" rel="noreferrer" className="text-muted underline underline-offset-4 hover:text-fg">
-                Brief / kaynak video ↗
+                Brief / source video ↗
               </a>
             )}
             <span className="text-muted">
-              {c.participants} katılımcı · {c.clips} klip
+              {c.participants} participants · {c.clips} clips
             </span>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           {joined && joinOpen ? (
-            <ButtonLink href={`/c/${c.id}/register`}>Klip kaydet</ButtonLink>
+            <ButtonLink href={`/c/${c.id}/register`}>Register clip</ButtonLink>
           ) : joinOpen ? (
-            <ButtonLink href={`/c/${c.id}/join`}>Katıl</ButtonLink>
+            <ButtonLink href={`/c/${c.id}/join`}>Join</ButtonLink>
           ) : null}
           {joined && (
             <ButtonLink href="/me" variant="outline">
-              Panelim
+              My dashboard
             </ButtonLink>
           )}
           {c.brand === account && (
             <ButtonLink href={`/brand/${c.id}`} variant="outline">
-              Marka paneli
+              Brand panel
             </ButtonLink>
           )}
         </div>
@@ -98,7 +98,7 @@ export function CampaignPage({ id }: { id: bigint }) {
       {joined && me.data && (
         <div className="flex flex-col gap-3 rounded-[20px] border border-border bg-panel p-4 sm:flex-row sm:items-center">
           <p className="text-sm">
-            Katıldın. Bu kodu videonun açıklamasına ekle, sonra linkini kaydet:
+            You&apos;re in. Add this code to your video description, then register the link:
           </p>
           <div className="sm:ml-auto">
             <CodeBadge code={me.data.code} size="sm" />
@@ -111,21 +111,21 @@ export function CampaignPage({ id }: { id: bigint }) {
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <RulesCard params={p} />
         <div>
-          <SectionTitle>Dönemler</SectionTitle>
+          <SectionTitle>Epochs</SectionTitle>
           <EpochCards params={p} epochs={epochs.data} />
           <p className="mt-3 text-xs text-muted">
-            Şu an dönem {e + 1}. Settle öncesi oranlar o anki toplam ağırlıkla hesaplanan tahmindir; settle sonrası kesinleşir.
+            Currently in epoch {e + 1}. Before settle, rates are estimates based on the current total weight; they become final at settle.
           </p>
         </div>
       </div>
 
       <section>
-        <SectionTitle count={clips.data?.length}>Klipler</SectionTitle>
+        <SectionTitle count={clips.data?.length}>Clips</SectionTitle>
         {clips.data ? <ClipsTable clips={clips.data} epochs={p.epochs} me={account} /> : <Skeleton className="h-40" />}
       </section>
 
       <section>
-        <SectionTitle count={disputes.data?.length}>İtirazlar</SectionTitle>
+        <SectionTitle count={disputes.data?.length}>Challenges</SectionTitle>
         {disputes.data ? <DisputeList disputes={disputes.data} /> : <Skeleton className="h-24" />}
       </section>
     </div>

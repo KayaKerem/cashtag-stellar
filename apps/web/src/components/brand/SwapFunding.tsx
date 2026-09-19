@@ -8,18 +8,18 @@ import { errorMessage } from "@/lib/api/errors";
 
 export type FundWith = "usdc" | "xlm";
 
-/** Soroswap havuzu Circle testnet USDC için; XLM ile fonlanan kampanyanın token'ı bu olur. */
+/** The Soroswap pool is for Circle testnet USDC; that becomes the token of an XLM-funded campaign. */
 export const SWAP_CAMPAIGN_TOKEN = CIRCLE_USDC_TESTNET_SAC;
 export const SWAP_TOKEN_IN = XLM_SAC_TESTNET;
 
-/** Takas hatalarını markanın anlayacağı dile çevirir (issue #61). */
+/** Turns swap errors into language a brand can act on (issue #61). */
 export function swapErrorMessage(err: unknown): string {
   if (isCliprailError(err)) {
-    if (err.source === "cliprail" && err.code === 38) return "Fiyat değişti; teklifi yenileyip tekrar dene.";
-    if (err.code === "no_trustline") return "Önce cüzdanına Circle USDC trustline'ı ekle; takas çıktısı önce senin hesabına düşer.";
-    // Ön kontrol XLM bakiyesine bakıyor ama mesaj USDC diye geliyor
+    if (err.source === "cliprail" && err.code === 38) return "The price moved; refresh the quote and try again.";
+    if (err.code === "no_trustline") return "Add a Circle USDC trustline to your wallet first; the swap output lands in your account.";
+    // The pre-check looks at the XLM balance, but the message comes back saying USDC
     if (err.code === "insufficient_balance") return err.message.replace(/USDC/g, "XLM");
-    if (err.source === "swap" && (err.code === 509 || err.code === 511)) return `${err.message} Başka bir varlık ya da daha küçük bütçe dene.`;
+    if (err.source === "swap" && (err.code === 509 || err.code === 511)) return `${err.message} Try another asset or a smaller budget.`;
   }
   return errorMessage(err);
 }
@@ -46,12 +46,12 @@ export function FundingChoice({
 }) {
   const quote = useSwapQuote(budget, value === "xlm");
   const opts: { v: FundWith; t: string; d: string }[] = [
-    { v: "usdc", t: "USDC", d: "Bütçe cüzdanındaki USDC'den kilitlenir." },
-    { v: "xlm", t: "XLM ile fonla", d: "Kontrat XLM'i Soroswap'ta tam bütçe kadar USDC'ye çevirip tek işlemde kilitler." },
+    { v: "usdc", t: "USDC", d: "The budget is locked from the USDC in your wallet." },
+    { v: "xlm", t: "Fund with XLM", d: "The contract swaps XLM for exactly the budget in USDC on Soroswap and locks it in one transaction." },
   ];
   return (
     <div className="sm:col-span-2">
-      <span className="text-sm font-medium">Ödeme varlığı</span>
+      <span className="text-sm font-medium">Funding asset</span>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         {opts.map((o) => (
           <button
@@ -70,29 +70,29 @@ export function FundingChoice({
       {value === "xlm" && (
         <div className="mt-3 rounded-2xl bg-panel p-4 text-sm" aria-live="polite">
           {!budget || budget <= 0n ? (
-            <p className="text-muted">Teklif için bütçe gir.</p>
+            <p className="text-muted">Enter a budget to get a quote.</p>
           ) : quote.isLoading ? (
-            <p className="text-muted">Soroswap teklifi alınıyor…</p>
+            <p className="text-muted">Getting the Soroswap quote…</p>
           ) : quote.error ? (
             <p className="text-danger">{swapErrorMessage(quote.error)}</p>
           ) : quote.data ? (
             <>
               <p>
                 <span className="font-mono text-lg tabular">≈ {formatUsdc(quote.data.amountIn, { maxDecimals: 2, group: "," })} XLM</span>{" "}
-                <span className="text-muted">(en fazla {formatUsdc(quote.data.amountInMax, { maxDecimals: 2, group: "," })} XLM, %1 kayma payı)</span>
+                <span className="text-muted">(at most {formatUsdc(quote.data.amountInMax, { maxDecimals: 2, group: "," })} XLM, 1% slippage)</span>
               </p>
               <p className="mt-1 text-xs text-muted">
-                Soroswap ile {formatUsdc(quote.data.amountOut, { maxDecimals: 2, group: "," })} USDC&apos;ye çevrilip kontrata kilitlenir. Teklif 15 sn&apos;de bir yenilenir.
+                Swapped to {formatUsdc(quote.data.amountOut, { maxDecimals: 2, group: "," })} USDC on Soroswap and locked in the contract. The quote refreshes every 15s.
               </p>
             </>
           ) : null}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
             <span>
-              Kampanya token&apos;ı Circle testnet USDC olur; marka ve clipper&apos;ların bu varlığa trustline&apos;ı olmalı.
+              The campaign token becomes Circle testnet USDC; the brand and the clippers need a trustline for it.
             </span>
             <span className="flex items-center gap-2">
               <button type="button" onClick={() => quote.refetch()} className="underline underline-offset-4 hover:text-fg">
-                Teklifi yenile
+                Refresh quote
               </button>
               <span className="label-mono rounded-full border border-border-strong px-2 py-0.5 text-[9px]">Powered by Soroswap</span>
             </span>

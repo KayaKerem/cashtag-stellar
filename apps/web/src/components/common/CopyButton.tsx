@@ -14,7 +14,7 @@ export function useCopy() {
   return { copied, copy };
 }
 
-export function CopyButton({ text, label = "Kopyala", className = "" }: { text: string; label?: string; className?: string }) {
+export function CopyButton({ text, label = "Copy", className = "" }: { text: string; label?: string; className?: string }) {
   const { copied, copy } = useCopy();
   return (
     <button
@@ -22,7 +22,7 @@ export function CopyButton({ text, label = "Kopyala", className = "" }: { text: 
       onClick={() => copy(text)}
       className={`label-mono rounded-full border border-border-strong px-3 py-1.5 text-[11px] transition hover:bg-surface-2 ${className}`}
     >
-      {copied ? "Kopyalandı ✓" : label}
+      {copied ? "Copied ✓" : label}
     </button>
   );
 }

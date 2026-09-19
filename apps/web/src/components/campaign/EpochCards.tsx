@@ -23,46 +23,46 @@ export function EpochCards({ params, epochs }: { params: CampaignParams; epochs:
         return (
           <article key={e} className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
             <div className="flex items-center justify-between">
-              <h3 className="display text-lg">Dönem {e + 1}</h3>
+              <h3 className="display text-lg">Epoch {e + 1}</h3>
               <span
                 className={`label-mono rounded-full px-2.5 py-1 text-[10px] ${
                   est.final ? "bg-lime text-lime-fg" : "bg-surface-2 text-muted"
                 }`}
               >
-                {est.final ? "Settle edildi" : "Tahmini"}
+                {est.final ? "Settled" : "Estimated"}
               </span>
             </div>
             <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               <div>
-                <dt className="text-xs text-muted">Toplam ağırlık (W)</dt>
+                <dt className="text-xs text-muted">Total weight (W)</dt>
                 <dd className="font-mono tabular">{st.total_weight.toLocaleString("en-US")}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">Oran / 1000 izl.</dt>
+                <dt className="text-xs text-muted">Rate / 1,000 views</dt>
                 <dd>
                   <Amount value={est.rate} decimals={4} />
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">Dönem bütçesi</dt>
+                <dt className="text-xs text-muted">Epoch budget</dt>
                 <dd>
                   <Amount value={est.budget} />
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">{est.final ? "Harcanan" : "Harcanacak (tahmini)"}</dt>
+                <dt className="text-xs text-muted">{est.final ? "Spent" : "Spend (estimated)"}</dt>
                 <dd>
                   <Amount value={est.spent} />
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">Önceki dönemden devreden</dt>
+                <dt className="text-xs text-muted">Carried in from previous epoch</dt>
                 <dd>
                   <Amount value={carry} />
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">Açık itiraz</dt>
+                <dt className="text-xs text-muted">Open challenges</dt>
                 <dd className="font-mono tabular">{st.open_disputes}</dd>
               </div>
             </dl>
