@@ -922,6 +922,7 @@ dependencies = [
 name = "humanity"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "soroban-sdk",
 ]
 

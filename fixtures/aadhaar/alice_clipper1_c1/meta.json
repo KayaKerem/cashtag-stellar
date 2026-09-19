@@ -1,0 +1,39 @@
+{
+  "campaign_id": 1,
+  "wallet": "GCV77O3T74VBDPL5TGCXVDYCASS2YAEFIQIHI4LUWRTWN4QAKX4OMGPD",
+  "wallet_alias": "clipper1",
+  "nullifier": "15902235776174876395274718746077836340296995184218122958870378535599160607523",
+  "timestamp": "1789846200",
+  "timestamp_iso": "2026-09-19T19:30:00.000Z",
+  "signals": {
+    "pubkeyHash": "15134874015316324267425466444584014077184337590635665158241104437045239495873",
+    "nullifier": "15902235776174876395274718746077836340296995184218122958870378535599160607523",
+    "timestamp": "1789846200",
+    "ageAbove18": "1",
+    "gender": "0",
+    "pinCode": "0",
+    "state": "0",
+    "nullifierSeed": "11203136760104169477259168898070156134881423327545759245740952003742723793938",
+    "signalHash": "13655765475156021557151181059894212524372653040437337282696020433345747368093"
+  },
+  "nullifier_seed": "11203136760104169477259168898070156134881423327545759245740952003742723793938",
+  "nullifier_seed_preimage": "cliprail:1",
+  "signal": "0xabffbb73ff2a11bd7d99857a8f0204a5ac00854410747174b46766f20055f8e6",
+  "signal_hash": "13655765475156021557151181059894212524372653040437337282696020433345747368093",
+  "test_identity": {
+    "identity": "alice",
+    "name": "Sumit Kumar",
+    "dob": "01-01-1984",
+    "gender": "M",
+    "pincode": "110051",
+    "state": "Delhi",
+    "photo": "sha256(\"cliprail-demo-photo:alice:<n>\") stream"
+  },
+  "uidai_key": "TEST (anon-aadhaar testPrivateKey.pem / testCertificate.pem)",
+  "pubkey_hash_matches_test": true,
+  "revealed": [
+    "ageAbove18"
+  ],
+  "prove_seconds": 27.755,
+  "generated_at": "2026-09-19T20:11:04.241Z"
+}

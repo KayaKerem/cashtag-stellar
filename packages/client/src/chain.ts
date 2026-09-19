@@ -16,6 +16,7 @@ import { Client as HumanityClient } from "humanity-client";
 import { toCliprailError, type ErrorContext } from "./errors";
 import { postJson } from "./http";
 import { proofJsonToReclaimProof, type ProofJson } from "./proof";
+import { defaultBuildTx, registerZkArgs, registerZkTxOptions, type AadhaarProveResponse, type BuildTx } from "./humanity-zk";
 import { ensureTokenBalance, rpcTokenReader, type TokenReader } from "./token";
 import { mapLimit, runWrite, simulatedResult, unwrapResult, type TxLike } from "./tx";
 
@@ -43,6 +44,8 @@ export interface ChainApiOptions {
   /** Pause between write retries (ms). */
   retryDelayMs?: number;
   fetch?: typeof fetch;
+  /** Raw contract-call builder (tests); default AssembledTransaction.build. */
+  buildTx?: BuildTx;
 }
 
 const big = (x: unknown) => (typeof x === "bigint" ? x : BigInt(x as number | string));
@@ -201,6 +204,29 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
       const wallet = await opts.signer.getAddress();
       const r = await verifier<{ txHash: string }>("/humanity/demo-register", { campaignId: id, wallet });
       return { txHash: r.txHash };
+    },
+    async registerHumanZk(id, o) {
+      const wallet = await me();
+      // TEST mode: the verifier builds the Aadhaar proof from UIDAI test data for a demo identity
+      const zk = await verifier<AadhaarProveResponse>("/humanity/aadhaar/prove", {
+        campaignId: id,
+        wallet,
+        ...(o?.identity ? { identity: o.identity } : {}),
+      });
+      let args;
+      try {
+        args = registerZkArgs(id, wallet, zk);
+      } catch (e) {
+        throw toCliprailError(e, "humanity");
+      }
+      const txOpts = registerZkTxOptions({ ...base, contractId: opts.humanityId, publicKey: wallet, signTransaction }, args);
+      const r = await runWrite<unknown>(() => (opts.buildTx ?? defaultBuildTx)(txOpts) as Promise<TxLike<unknown>>, {
+        source: "humanity",
+        retries: 2,
+        delayMs: opts.retryDelayMs ?? 1000,
+        errorContext: { ownIds },
+      });
+      return { txHash: r.txHash, nullifier: zk.nullifier };
     },
     async join(id) {
       const r = await write<string>((c, participant) => c.join({ campaign_id: id, participant }));

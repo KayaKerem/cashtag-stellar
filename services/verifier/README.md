@@ -79,6 +79,27 @@ ENV_FILE=.env.simulated pnpm --filter verifier start
 
 `ENV_FILE`, `.env` yerine okunacak dosyayı seçer (servis klasörüne göre). `CLIPRAIL_ID` / `HUMANITY_ID` açıkça verilirse `deploy.env`'deki ana deploy değerlerini ezer.
 
+## Anon Aadhaar ZK kanıtı (`POST /humanity/aadhaar/prove`) — TEST modu
+
+> **Demo UIDAI TEST anahtarı ve TEST verisi kullanır.** QR, UIDAI'nin resmi test QR'ının anon-aadhaar TEST anahtarıyla (`fixtures/aadhaar/testPrivateKey.pem`) o anki zamana göre yeniden imzalanmış hâlidir. Kanıttaki `pubkeyHash` TEST anahtarının hash'idir (`15134874…5873`); humanity kontratı demo için bu hash ile yapılandırılır. **Production'da kanıt kullanıcının tarayıcısında, kendi gerçek Aadhaar QR'ından üretilir; sunucu kimlik verisini hiç görmez.** Bu uç nokta yalnız demo içindir.
+
+- İstek: `POST /humanity/aadhaar/prove {campaignId, wallet, identity?}` (`WRITE_TOKEN` doluysa `Authorization: Bearer <token>`).
+  - `wallet`: `G...` hesap adresi (kontrat adresi 400).
+  - `identity`: demo kimlik adı (`alice`, `bob`, `carol`…; `[A-Za-z0-9_-]{1,64}`). Fotoğraf baytları `sha256("cliprail-demo-photo:<identity>:<n>")` akışından türetilir: aynı kimlik → aynı nullifier, farklı kimlik → farklı nullifier. Verilmezse cüzdana özel kimlik (`wallet-<G...>`) kullanılır, yani her cüzdan ayrı bir "insan" olur. Sybil denemesi için iki cüzdanla aynı `identity` gönder.
+- Yanıt: `{proof:{a,b,c}, nullifier, timestamp, ageAbove18, gender, pinCode, state, mode:"test", identity, publicSignals, cached}`.
+  - `a`/`c` 64 bayt, `b` 128 bayt hex (Soroban BN254: G1 = be(x)‖be(y); G2 = x.c1‖x.c0‖y.c1‖y.c0).
+  - Sayılar ondalık string (U256). Yalnız `ageAbove18` açılır; `gender`/`pinCode`/`state` 0'dır.
+  - `publicSignals` kontrat sırası: `[pubkeyHash, nullifier, timestamp, ageAbove18, gender, pinCode, state, nullifierSeed, signalHash]`.
+- Kural (kontratla aynı):
+  - `nullifierSeed = keccak256(utf8("cliprail:" + ondalık(campaignId))) >> 3`
+  - `signalHash = keccak256(cüzdanın ham 32 baytlık ed25519 anahtarı) >> 3`
+  - `timestamp` QR imza zamanıdır (saat hassasiyetinde, UTC unix). Kontrat `now − timestamp ≤ max_age` kontrol eder.
+- Kanıt üretimi: ~25–30 sn, ~3.7 GB RAM. Aynı anda yalnız 1 iş çalışır, diğerleri kuyrukta bekler. Sonuç `(campaignId, wallet, identity)` başına 10 dk cache'lenir; aynı anda gelen aynı istekler tek işi paylaşır. İstek zaman aşımı 120 sn (`504 timeout`). Her yeni kanıt dönmeden önce `vkey.json` ile yerelde doğrulanır.
+- `AADHAAR_ARTIFACTS_DIR` boşsa ya da `aadhaar-verifier.wasm` / `circuit_final.zkey` yoksa `503 {code:"aadhaar_unavailable"}`. Artifact'ler anon-aadhaar v2.0.0 sürümüdür (wasm ~10 MB, zkey ~612 MB); repoya girmez. Yerelde `services/verifier/.data/aadhaar-artifacts/` altında durur (gitignored; `.env.simulated`'da `AADHAAR_ARTIFACTS_DIR=.data/aadhaar-artifacts`). Docker'da bu klasörü volume olarak bağla.
+- Zincire gönderim istemci tarafındadır: `@cliprail/client` `registerHumanZk` bu uç noktayı çağırır, ardından `humanity.register_zk`'yı bağlı cüzdanla imzalar.
+- Fixture'lar (`fixtures/aadhaar/`, kampanya 1): `alice_clipper1_c1`, `bob_clipper2_c1` (farklı kimlik), `alice_clipper2_c1_sybil` (alice'in nullifier'ı, başka cüzdan → reddedilmeli). Her klasörde `proof_soroban.json`, `proof_snarkjs.json`, `meta.json`. Fixture zaman damgaları üretim anına aittir; `max_age` geçtiyse yeniden üretilmeleri gerekir. Yeniden üretmek için: `AADHAAR_ARTIFACTS_DIR=.data/aadhaar-artifacts pnpm --filter verifier aadhaar:fixtures` (nullifier'lar aynı kalır, kanıt ve zaman damgası değişir).
+- Testler: `pnpm --filter verifier test` sahte prover kullanır. Gerçek kanıt: `AADHAAR_REAL=1 AADHAAR_ARTIFACTS_DIR=<klasör> pnpm --filter verifier test aadhaar`.
+
 ## Docker
 
 Build context repo köküdür:

@@ -8,7 +8,9 @@ crate-type = ["cdylib", "rlib"]
 doctest = false
 
 [dependencies]
-soroban-sdk = { workspace = true }
+# hazmat-address: Address::to_payload, to read the raw ed25519 key bound into the ZK signal.
+soroban-sdk = { workspace = true, features = ["hazmat-address"] }
 
 [dev-dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }
+soroban-sdk = { workspace = true, features = ["testutils", "hazmat-address"] }
+serde_json = "1"

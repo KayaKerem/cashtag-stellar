@@ -6,6 +6,8 @@
 - `createApi("chain", opts)`: testnet. Okumalar simülasyonla yapılır (cüzdan gerekmez). Yazmalar kullanıcının cüzdanıyla imzalanır. Geçici hatalarda (footprint, ExceededLimit, tx_bad_seq, TRY_AGAIN_LATER) işlem yeniden simüle edilir, en fazla 2 kez.
 - Tüm hatalar `CliprailError { code, source, message }` olarak gelir. `message` Türkçedir ve doğrudan gösterilebilir. `code` kontrat hata numarası (§2.3) ya da `"wallet_rejected"`, `"network"`, `"unauthorized"` gibi bir etikettir.
 - `registerClip` önce verifier'dan kanıt alır (`POST /proof`, 5–30 sn sürer), sonra `register_clip` işlemini imzalatır. `registerHuman` ve `submitClose` verifier üzerinden gider.
+- `registerHumanZk(id, {identity?})` → `{txHash, nullifier}`: verifier'dan Anon Aadhaar kanıtı alır (`POST /humanity/aadhaar/prove`, ~30 sn, kuyruk varsa daha uzun), sonra `humanity.register_zk`'yı bağlı cüzdana imzalatır. **TEST modu:** kanıt UIDAI TEST anahtarı/verisiyle, `identity` adlı demo kimlik için üretilir (verilmezse cüzdana özel kimlik). Production'da kanıt tarayıcıda kullanıcının kendi QR'ından üretilir. Bindings yeniden üretilene kadar çağrı ham `ScVal` argümanlarla yapılır (`src/humanity-zk.ts`). Mock: ~3 sn bekler ve başarılı olur; aynı `identity` başka cüzdanla tekrar kullanılırsa `NullifierUsed`.
+- humanity hata kodları 4–8 (`NotConfigured`, `InvalidProof`, `StaleProof`, `InputNotInField`, `NotAnAccount`) kontratla henüz teyit edilmedi.
 
 ## Next.js
 

@@ -8,6 +8,7 @@ import { PLATFORMS, attestorAddress } from "./config.js";
 import type { DemoStore } from "./demo.js";
 import { DEMO_ID_RE } from "./demo.js";
 import type { Ops } from "./ops.js";
+import { defaultIdentity, type AadhaarProver } from "./aadhaar.js";
 import { HttpError, type ProofService } from "./zkfetch.js";
 
 export interface Deps {
@@ -15,6 +16,7 @@ export interface Deps {
   demo: DemoStore;
   proofs: Pick<ProofService, "get">;
   ops: Pick<Ops, "submitClose" | "demoRegister">;
+  aadhaar?: Pick<AadhaarProver, "prove" | "available">;
 }
 
 // ---- request validation (exported for tests) ----
@@ -48,6 +50,15 @@ export function parseDemoRegisterReq(b: unknown): { campaignId: bigint; wallet: 
   if (!isObj(b)) throw new HttpError(400, "JSON body required", "bad_request");
   if (typeof b.wallet !== "string" || !b.wallet) throw new HttpError(400, "wallet required", "bad_request");
   return { campaignId: parseId(b.campaignId, "campaignId"), wallet: b.wallet };
+}
+
+export function parseAadhaarProveReq(b: unknown): { campaignId: bigint; wallet: string; identity: string } {
+  if (!isObj(b)) throw new HttpError(400, "JSON body required", "bad_request");
+  if (typeof b.wallet !== "string" || !b.wallet) throw new HttpError(400, "wallet required", "bad_request");
+  if (b.identity !== undefined && b.identity !== null && typeof b.identity !== "string")
+    throw new HttpError(400, "identity must be a string", "bad_request");
+  const identity = typeof b.identity === "string" && b.identity ? b.identity : defaultIdentity(b.wallet);
+  return { campaignId: parseId(b.campaignId, "campaignId"), wallet: b.wallet, identity };
 }
 
 async function body(c: Context): Promise<unknown> {
@@ -84,7 +95,7 @@ function requireToken(token: string): MiddlewareHandler {
   };
 }
 
-export function createApp({ cfg, demo, proofs, ops }: Deps) {
+export function createApp({ cfg, demo, proofs, ops, aadhaar }: Deps) {
   const app = new Hono();
   // CORS_ORIGIN: "*" (default) or comma-separated origins, e.g. "https://cliprail.app,http://localhost:3000"
   app.use("*", cors({ origin: cfg.corsOrigin === "*" ? "*" : cfg.corsOrigin.split(",").map((s) => s.trim()) }));
@@ -144,6 +155,14 @@ export function createApp({ cfg, demo, proofs, ops }: Deps) {
     if (!cfg.demoMode) throw new HttpError(403, "demo registration disabled (DEMO_MODE!=1)", "disabled");
     const { campaignId, wallet } = parseDemoRegisterReq(await body(c));
     return c.json(await ops.demoRegister(campaignId, wallet));
+  });
+
+  // Anon Aadhaar ZK proof for humanity.register_zk — TEST mode (UIDAI test key/data, demo identities).
+  // Production proves in the browser from the user's own QR; the server never sees identity data.
+  app.post("/humanity/aadhaar/prove", auth, async (c) => {
+    if (!aadhaar?.available) throw new HttpError(503, "Aadhaar proving unavailable (AADHAAR_ARTIFACTS_DIR missing)", "aadhaar_unavailable");
+    const req = parseAadhaarProveReq(await body(c));
+    return c.json(await aadhaar.prove(req));
   });
 
   return app;

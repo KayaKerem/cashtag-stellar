@@ -45,6 +45,12 @@ export const HUMANITY_ERRORS: Record<number, { name: string; message: string }> 
   1: { name: "AlreadyInitialized", message: "Doğrulama kontratı zaten başlatılmış." },
   2: { name: "NullifierUsed", message: "Bu kimlik bu kampanyada zaten kullanıldı." },
   3: { name: "WalletRegistered", message: "Bu cüzdan zaten doğrulanmış." },
+  // register_zk (Anon Aadhaar). Codes 4..8 assumed to follow 1..3 — TO BE CONFIRMED against contracts/humanity.
+  4: { name: "NotConfigured", message: "ZK kimlik doğrulaması bu kontratta yapılandırılmamış." },
+  5: { name: "InvalidProof", message: "Kimlik kanıtı geçersiz." },
+  6: { name: "StaleProof", message: "Kimlik kanıtı çok eski, yenisini üret." },
+  7: { name: "InputNotInField", message: "Kanıt girdileri geçersiz (alan sınırı dışında)." },
+  8: { name: "NotAnAccount", message: "Doğrulama yalnız hesap (G...) cüzdanlarıyla yapılabilir." },
 };
 
 /**

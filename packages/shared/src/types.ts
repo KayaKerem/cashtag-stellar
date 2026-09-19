@@ -134,6 +134,12 @@ export interface CliprailApi {
   // writes → txHash
   createCampaign(p: CampaignParamsInput): Promise<{ id: bigint; txHash: string }>;
   registerHuman(id: bigint): Promise<{ txHash: string }>;
+  /**
+   * Anon Aadhaar ZK registration: the verifier builds a Groth16 proof (TEST mode: UIDAI test data,
+   * `identity` = demo identity name, default one per wallet), then the connected wallet signs
+   * humanity.register_zk. `nullifier` is a decimal string.
+   */
+  registerHumanZk(id: bigint, opts?: { identity?: string }): Promise<{ txHash: string; nullifier: string }>;
   join(id: bigint): Promise<{ code: string; txHash: string }>;
   registerClip(id: bigint, platform: Platform, videoId: string): Promise<{ clipId: bigint; txHash: string }>;
   submitClose(id: bigint, clipId: bigint, e: number): Promise<{ txHash: string }>;

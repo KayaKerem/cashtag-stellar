@@ -62,6 +62,10 @@ export const config = {
   simAttestorSecret: str("SIM_ATTESTOR_SECRET") || DEFAULT_SIM_ATTESTOR_SECRET,
   simOwnerSecret: str("SIM_OWNER_SECRET") || DEFAULT_SIM_OWNER_SECRET,
   proofFixtureDir: str("PROOF_FIXTURE_DIR") ? resolve(SERVICE_DIR, str("PROOF_FIXTURE_DIR")) : "",
+  /** Anon Aadhaar v2 artifacts (aadhaar-verifier.wasm, circuit_final.zkey, vkey.json); empty → /humanity/aadhaar/prove 503 */
+  aadhaarArtifactsDir: str("AADHAAR_ARTIFACTS_DIR") ? resolve(SERVICE_DIR, str("AADHAAR_ARTIFACTS_DIR")) : "",
+  /** UIDAI test QR + anon-aadhaar TEST key used to build demo identities */
+  aadhaarTestDataDir: resolve(SERVICE_DIR, str("AADHAAR_TEST_DATA_DIR") || resolve(REPO_ROOT, "fixtures/aadhaar")),
 };
 
 export type Config = typeof config;

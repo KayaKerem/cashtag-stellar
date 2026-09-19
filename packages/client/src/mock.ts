@@ -51,6 +51,8 @@ export interface MockApiOptions {
   speed?: number;
   /** Unix seconds at creation. Default: Date.now(). */
   now?: bigint;
+  /** registerHumanZk extra latency (ms), simulating proof generation. Default 3000. */
+  zkLatencyMs?: number;
   /** Seed demo data. Default true. */
   seed?: boolean;
 }
@@ -70,6 +72,15 @@ interface ClipRec {
 }
 
 const err = (code: number) => new CliprailError(code, "cliprail", CLIPRAIL_ERRORS[code].message, CLIPRAIL_ERRORS[code].name);
+/** Deterministic fake nullifier (decimal, < 2^253) per (campaign, identity). */
+function mockNullifier(id: bigint, identity: string): string {
+  let h = 0xcbf29ce484222325n;
+  for (const ch of `${id}:${identity}`) h = ((h ^ BigInt(ch.codePointAt(0)!)) * 0x100000001b3n) & ((1n << 64n) - 1n);
+  let x = h;
+  for (let i = 0; i < 3; i++) x = (x << 64n) | ((x * 0x9e3779b97f4a7c15n + BigInt(i)) & ((1n << 64n) - 1n));
+  return (x >> 3n).toString();
+}
+
 const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 const clone = <T>(v: T): T => structuredClone(v);
 
@@ -295,6 +306,8 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
     await sleep(latency / 4);
     return clone(f());
   };
+  const zkNullifiers = new Set<string>();
+  const zkLatency = opts.zkLatencyMs ?? 3000;
   const write = async <T extends object>(f: (t: bigint, who: string) => T): Promise<T & { txHash: string }> => {
     await sleep(latency);
     return { ...f(now(), me()), txHash: txHash() };
@@ -327,6 +340,18 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
         humans.add(`${id}:${who}`);
         return {};
       }),
+    registerHumanZk: async (id, o) => {
+      await sleep(zkLatency); // proving takes a while on the real verifier
+      return write((_t, who) => {
+        camp(id);
+        const nullifier = mockNullifier(id, o?.identity ?? `wallet-${who}`);
+        if (humans.has(`${id}:${who}`)) throw new CliprailError(3, "humanity", "Bu cüzdan zaten doğrulanmış.", "WalletRegistered");
+        if (zkNullifiers.has(`${id}:${nullifier}`)) throw new CliprailError(2, "humanity", "Bu kimlik bu kampanyada zaten kullanıldı.", "NullifierUsed");
+        zkNullifiers.add(`${id}:${nullifier}`);
+        humans.add(`${id}:${who}`);
+        return { nullifier };
+      });
+    },
     join: (id) => write((t, who) => ({ code: joinS(id, who, t) })),
     registerClip: (id, platform, videoId) => write((t, who) => ({ clipId: registerClipS(id, who, platform, videoId, t) })),
     submitClose: (id, clipId, e) => write((t) => (submitCloseS(id, clipId, e, t), {})),
