@@ -39,6 +39,8 @@ export interface Cell {
   status: PillStatus | null;
   action: CellAction | null;
   note?: string;
+  /** Artık alınamayacak kısımlar (süresi geçmiş claim, yanan holdback): toplamlara girmez */
+  lost?: { immediate?: boolean; held?: boolean };
 }
 
 /** Katılımcının bir dönemdeki ham ağırlığı: dışlanmamış kliplerinin w_clip toplamı (kontratla aynı). */
@@ -131,11 +133,10 @@ export function buildCell(
   }
   if (!ce.claimed) {
     if (pay === 0n) return { ...base, status: "Active", note: "Bu dönem ödeme yok (ağırlık 0)" };
-    return {
-      ...base,
-      status: "Claimable",
-      action: canClaim(p, now) ? { kind: "claim", enabled: true } : { kind: "claim", enabled: false, reason: "Claim süresi doldu (iade yapıldı)" },
-    };
+    if (!canClaim(p, now)) {
+      return { ...base, status: "Active", note: "Claim süresi doldu; pay markaya iade edildi", lost: { immediate: true, held: true } };
+    }
+    return { ...base, status: "Claimable", action: { kind: "claim", enabled: true } };
   }
 
   // Claim edildi → holdback
@@ -143,13 +144,16 @@ export function buildCell(
   if (ce.holdback_claimed) return { ...base, status: "Claimed", note: "Holdback da alındı" };
   if (!ce.alive) {
     // Pencere proof_end(e+1) anında açılır (lib.rs claim_holdback: now >= proof_end(e+1))
-    if (now >= holdbackReleaseEnd(p, e)) return { ...base, status: "Claimed", note: "Holdback yandı (sonraki dönem kanıtı gelmedi)" };
+    if (now >= holdbackReleaseEnd(p, e))
+      return { ...base, status: "Claimed", note: "Holdback yandı (sonraki dönem kanıtı gelmedi)", lost: { held: true } };
     return {
       ...base,
       status: "Holdback",
       action: { kind: "holdback", enabled: false, reason: "Sonraki dönem kapanış kanıtı bekleniyor" },
     };
   }
+  if (now >= refundAt(p)) return { ...base, status: "Claimed", note: "Holdback süresi doldu", lost: { held: true } };
+  if (holdbackPayout === 0n) return { ...base, status: "Claimed", note: "Holdback payı 0", lost: { held: true } };
   if (canClaimHoldback(p, e, now)) return { ...base, status: "Holdback", action: { kind: "holdback", enabled: true } };
   return {
     ...base,
@@ -171,7 +175,7 @@ export interface Totals {
 export function addTotals(t: Totals, cell: Cell, ce: { claimed: boolean; holdback_claimed: boolean } | null) {
   if (!ce || cell.status === "Excluded") return;
   if (ce.claimed) t.earned += cell.immediate;
-  else t.pending += cell.immediate;
+  else if (!cell.lost?.immediate) t.pending += cell.immediate;
   if (ce.holdback_claimed) t.earned += cell.holdbackPayout;
-  else t.holdback += cell.held;
+  else if (!cell.lost?.held) t.holdback += cell.held;
 }

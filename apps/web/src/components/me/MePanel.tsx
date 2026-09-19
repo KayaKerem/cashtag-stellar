@@ -1,6 +1,6 @@
 "use client";
 
-import type { CampaignView, ClipView, Dispute, EpochState } from "@cliprail/shared";
+import { canJoin, type CampaignView, type ClipView, type Dispute, type EpochState } from "@cliprail/shared";
 import { useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { Amount } from "@/components/common/Amount";
@@ -8,7 +8,7 @@ import { CodeBadge } from "@/components/common/CodeBadge";
 import { EmptyState, Skeleton } from "@/components/common/EmptyState";
 import { PhaseTimeline } from "@/components/common/PhaseTimeline";
 import { StatusPill } from "@/components/common/StatusPill";
-import { TxButton } from "@/components/common/TxButton";
+import { Cancelled, TxButton } from "@/components/common/TxButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { useApi } from "@/lib/api/ApiProvider";
@@ -61,7 +61,7 @@ function CellActionButton({ c, clipId, cell }: { c: CampaignView; clipId: bigint
               const ok = window.confirm(
                 `İtiraza cevap vermek için ${Number(c.params.bond) / 1e7} USDC teminat yatıracaksın. Hakem aleyhine karar verirse teminatı kaybedersin; lehine karar verirse iki teminatı da alırsın. Devam edilsin mi?`,
               );
-              if (!ok) return Promise.reject(new Error("Vazgeçildi"));
+              if (!ok) return Promise.reject(new Cancelled());
               return respond.mutateAsync(a.disputeId);
             }}
             successTitle="İtiraza cevap verildi"
@@ -100,9 +100,11 @@ function CampaignBlock({
           {c.params.title || `Kampanya #${c.id}`}
         </Link>
         {code && <CodeBadge code={code} size="sm" />}
-        <ButtonLink href={`/c/${c.id}/register`} variant="soft" className="ml-auto">
-          Klip ekle
-        </ButtonLink>
+        {canJoin(c.params, now) && !c.refunded && (
+          <ButtonLink href={`/c/${c.id}/register`} variant="soft" className="ml-auto">
+            Klip ekle
+          </ButtonLink>
+        )}
       </div>
       <div className="mt-4">
         <PhaseTimeline params={c.params} now={now} compact />

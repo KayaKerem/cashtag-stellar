@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { useToast } from "./Toast";
 
+/** Kullanıcı onay penceresinde vazgeçti: toast gösterilmez. */
+export class Cancelled extends Error {
+  constructor() {
+    super("cancelled");
+  }
+}
+
 type Variant = "primary" | "outline" | "danger";
 const VARIANT: Record<Variant, string> = {
   primary: "bg-ink text-ink-fg hover:opacity-90",
@@ -45,14 +52,14 @@ export function TxButton<T extends { txHash: string }>({
       toast.success(successTitle, { txHash: result.txHash, body: successBody?.(result) });
       onSuccess?.(result);
     } catch (e) {
-      toast.error(e);
+      if (!(e instanceof Cancelled)) toast.error(e);
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <span className="group relative inline-flex" title={disabledReason ?? undefined}>
+    <span className="group relative inline-flex flex-col items-start" title={disabledReason ?? undefined}>
       <button
         type="button"
         onClick={run}
@@ -63,6 +70,8 @@ export function TxButton<T extends { txHash: string }>({
         {pending && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
         {pending ? "İmzalanıyor…" : children}
       </button>
+      {/* Dokunmatik ekranda tooltip yok: sebebi butonun altında göster */}
+      {disabledReason && !pending && <span className="mt-1 max-w-[14rem] text-[10px] leading-tight text-muted sm:hidden">{disabledReason}</span>}
     </span>
   );
 }
