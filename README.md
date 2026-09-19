@@ -12,21 +12,34 @@ What is and is not proven today:
 
 - **In-contract proof verification** is tested against Reclaim's reference vector (`contracts/reclaim-verify`) and in a full testnet lifecycle run (create → join → clips → proofs → dispute → settle → claim → holdback → refund) using Reclaim-format proofs signed by a **simulated attestor**.
 - **Live Reclaim zkFetch run:** pending credentials. **[TBD: link to live-proof testnet run]**
-- **Humanity** is a per-campaign nullifier registry. In the demo, registration goes through a relayer; a Self ZK passport proof is on the roadmap.
+- **Humanity is verified on-chain.** `humanity.register_zk` checks an Anon Aadhaar Groth16 proof (BN254) inside Soroban, bound to the campaign (nullifier seed) and to the submitting wallet (signal hash), for ~29.5M CPU instructions. The demo uses UIDAI **test** data signed with the Anon Aadhaar test key; production pins the real UIDAI key. A relayer `register` path remains as a fallback.
 
-Status: hackathon build on Stellar **testnet**. Demo video: **[TBD: demo video link]**
+Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **Scale track**. Live demo: **[LIVE_DEMO_URL]** · Demo video: **[TBD: demo video link]**
 
-## Judge quickstart
+**Jump to:** [How to evaluate](#how-to-evaluate) · [Architecture](#architecture) · [Stellar integrations](#stellar-integrations) · [Stellar skills used](#stellar-skills-used) · [Design decisions & trade-offs](#design-decisions--trade-offs) · [Challenges](#challenges) · [Honest limits](#honest-limits) · [Roadmap → SCF / InstAward](#roadmap--scf--instaward)
+
+## How to evaluate
+
+| What | Where |
+|---|---|
+| Live dashboard (Next.js) | **[LIVE_DEMO_URL]** |
+| Verifier service (`/health`, `/demo/videos/:id`) | **[VERIFIER_URL]** |
+| Contracts | [Testnet deployment](#testnet-deployment), each linked to stellar.expert |
+| Full lifecycle, reproducible | `pnpm --filter e2e run`: 39/39 steps, prints every explorer link |
+
+**Test wallets.** Use any wallet supported by Stellar Wallets Kit (e.g. Freighter switched to *Testnet*) and fund it with Friendbot. Campaign budgets use test USDC from our test issuer; `bash scripts/setup-accounts.sh` creates and funds every role (admin, relayer, arbiter, brand, clippers) and issues test USDC. No mainnet funds are involved.
+
+**Five-minute check:**
 
 ```bash
-(cd contracts && cargo test)                                 # cliprail, humanity, reclaim-verify
+(cd contracts && cargo test)                                 # cliprail, humanity (incl. Groth16), reclaim-verify
 pnpm install && pnpm -r test                                 # verifier, @cliprail/shared, @cliprail/client
-pnpm --filter e2e deploy -- --redeploy                       # fresh e2e instance on testnet (simulated attestor)
+pnpm --filter e2e run deploy -- --redeploy                       # fresh e2e instance on testnet (simulated attestor)
 pnpm --filter e2e run                                        # full lifecycle on testnet, prints explorer links
 pnpm --filter e2e seed -- --mode local                       # demo seed; --mode real requires Reclaim credentials
 ```
 
-The e2e scripts need funded testnet accounts from `bash scripts/setup-accounts.sh`. A fresh instance is needed per run because the video registry is global.
+A fresh e2e instance is needed per run because the video registry is global. Code worth reading: `contracts/reclaim-verify/src/lib.rs` (in-contract zkTLS), `contracts/humanity/src/groth16.rs` (BN254 Groth16), `contracts/cliprail/src/test/attacks.rs` (A1–A17).
 
 ---
 
@@ -35,7 +48,7 @@ The e2e scripts need funded testnet accounts from `bash scripts/setup-accounts.s
 | Layer | Guarantee | How |
 |---|---|---|
 | **The number is real** | The view count and description the platform served reach the contract unmodified | Reclaim zkTLS proof. Secp256k1 attestor signature, URL template, `responseMatches` and extracted `views`/`desc` are all verified in the `cliprail` contract (`contracts/reclaim-verify`), not by a backend |
-| **One human, once** | A registered nullifier joins a campaign at most once, and caps apply per nullifier, not per account | `humanity` registry: `(campaign, nullifier)` and `(campaign, wallet)` are each unique. The nullifier is scoped per campaign. Demo: relayer registration; roadmap: Self ZK passport proof |
+| **One human, once** | A registered nullifier joins a campaign at most once, and caps apply per nullifier, not per account | `humanity` registry: `(campaign, nullifier)` and `(campaign, wallet)` are each unique. The nullifier is scoped per campaign and the proof is bound to the wallet. Anon Aadhaar Groth16 verified on-chain (`register_zk`); relayer `register` as fallback |
 | **The rules can't change** | Rate, caps, windows, holdback, bond and arbiter are fixed at creation. There are no discretionary rejections | Budget sits in a Soroban escrow. Every payout is a formula over proven numbers. Disputes are bonded and time-boxed |
 
 ## The problem
@@ -57,7 +70,7 @@ create ─▶ humanity ─▶ join (CR code) ─▶ register clip (opening proof
 ```
 
 1. **Create.** The brand calls `create_campaign` and the budget moves into escrow. Parameters are validated (`epoch_len ≥ proof + dispute + arbiter windows`, `claim_grace ≥ epoch_len`, `bond > 0`, arbiter ≠ brand) and are then immutable.
-2. **Humanity.** The clipper is registered in `humanity` with a per-campaign nullifier. A second wallet with the same nullifier is rejected.
+2. **Humanity.** The clipper submits an Anon Aadhaar Groth16 proof to `humanity.register_zk`. The contract recomputes the bound public inputs itself (UIDAI pubkey hash from config, `nullifierSeed = keccak256("cliprail:" ‖ campaign_id) >> 3`, `signalHash = keccak256(wallet ed25519 key) >> 3`), checks the QR timestamp against `max_age`, and runs the BN254 pairing check. A second wallet with the same nullifier is rejected.
 3. **Join.** `join` checks `humanity.is_verified` and returns a code `CR-XXXXXX` derived from `sha256(campaign_id ‖ participant)`. The clipper puts it in the video description.
 4. **Register clip.** The clipper submits the video link. The verifier produces an **opening proof**: the description contains the code, and the current views are N. The contract verifies it and records `baseline = N`, so only growth after registration counts. Each `(platform, video_id)` can be registered only once, globally.
 5. **Closing proofs.** In every epoch's window `[content_end, proof_end)` anyone can submit a fresh proof. If the same clip is re-proven in the window, the higher view count wins. The verifier's keeper does this automatically.
@@ -71,30 +84,84 @@ create ─▶ humanity ─▶ join (CR code) ─▶ register clip (opening proof
 
 ```mermaid
 flowchart LR
-  Brand([Brand]) -- create_campaign / challenge / refund --> CR
-  Clipper([Clipper]) -- join / register_clip / respond / claim --> CR
-  Arbiter([Arbiter]) -- resolve --> CR
+  Brand(["Brand wallet<br/>Freighter · Stellar Wallets Kit"])
+  Clipper(["Clipper wallet<br/>Freighter · Stellar Wallets Kit"])
+  Arbiter([Arbiter])
+  Web["Next.js dashboard<br/>apps/web"]
 
-  subgraph Stellar testnet
-    CR["cliprail (Soroban)<br/>escrow · epochs · pro-rata · holdback<br/>bonded disputes · reclaim-verify (in-contract)"]
-    HU["humanity (Soroban)<br/>per-campaign nullifier registry"]
-    USDC[(USDC SAC)]
-    CR -- is_verified --> HU
-    CR <-- transfer --> USDC
+  subgraph Stellar["Stellar testnet · Soroban"]
+    CR["cliprail escrow contract<br/>campaigns · epochs · pro-rata settle<br/>holdback · bonded disputes · refund<br/>in-contract zkTLS verify (secp256k1 + keccak)"]
+    HU["humanity contract<br/>register_zk: Groth16 on BN254 (Anon Aadhaar)<br/>per-campaign nullifier bound to wallet<br/>register: relayer fallback"]
+    USDC[("USDC SAC<br/>token-agnostic escrow asset")]
   end
 
-  subgraph Verifier service
-    ZK[zkFetch prover] --> RL[relayer: pays fees, holds no funds]
-    KP[keeper: closing proofs, finalize, settle] --> RL
-    DM[demo platform endpoint]
+  subgraph VS["Verifier service · holds no funds"]
+    ZK["zkFetch prover<br/>(simulated attestor in e2e)"]
+    KP["keeper: close proofs,<br/>finalize disputes, settle"]
+    RL["relayer: pays fees"]
+    DM["demo endpoint<br/>/demo/videos/:id"]
   end
 
-  ZK -- TLS via Reclaim attestor --> YT[(YouTube Data API)]
-  ZK -- TLS via Reclaim attestor --> DM
-  RL -- submit_proof / settle_epoch / finalize_dispute --> CR
-  RL -- register (demo humanity) --> HU
-  Web["apps/web (Next.js)"] -- POST /proof, /humanity/demo-register --> ZK
-  Web -- signed txs via Freighter --> CR
+  AT["Reclaim attestor (TEE)"]
+  SP[("Social platforms<br/>YouTube Data API")]
+  AN["Anchor: SEP-10 + SEP-24<br/>TRY on/off-ramp<br/>(in progress)"]
+  SE["stellar.expert"]
+
+  Brand --> Web
+  Clipper --> Web
+  Web -- "signed txs: create_campaign · join ·<br/>register_clip · claim · challenge · refund" --> CR
+  Web -- "register_zk" --> HU
+  Web -- "POST /proof · /humanity/*" --> ZK
+  Arbiter -- resolve --> CR
+
+  ZK -- "TLS via attestor" --> AT
+  AT --> SP
+  AT --> DM
+  KP --> ZK
+  ZK --> RL
+  KP --> RL
+  RL -- "submit_proof · settle_epoch · finalize_dispute" --> CR
+  RL -. "register (fallback)" .-> HU
+
+  CR -- is_verified --> HU
+  CR <-- escrow in and payouts out --> USDC
+  Brand -. "TRY → USDC" .-> AN
+  Clipper -. "USDC → TRY" .-> AN
+  AN -.- USDC
+  Web -- "tx and contract links" --> SE
+```
+
+Solid edges are live on testnet. Dashed edges are fallbacks or not yet live (the anchor ramp is in progress).
+
+### Campaign lifecycle
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant B as Brand
+  participant C as Clipper
+  participant H as humanity
+  participant CR as cliprail
+  participant V as Verifier / keeper
+  participant T as USDC SAC
+
+  B->>CR: create_campaign(immutable rules, budget)
+  CR->>T: budget into escrow
+  C->>H: register_zk(Anon Aadhaar Groth16 proof)
+  Note over H: BN254 pairing check, (campaign, nullifier) ↔ wallet
+  C->>CR: join → code CR-XXXXXX (checks is_verified)
+  C->>V: POST /proof (video link)
+  V->>CR: register_clip(opening proof) → baseline = views
+  loop every epoch
+    V->>CR: submit_proof(closing proof) in proof window (keeper)
+    Note over B,CR: dispute window: bonded challenge, free response, arbiter deadline
+    V->>CR: finalize_dispute, settle_epoch (pro-rata, rate ceiling)
+    C->>CR: claim
+    CR->>T: payout to clipper (minus holdback)
+  end
+  C->>CR: claim holdback (clip proven live next epoch)
+  B->>CR: refund after refund_at
+  CR->>T: remaining balance to brand
 ```
 
 The verifier has **no authority over funds**. It cannot change a count because the attestor signs it, and it cannot pay anyone. The worst it can do is not submit a proof, and anyone else can submit one in the same window.
@@ -129,7 +196,8 @@ held_c   = pay_c · holdback_bps / 10000   (0 in the last epoch) ;  immediate_c 
 |---|---|---|
 | Reclaim attestor (single key today) | Sign a false count | Attestor allowlist in contract. Reclaim runs it in a TEE. Multi-attestor on the roadmap |
 | Platform (YouTube) | Count bot views | Per-clip and per-human caps, `min_views`, bonded disputes, pro-rata dilution |
-| Humanity relayer (demo) | Register fake nullifiers | Registry logic is final. The relayer is swapped for on-chain ZK identity verification (roadmap) |
+| Humanity relayer (fallback path) | Register fake nullifiers | The primary path `register_zk` needs no relayer: the Groth16 proof is verified on-chain and bound to the wallet. The relayer role is admin-set (`set_relayer`) and can be retired in production |
+| Admin (UIDAI key config) | Accept proofs under a wrong key | `pubkey_hash` is pinned in `AadhaarConfig`. The demo uses the Anon Aadhaar test key (`test_key: true`); production pins the real UIDAI key |
 | Brand | Challenge in bad faith | Bond goes to the clipper if the challenge fails. Excluded weight never returns to the brand |
 | Arbiter | Rule with bias | Only rules on disputes the clipper answered. Missing the deadline means the clipper wins |
 | Verifier / relayer | Withhold a proof (censor a clip) | Cannot touch funds or counts. Anyone can submit in the window, and the higher count wins |
@@ -139,7 +207,8 @@ held_c   = pay_c · holdback_bps / 10000   (0 in the last epoch) ;  immediate_c 
 
 - **zkTLS proves the count the platform displays, not that viewers are human.** We mitigate bot views with caps, disputes and pro-rata dilution. We do not claim to solve them.
 - **One Reclaim attestor key.** The address we allowlist (`0x2448…9072`, from Reclaim's reference vector) is to be confirmed with a live proof. Trust moves from "our server" to "a third-party, signed, TEE-backed attestor". That is better, but not trustless.
-- **Humanity is a demo registration via relayer** (`/humanity/demo-register`). The contract-side per-campaign nullifier logic is complete. Self passport ZK is on the roadmap. Identities can be rented, which raises the Sybil cost to the price of a real identity without eliminating it.
+- **Humanity uses UIDAI test data in the demo.** `register_zk` verifies a real Anon Aadhaar Groth16 proof on-chain, but the demo proof is generated by the verifier (`/humanity/aadhaar/prove`) from the official UIDAI test QR under the Anon Aadhaar **test** key. Production proves in the user's browser from their own Aadhaar QR and pins the real UIDAI key. Aadhaar covers India only until more identity sources are added. Identities can be rented, which raises the Sybil cost to the price of a real identity without eliminating it.
+- **The anchor on/off-ramp (SEP-10/SEP-24, TRY) is in progress** and not part of the testnet run.
 - **The live demo uses a platform endpoint we control** (`/demo/videos/:id`) so viewers can watch the count grow within minutes. Once Reclaim credentials are in place it is a **real zkTLS proof** verified in-contract; until then the testnet run uses a simulated attestor. The YouTube path uses the same verifier.
 - The proof `timestampS` is chosen by the prover, so freshness relies on the allowlisted `owner` (our zkFetch app).
 
@@ -182,7 +251,7 @@ Every row has a dedicated test in [`contracts/cliprail/src/test/attacks.rs`](con
 | `cliprail` (e2e) | [`CC4SMPQWP56TUVAUAWMK4BLOONQPBLJAWDVNPE6HMZGEMG67WW4XR7T3`](https://stellar.expert/explorer/testnet/contract/CC4SMPQWP56TUVAUAWMK4BLOONQPBLJAWDVNPE6HMZGEMG67WW4XR7T3) |
 | `humanity` (e2e) | [`CB24BRMGW4ZTLJVC2ETKU5URUD7PXQ6BOYEKV4JUIO7O62GZWM6ZZZUM`](https://stellar.expert/explorer/testnet/contract/CB24BRMGW4ZTLJVC2ETKU5URUD7PXQ6BOYEKV4JUIO7O62GZWM6ZZZUM) |
 
-Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Verifier URL: **[TBD]**
+Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Verifier URL: **[VERIFIER_URL]**
 
 ## Repository layout
 
@@ -190,14 +259,14 @@ Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stell
 contracts/
   reclaim-verify/   no_std lib: identifier, EIP-191 digest, secp256k1 recover, root-level JSON scanner
   cliprail/         campaigns, global video registry, epochs, pro-rata settle, claims, holdback, disputes, refund
-  humanity/         per-campaign nullifier registry (constructor: admin, relayer)
-services/verifier/  Node/TS: zkFetch proofs, relay, keeper, demo platform endpoint, rate limits
+  humanity/         per-campaign nullifier registry: register_zk (on-chain Anon Aadhaar Groth16, BN254), register (relayer fallback)
+services/verifier/  Node/TS: zkFetch proofs, relay, keeper, demo platform endpoint, Anon Aadhaar demo prover, rate limits
 packages/
   client/           @cliprail/client: chain and mock CliprailApi for the web app (tx helpers with retry, proof calls)
   cliprail-client/  generated TS bindings (stellar contract bindings typescript)
   humanity-client/  generated TS bindings
   shared/           @cliprail/shared: timeline, payout, errors, video-id parsing, formatting (mirrors the contract)
-apps/web/           Next.js dApp (in progress)
+apps/web/           Next.js dashboard (brand, clipper, arbiter views; Stellar Wallets Kit)
 config/             providers.json (URL templates + regexes per platform)
 fixtures/           Reclaim reference vector, required substrings
 scripts/            setup-accounts.sh, deploy.sh, bindings.sh
@@ -245,21 +314,21 @@ pnpm --filter verifier dev                                 # http://localhost:87
 - `WRITE_TOKEN` protects write endpoints, and `/proof` is rate-limited per IP.
 - Docker and Caddy deployment instructions are in [services/verifier/README.md](services/verifier/README.md).
 
-**Web:** `apps/web` is in progress.
+**Web:** `pnpm --filter web dev` (http://localhost:3100).
 
 ## Tests
 
 | Suite | Command | Result |
 |---|---|---|
 | `cliprail` contract (flows, disputes, A1–A17 attacks) | `cd contracts && cargo test` | 40 passed |
-| `humanity` contract | ″ | 8 passed |
+| `humanity` contract (registry, Groth16 / Anon Aadhaar, field aliasing, wallet and campaign binding) | ″ | 36 passed |
 | `reclaim-verify` (Reclaim reference vector, k256 signatures, JSON scanner) | ″ | 24 passed |
 | Verifier service | `pnpm --filter verifier test` | 50 passed |
 | `@cliprail/shared` (timeline/payout parity with contract) | `pnpm --filter @cliprail/shared test` | 65 passed |
 | `@cliprail/client` | `pnpm --filter @cliprail/client test` | 17 passed |
 | Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run` | 39/39 steps |
 
-**204 unit and integration tests in total**, plus the 39-step testnet run. Tests never call the real zkFetch.
+**232 unit and integration tests in total**, plus the 39-step testnet run. Tests never call the real zkFetch.
 
 ## Cost
 
@@ -274,6 +343,7 @@ Measured on testnet in the lifecycle run: average CPU instructions from simulati
 | `challenge` | ~2.3M | ~0.059 XLM |
 | `settle_epoch` | ~1.5M | ~0.0012 XLM |
 | `claim` | ~2.0M | ~0.0023 XLM |
+| `humanity.register_zk` (Groth16, 9 public inputs) | ~29.5M | — |
 
 Reclaim proof verification alone costs 3.2M instructions (142 B context) to 10.2M (7.9 KB), measured on the real wasm including VM setup. Every call stays far inside Soroban's 400M-instruction per-transaction budget. The most expensive call is `create_campaign` at ~0.11 XLM; the recurring payout calls (`settle_epoch`, `claim`) cost a small fraction of a cent.
 
@@ -281,16 +351,68 @@ Reclaim proof verification alone costs 3.2M instructions (142 B context) to 10.2
 
 - **Native USDC and low fees.** A classic USDC payment costs ~0.00001 XLM, and the Soroban calls above cost cents or less (`claim` ~0.0023 XLM), which makes per-epoch micro-payouts with no minimum threshold possible.
 - **Anchors and MoneyGram** let clippers cash out locally (SEP-24) in markets PayPal does not serve.
-- **Host crypto functions** (`secp256k1_recover`, `keccak256`) make it cheap enough to verify a Reclaim zkTLS proof fully inside a Soroban contract: a full verification measures ~3–10M instructions of the 400M per-transaction budget. BN254 host functions open the way to on-chain Groth16 identity proofs.
+- **Host crypto functions** (`secp256k1_recover`, `keccak256`) make it cheap enough to verify a Reclaim zkTLS proof fully inside a Soroban contract: a full verification measures ~3–10M instructions of the 400M per-transaction budget. BN254 pairing and MSM host functions make on-chain Groth16 identity proofs practical: Anon Aadhaar verifies in ~29.5M instructions.
 - A layer that complements the **Stellar Disbursement Platform**: SDP distributes, ClipRail proves what should be paid.
 
-## Roadmap
+## Stellar integrations
 
-- **Self ZK identity on-chain:** verify the passport/Aadhaar Groth16 proof in Soroban with the BN254 host functions, replacing the demo relayer.
-- **Device-side Reclaim** proofs for TikTok, X and Instagram, where session cookies stay private.
-- **Passkey wallets and fee sponsorship:** no seed phrase and no XLM needed.
-- **SEP-24 / MoneyGram cash-out** in the clipper's local currency.
-- **Optimistic dispute resolution with proofs**, e.g. a "video deleted" claim settled by a zkTLS proof.
-- **SDP integration** for large-scale disbursement.
-- **Multi-attestor** threshold verification.
+Each integration below carries weight in the protocol; none is decorative.
 
+| Integration | Status | What it does in ClipRail |
+|---|---|---|
+| **Stellar Wallets Kit** (`@creit.tech/stellar-wallets-kit`) | Live | Wallet connection and transaction signing in the dashboard (Freighter and other kit wallets) for brands, clippers and arbiters. Every state change that moves money is signed by the user's own wallet |
+| **Circle USDC via the Stellar Asset Contract** | Live (test issuer on testnet) | The escrow asset. `create_campaign`, `claim`, bonds and `refund` are SEP-41 `transfer` calls on the SAC. The contract is token-agnostic: it takes the token address per campaign, so an anchor-issued TRY token works the same way |
+| **Soroban host crypto: secp256k1 + keccak256** | Live | Recover the Reclaim attestor address and hash the claim identifier, so a zkTLS proof is verified fully in-contract (~3–10M instructions) |
+| **Soroban host crypto: BN254 pairing + G1 MSM** | Live | Groth16 verification of Anon Aadhaar proofs in `humanity.register_zk` (~29.5M instructions) |
+| **Reclaim Protocol zkTLS** (zkFetch, attestor) | Integrated; live-credential run pending | Produces signed proofs of the view count and description the platform served. Tests and the e2e run use a simulated attestor that signs in the exact Reclaim format |
+| **Anon Aadhaar circuits (PSE)** v2 | Live on-chain verify; demo uses UIDAI test data | Proof of a unique Aadhaar holder with a per-campaign nullifier, bound to the Stellar wallet via the signal hash |
+| **Anchor: SEP-10 auth + SEP-24 interactive deposit/withdraw** (TRY) | In progress | Brand funds in TRY, clipper cashes out USDC to TRY. The escrow needs no change for this |
+| **Stellar RPC + stellar.expert** | Live | The dashboard, keeper and e2e scripts read contract state and simulate/submit transactions via Stellar RPC; every transaction and contract is linked on stellar.expert |
+
+## Stellar skills used
+
+We built with the Stellar developer skills from [github.com/stellar/stellar-dev-skill](https://github.com/stellar/stellar-dev-skill):
+
+| Skill file | Used for |
+|---|---|
+| `skills/smart-contracts/SKILL.md` | Soroban project setup, contract anatomy, build and deploy workflow (`cliprail`, `humanity`, `reclaim-verify`) |
+| `skills/smart-contracts/development.md` | Storage and TTL, authorization, SAC token calls, events, errors |
+| `skills/smart-contracts/testing.md` | Unit and attack tests (A1–A17), cost measurement |
+| `skills/smart-contracts/security.md` | Checklist for escrow accounting, auth, replay and time windows |
+| `skills/zk-proofs/SKILL.md` | Groth16 verification with the BN254 host functions, public-input canonicality |
+| `skills/dapp/SKILL.md` | Stellar Wallets Kit and Freighter integration, transaction building, simulation and signing in Next.js |
+| `skills/assets/SKILL.md` | Test USDC issuance, trustlines, SAC deployment |
+| `skills/data/SKILL.md` | Stellar RPC reads, events, explorer links |
+| `skills/standards/SKILL.md` | SEP-1 / SEP-10 / SEP-24 anchor flow for the TRY on/off-ramp, SEP-41 token interface |
+
+## Design decisions & trade-offs
+
+- **Verify zkTLS in the contract, not in a backend.** The verifier service can only deliver proofs; it cannot change a count or move funds. Cost: ~5M instructions per proof, which Soroban's budget absorbs easily.
+- **Minimal parsing instead of a JSON library.** Soroban contracts have no JSON parser, so `reclaim-verify` rebuilds the canonical claim identifier from bytes and uses a small scanner that only reads the root-level `url`, `responseMatches` and `extractedParameters`. Smaller wasm and a narrow attack surface, at the price of depending on Reclaim's exact serialization (pinned by fixtures).
+- **Pro-rata with a rate ceiling, not first-come-first-served.** No race to claim; `Σ payouts ≤ budget` always holds; unused budget carries over.
+- **Holdback tied to next-epoch liveness.** Discourages post-payout deletion without an extra "prove alive" transaction: the next closing proof doubles as liveness evidence.
+- **Bonded, time-boxed disputes with a default in the clipper's favor.** The arbiter can only rule on answered disputes, and a missed deadline cannot be used to stall payouts.
+- **Per-campaign nullifiers.** A person's identity cannot be linked across campaigns, and a nullifier is spent only within one campaign.
+- **Token-agnostic escrow.** The token is a campaign parameter, so USDC today and anchor-issued local stablecoins later need no contract change.
+- **Relayer kept as a fallback for humanity.** It keeps the demo usable if a device cannot generate a proof, while the trustless `register_zk` path is primary.
+
+## Challenges
+
+- **zkTLS in a contract with no JSON parser.** Reproducing Reclaim's identifier and signature digest byte-for-byte (JCS-style canonical JSON, EIP-191) took reference vectors and fixtures.
+- **Nested-key spoofing.** A plain substring search can be fooled by a nested `"url"` or `extractedParameters` (e.g. inside headers or parameter values). After review we replaced it with a top-level-only JSON scanner that ignores nested keys and rejects duplicate top-level keys, with dedicated tests.
+- **ZK public-input aliasing mod r.** BN254 reduces scalars modulo r, so `s` and `s + k·r` verify identically. `humanity` rejects any non-canonical input (`InputNotInField`) and recomputes the nullifier seed and wallet-bound signal hash itself instead of trusting the client.
+- **Keeper timing vs ledger close.** Windows are defined in ledger time, which advances in ~5 s steps. The keeper schedules closing proofs, dispute finalization and settlement against ledger timestamps with a margin, not wall-clock time, to avoid off-by-one-window failures.
+- **Being honest about the attestor.** Until live Reclaim credentials are in place, the e2e run uses a simulated attestor. It signs in the exact Reclaim format with a separate, clearly labeled test key that is allowlisted only on the e2e instance.
+- **Keeping off-chain math identical to the contract.** `@cliprail/shared` mirrors the timeline and payout formulas and is tested for parity, so the dashboard shows exactly what the contract will pay.
+
+## Roadmap → SCF / InstAward
+
+| Milestone | Timeline | Deliverables |
+|---|---|---|
+| **M1: Production-ready testnet** | 2–4 weeks | Live Reclaim zkFetch proofs in the default flow (multi-proof run on testnet); anchor SEP-10/SEP-24 TRY cash-out integrated in the clipper flow; verifier and keeper hosted on Hetzner behind HTTPS with monitoring; in-browser Anon Aadhaar proving; external security review of `cliprail`, `humanity` and `reclaim-verify` |
+| **M2: Mainnet pilot** | +1–2 months | Mainnet deployment with real UIDAI key pinned; pilot campaigns with 2–3 brands (crypto projects, music labels); passkey smart accounts and fee sponsorship so clippers need no seed phrase or XLM; device-side zkTLS for TikTok, X and Instagram; admin timelock and multisig |
+| **M3: SCF Build Award** | +3 months | SCF Build application backed by pilot metrics; Self / zkPassport identity alongside Aadhaar; SDK and dashboard for agencies running many campaigns; multi-attestor threshold verification; Stellar Disbursement Platform integration for large payouts |
+
+**Success metrics** (reported publicly from on-chain data): campaigns launched, USDC escrowed and paid out, clips verified, unique verified humans, dispute rate and outcome split, median time from epoch end to payout, share of clippers cashing out through an anchor.
+
+**Funding ask.** We plan to apply for an SCF InstAward to finish M1, then an SCF Build Award (up to $150k) paid in tranches against M1–M3, with each tranche tied to the deliverables and metrics above.
