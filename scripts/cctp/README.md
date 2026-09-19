@@ -46,7 +46,10 @@ by unit tests (`pnpm --filter cctp test`) and re-checked in-process before every
    detects a missing trustline and offers to add it when the keystore holds the recipient's key.
 4. **A funded Stellar fee payer for the mint** — the `relayer` identity by default; override with
    `CCTP_STELLAR_SOURCE` (an identity name or a raw secret). Secrets are never printed.
-5. A deployed ClipRail instance (`scripts/.accounts/deploy.env`) for `fund-campaign`.
+5. **The demo ClipRail instance** — `fund-campaign` targets `E2E_CLIPRAIL_ID` from
+   `scripts/.accounts/e2e.env` (created by `pnpm --filter e2e deploy`). The older instance in
+   `deploy.env` predates the ZK and Soroswap work and is only a last-resort fallback; pass
+   `--cliprail C… --humanity C…` to target something else.
 
 ## Commands
 
@@ -82,6 +85,16 @@ the printed `--resume` command completes the transfer.
 Creates a campaign with `@cliprail/client`'s `createCampaign`, signed by the `brand` identity, using
 the bridged USDC as the budget. It prints the campaign id, the transaction link, and the escrow
 balance change. The budget defaults to whatever the last `bridge` run moved.
+
+| flag | meaning |
+| ---- | ------- |
+| `--budget <usdc>` | campaign budget. Default: the last bridged amount. |
+| `--title <text>` | campaign title. Default names the source chain and CCTP. |
+| `--brand <identity>` | signing identity. Default `brand`. |
+| `--cliprail <C…>` / `--humanity <C…>` | target another instance instead of the one in `e2e.env`. |
+
+The header line states whether the target is the demo instance, so a run against anything else is
+visible before the transaction is signed.
 
 ## Decimals
 

@@ -73,7 +73,8 @@ async function main() {
   const title = arg("title") ?? `Funded with USDC bridged from ${prev?.chain === "base" ? "Base Sepolia" : "Arc Testnet"} (CCTP V2)`;
 
   console.log("ClipRail campaign funded by cross-chain USDC");
-  console.log(`  cliprail   ${CLIPRAIL}  ${stellarContractLink(CLIPRAIL)}`);
+  console.log(`  cliprail   ${CLIPRAIL}  ${IS_DEMO_INSTANCE ? "(demo instance, e2e.env)" : "(OVERRIDE — not the e2e demo instance)"}`);
+  console.log(`             ${stellarContractLink(CLIPRAIL)}`);
   console.log(`  token      ${STELLAR.usdcSac} (Circle testnet USDC SAC)`);
   console.log(`  brand      ${brand.publicKey()}`);
   if (prev) {
