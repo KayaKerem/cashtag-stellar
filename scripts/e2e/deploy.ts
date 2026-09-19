@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ROOT, E2E_ENV, accounts, identity, invoke, readEnvFile, sv, contractLink, txLink } from "./lib.ts";
-import { ATTESTOR_ADDRESS, OWNER, DEFAULT_DEMO_PREFIX, DEMO_REQUIRED } from "./proofgen.ts";
+import { ATTESTOR_ADDRESS, OWNER, RECLAIM_ATTESTOR, RECLAIM_OWNER, DEFAULT_DEMO_PREFIX, DEMO_REQUIRED } from "./proofgen.ts";
 import { SOROSWAP_TESTNET } from "@cliprail/shared";
 
 const WASM = resolve(ROOT, "contracts/target/wasm32v1-none/release");
@@ -63,6 +63,8 @@ async function main() {
         `USDC_SAC=${accounts.USDC_SAC}`,
         `E2E_ATTESTOR=${ATTESTOR_ADDRESS}`,
         `E2E_OWNER=${OWNER}`,
+        `E2E_ATTESTOR_LIVE=${RECLAIM_ATTESTOR}`,
+        ...(RECLAIM_OWNER ? [`E2E_OWNER_LIVE=${RECLAIM_OWNER}`] : []),
         `E2E_ROUTER=${ROUTER}`,
         ...(demoPrefix !== DEFAULT_DEMO_PREFIX ? [`E2E_DEMO_PREFIX=${demoPrefix}`] : []),
         ...(prev.E2E_CLIPRAIL_ID && prev.E2E_CLIPRAIL_ID !== cliprail ? [`E2E_CLIPRAIL_ID_PREV=${prev.E2E_CLIPRAIL_ID}`] : []),
@@ -71,9 +73,13 @@ async function main() {
     );
   save();
 
+  // both attestor modes stay usable: the live Reclaim attestor/owner next to the local test pair
+  const attestors = [RECLAIM_ATTESTOR, ATTESTOR_ADDRESS].map((a) => a.toLowerCase()).filter((a, i, xs) => xs.indexOf(a) === i);
+  const owners = [RECLAIM_OWNER, OWNER].map((o) => o.toLowerCase()).filter(Boolean).filter((o, i, xs) => xs.indexOf(o) === i);
+  if (!RECLAIM_OWNER) console.log("  (no RECLAIM_OWNER / E2E_OWNER_LIVE: only the simulated owner is configured)");
   const steps: [string, any[]][] = [
-    ["set_attestors", [sv.vec([sv.bytes(Buffer.from(ATTESTOR_ADDRESS.slice(2), "hex"))])]],
-    ["set_owners", [sv.vec([sv.bytes(Buffer.from(OWNER, "utf8"))])]],
+    ["set_attestors", [sv.vec(attestors.map((a) => sv.bytes(Buffer.from(a.slice(2), "hex"))))]],
+    ["set_owners", [sv.vec(owners.map((o) => sv.bytes(Buffer.from(o, "utf8"))))]],
     [
       "set_platform",
       [

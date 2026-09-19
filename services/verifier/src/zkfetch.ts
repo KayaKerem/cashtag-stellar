@@ -57,8 +57,36 @@ export type GetOpts = {
   purpose?: "open" | "close";
 };
 
+export const DEFAULT_ATTESTOR_URL = "wss://attestor.reclaimprotocol.org/ws";
+const ATTESTOR_FLAG_URL = "https://api.reclaimprotocol.org/api/feature-flags/get?featureFlagNames=zkFetchAttestorURL";
+
+/** Attestor node zk-fetch would use: Reclaim's feature flag, falling back to the default node. */
+export async function resolveAttestorUrl(fetchImpl: typeof fetch = fetch): Promise<string> {
+  try {
+    const res = await fetchImpl(ATTESTOR_FLAG_URL, { headers: { "content-type": "application/json" } });
+    if (!res.ok) return DEFAULT_ATTESTOR_URL;
+    const flags = (await res.json()) as { name?: string; value?: string }[];
+    return flags?.find((f) => f.name === "zkFetchAttestorURL")?.value || DEFAULT_ATTESTOR_URL;
+  } catch {
+    return DEFAULT_ATTESTOR_URL;
+  }
+}
+
+/**
+ * `@reclaimprotocol/tls` ships an empty crypto object that the caller has to fill in; zk-fetch does
+ * it on import, but under a CJS/ESM split (tsx) that copy is not the one attestor-core reads from.
+ * Installing it from here is idempotent and keeps both proof paths working.
+ */
+export async function ensureTlsCrypto(): Promise<void> {
+  const tls: any = await import("@reclaimprotocol/tls");
+  if (typeof tls.crypto?.randomBytes === "function") return;
+  const { webcryptoCrypto } = (await import("@reclaimprotocol/tls/webcrypto")) as any;
+  tls.setCryptoImplementation(webcryptoCrypto);
+}
+
 export class ProofService {
   private client: any = null;
+  private attestorUrl = "";
   private limit = pLimit(2); // max concurrent zkFetch
   private inflight = new Map<string, Promise<ProofResult>>();
   cache: ProofCache;
@@ -154,7 +182,58 @@ export class ProofService {
     });
   }
 
+  /**
+   * Same claim as zkFetch, made straight on the Reclaim attestor node. zk-fetch only adds its own
+   * telemetry on top (and refuses to run when RECLAIM_APP_ID is not registered as a zkFetch app).
+   * The app id never enters the claim: the owner is the address of RECLAIM_APP_SECRET either way.
+   */
+  private async attestorClaim(url: string, secret: ReturnType<typeof secretOptions>): Promise<ZkProof> {
+    if (!this.attestorUrl) this.attestorUrl = this.cfg.reclaimAttestorUrl || (await resolveAttestorUrl(this.fetchImpl));
+    await ensureTlsCrypto();
+    const { createClaimOnAttestor } = await import("@reclaimprotocol/attestor-core");
+    let claim: any;
+    try {
+      claim = await createClaimOnAttestor({
+        name: "http",
+        params: {
+          method: "GET",
+          url,
+          responseMatches: secret.responseMatches,
+          headers: undefined,
+          geoLocation: undefined,
+          responseRedactions: secret.responseRedactions,
+          body: "",
+          paramValues: undefined,
+        } as any,
+        secretParams: { cookieStr: "", headers: secret.headers },
+        zkEngine: "stwo",
+        ownerPrivateKey: this.cfg.reclaimAppSecret,
+        client: { url: this.attestorUrl },
+      } as any);
+    } catch (e: any) {
+      throw new HttpError(502, `attestor claim failed: ${e?.message ?? e}`, "zkfetch_failed");
+    }
+    if (claim?.error) throw new HttpError(502, `attestor claim error: ${claim.error.message ?? claim.error}`, "zkfetch_failed");
+    if (!claim?.claim || !claim?.signatures) throw new HttpError(502, "attestor returned no claim", "zkfetch_failed");
+    let extracted: Record<string, string> | undefined;
+    try {
+      extracted = JSON.parse(claim.claim.context || "{}")?.extractedParameters;
+    } catch {
+      /* extractValues falls back to the context */
+    }
+    // same shape zk-fetch's transformProof produces
+    return {
+      identifier: claim.claim.identifier,
+      claimData: claim.claim,
+      signatures: ["0x" + Buffer.from(claim.signatures.claimSignature).toString("hex")],
+      extractedParameterValues: extracted,
+      witnesses: [{ id: claim.signatures.attestorAddress, url: this.attestorUrl }],
+    };
+  }
+
   private async zkFetch(url: string, secret: ReturnType<typeof secretOptions>): Promise<ZkProof> {
+    if (this.cfg.reclaimDirect) return this.attestorClaim(url, secret);
+    await ensureTlsCrypto();
     if (!this.client) {
       const { ReclaimClient } = await import("@reclaimprotocol/zk-fetch");
       this.client = new ReclaimClient(this.cfg.reclaimAppId, this.cfg.reclaimAppSecret);

@@ -59,6 +59,15 @@ export const config = {
     .filter(Boolean),
   /** reclaim = zkFetch through Reclaim; simulated = local test attestor (testnet demos without Reclaim credentials) */
   attestorMode: attestorMode(),
+  /**
+   * reclaim mode only: talk to the Reclaim attestor node directly (attestor-core) instead of going
+   * through the zk-fetch wrapper. Same claim, same attestor, same bytes — the wrapper additionally
+   * looks the RECLAIM_APP_ID up in Reclaim's app registry and refuses ("Application not found")
+   * unless the app is registered there as zkFetch-enabled.
+   */
+  reclaimDirect: str("RECLAIM_DIRECT") === "1",
+  /** attestor websocket used by RECLAIM_DIRECT (empty = ask Reclaim's feature flag, then the default node) */
+  reclaimAttestorUrl: str("RECLAIM_ATTESTOR_URL"),
   simAttestorSecret: str("SIM_ATTESTOR_SECRET") || DEFAULT_SIM_ATTESTOR_SECRET,
   simOwnerSecret: str("SIM_OWNER_SECRET") || DEFAULT_SIM_OWNER_SECRET,
   proofFixtureDir: str("PROOF_FIXTURE_DIR") ? resolve(SERVICE_DIR, str("PROOF_FIXTURE_DIR")) : "",

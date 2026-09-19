@@ -15,6 +15,8 @@
     "@hono/node-server": "^2.1.1",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
+    "@reclaimprotocol/attestor-core": "5.1.4",
+    "@reclaimprotocol/tls": "0.1.4",
     "@reclaimprotocol/zk-fetch": "^1.1.0",
     "@stellar/stellar-sdk": "^17.1.0",
     "canonicalize": "^5.1.0",

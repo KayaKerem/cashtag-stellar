@@ -1,0 +1,47 @@
+{
+  "videoId": "live-mu8xfk7u",
+  "campaignId": "6",
+  "code": "CR-FZAVDQ",
+  "attestor": "0x244897572368eadf65bfbc5aec98d8e5443a9072",
+  "owner": "0x4ac3115260b9ac955a158541caba294aff38c8f6",
+  "epoch": 1,
+  "timestampS": 1789854965,
+  "recoveryId": 1,
+  "identifier": "0xb8bf4c0f132305f9d8b5ea5e08708af0fc9214ac19ea8d127d6fbaeaaa1dcdf3",
+  "provider": "http",
+  "parameters": "{\"body\":\"\",\"method\":\"GET\",\"responseMatches\":[{\"type\":\"regex\",\"value\":\"\\\"viewCount\\\":\\\\s*\\\"(?<views>\\\\d+)\\\"\"},{\"type\":\"regex\",\"value\":\"\\\"description\\\":\\\\s*\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}],\"responseRedactions\":[{\"regex\":\"\\\"viewCount\\\":\\\\s*\\\"(?<views>\\\\d+)\\\"\"},{\"regex\":\"\\\"description\\\":\\\\s*\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}],\"url\":\"https://brown-trackback-browse-advisors.trycloudflare.com/demo/videos/live-mu8xfk7u\"}",
+  "parametersUnchanged": true,
+  "rawContext": "{\"extractedParameters\":{\"desc\":\"Live Reclaim demo. Join the campaign: CR-FZAVDQ #ad\",\"views\":\"1200\"},\"providerHash\":\"0x825e59e32903d0efaa986f91308604034522973e1a90194c45566040bee521f3\"}",
+  "context": "{\"extractedParameters\":{\"desc\":\"Live Reclaim demo. Join the campaign: CR-FZAVDQ #ad\",\"views\":\"1200\"},\"providerHash\":\"0x825e59e32903d0efaa986f91308604034522973e1a90194c45566040bee521f3\"}",
+  "contextAlreadyCanonical": true,
+  "parametersKeys": [
+    "body",
+    "method",
+    "responseMatches",
+    "responseRedactions",
+    "url"
+  ],
+  "expectedUrl": "https://brown-trackback-browse-advisors.trycloudflare.com/demo/videos/live-mu8xfk7u",
+  "urlNeedle": "\"url\":\"https://brown-trackback-browse-advisors.trycloudflare.com/demo/videos/live-mu8xfk7u\"",
+  "urlNeedleFound": true,
+  "requiredFound": [
+    {
+      "required": "{\"type\":\"regex\",\"value\":\"\\\"viewCount\\\":\\\\s*\\\"(?<views>\\\\d+)\\\"\"}",
+      "found": true
+    },
+    {
+      "required": "{\"type\":\"regex\",\"value\":\"\\\"description\\\":\\\\s*\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}",
+      "found": true
+    }
+  ],
+  "codeInContext": true,
+  "signatureCount": 1,
+  "witnesses": [
+    {
+      "id": "0x244897572368eadf65bfbc5aec98d8e5443a9072",
+      "url": "wss://attestor.reclaimprotocol.org:444/ws"
+    }
+  ],
+  "parametersBytes": 421,
+  "contextBytes": 185
+}

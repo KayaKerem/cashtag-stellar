@@ -21,6 +21,15 @@ export const OWNER_SECRET = DEFAULT_SIM_OWNER_SECRET;
 export const ATTESTOR_ADDRESS = addressOfSecret(ATTESTOR_SECRET);
 export const OWNER = addressOfSecret(OWNER_SECRET);
 
+/** Live Reclaim attestor (witnesses[0].id of a real zkFetch proof); public, not a credential. */
+export const RECLAIM_ATTESTOR = "0x244897572368eadf65bfbc5aec98d8e5443a9072";
+/**
+ * Live Reclaim owner = the address of the Reclaim application secret. It is deployment specific and
+ * stays out of the repo: set RECLAIM_OWNER or keep E2E_OWNER_LIVE in scripts/.accounts/e2e.env
+ * (live-reclaim.ts records it after a real proof).
+ */
+export const RECLAIM_OWNER = (process.env.RECLAIM_OWNER || readEnvFile(E2E_ENV).E2E_OWNER_LIVE || "").toLowerCase();
+
 /** url_prefix deployed with the e2e instance (placeholder host; nothing is fetched). */
 export const DEFAULT_DEMO_PREFIX = "https://e2e.invalid/demo/videos/";
 /** Current demo url_prefix of the e2e instance: set-demo-host.ts records it in e2e.env. */

@@ -1,0 +1,25 @@
+{
+  "identifier": "0xb8bf4c0f132305f9d8b5ea5e08708af0fc9214ac19ea8d127d6fbaeaaa1dcdf3",
+  "claimData": {
+    "provider": "http",
+    "parameters": "{\"body\":\"\",\"method\":\"GET\",\"responseMatches\":[{\"type\":\"regex\",\"value\":\"\\\"viewCount\\\":\\\\s*\\\"(?<views>\\\\d+)\\\"\"},{\"type\":\"regex\",\"value\":\"\\\"description\\\":\\\\s*\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}],\"responseRedactions\":[{\"regex\":\"\\\"viewCount\\\":\\\\s*\\\"(?<views>\\\\d+)\\\"\"},{\"regex\":\"\\\"description\\\":\\\\s*\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}],\"url\":\"https://brown-trackback-browse-advisors.trycloudflare.com/demo/videos/live-mu8xfk7u\"}",
+    "owner": "0x4ac3115260b9ac955a158541caba294aff38c8f6",
+    "timestampS": 1789854965,
+    "context": "{\"extractedParameters\":{\"desc\":\"Live Reclaim demo. Join the campaign: CR-FZAVDQ #ad\",\"views\":\"1200\"},\"providerHash\":\"0x825e59e32903d0efaa986f91308604034522973e1a90194c45566040bee521f3\"}",
+    "identifier": "0xb8bf4c0f132305f9d8b5ea5e08708af0fc9214ac19ea8d127d6fbaeaaa1dcdf3",
+    "epoch": 1
+  },
+  "signatures": [
+    "0x75a3f052cea028ba946cf26b333e6f6352ceb86a4a43e6db4a39b6c078e4da031d926b007b0fbd94ecfb7146b67dd2e008cd6bc578356747665b7563aa2b0e5e1c"
+  ],
+  "extractedParameterValues": {
+    "desc": "Live Reclaim demo. Join the campaign: CR-FZAVDQ #ad",
+    "views": "1200"
+  },
+  "witnesses": [
+    {
+      "id": "0x244897572368eadf65bfbc5aec98d8e5443a9072",
+      "url": "wss://attestor.reclaimprotocol.org:444/ws"
+    }
+  ]
+}

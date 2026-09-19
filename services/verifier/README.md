@@ -12,6 +12,7 @@ pnpm --filter verifier test     # vitest (gerçek zkFetch çağırmaz)
 ```
 
 - `.env` boş olsa da servis açılır. `/health`, `/demo/*` çalışır. `/proof` ve `/proof/submit` Reclaim kimlik bilgisi yoksa `503 {error:"reclaim credentials missing"}` döner (`ATTESTOR_MODE=simulated` hariç, aşağıya bak).
+- İki attestor modu: `ATTESTOR_MODE=reclaim` (gerçek zkFetch, `ENV_FILE=.env.reclaim`) ve `ATTESTOR_MODE=simulated` (yerel test anahtarı, `ENV_FILE=.env.simulated`). İkisi de aynı e2e instance'a karşı çalışır; ayrıntılar aşağıda.
 - `RELAYER_SECRET`, `CLIPRAIL_ID`, `HUMANITY_ID` boşsa `scripts/.accounts/{secrets,deploy}.env` dosyalarından okunur. Bu dosyaları `scripts/setup-accounts.sh` ve `scripts/deploy.sh` üretir, ikisi de gitignored.
 - `KEEPER=1`: her 5 sn'de bir tüm kampanyaları tarar.
   - Kanıt penceresinde (`content_end + 6 sn` ile `proof_end − 30 sn` arası) her klip için bir kez kapanış kanıtı gönderir.
@@ -58,6 +59,40 @@ pnpm --filter verifier test     # vitest (gerçek zkFetch çağırmaz)
   - Açık (public) header gönderilmez, çünkü `parameters`'a girerdi.
   - `test/reference-vector.test.ts`, `fixtures/reclaim/reference-vector.json` ile identifier, digest ve imzalayanın tuttuğunu doğrular.
 - Demo verisi `.data/demo-state.json` dosyasında tutulur. İlk açılışta `fixtures/demo-state.json` ile tohumlanır.
+
+## Attestor modu: canlı Reclaim (`ATTESTOR_MODE=reclaim`)
+
+Varsayılan mod. Kanıtları gerçek Reclaim attestor'u imzalar, `/proof` her çağrıda zkFetch çalıştırır.
+**Ücretsiz kota ~100 zkFetch/ay**: testlerde asla çağırma, keeper'ı gereksiz açık bırakma.
+
+```bash
+# services/verifier/.env.reclaim (gitignored) — .env.simulated ile aynı, farkları:
+#   ATTESTOR_MODE=reclaim
+#   RECLAIM_APP_ID=0x…      (Reclaim uygulama adresi)
+#   RECLAIM_APP_SECRET=0x…  (66 karakter; adresi APP_ID'ye eşit olmalı)
+ENV_FILE=.env.reclaim pnpm --filter verifier start
+```
+
+- `/health` → `"attestorMode":"reclaim"` ve `attestor` = `RECLAIM_ATTESTORS`'ın ilki
+  (varsayılan `0x244897572368eadf65bfbc5aec98d8e5443a9072`; gerçek kanıtta da bu adres çıkıyor).
+- Kanıttaki `owner`, **`RECLAIM_APP_SECRET`'ın adresi** yani küçük harfli `RECLAIM_APP_ID`'dir.
+  Kontratın `owners` listesinde bu adres yoksa `submit_proof` `UnknownOwner` döner.
+- Zincir tarafı (e2e instance) iki modu birden kabul edecek şekilde ayarlıdır:
+  `set_attestors` = [canlı Reclaim attestor'u, simüle attestor], `set_owners` = [canlı owner, simüle owner].
+  Yeniden deploy'da `scripts/e2e/deploy.ts` aynı ikiliyi kurar; canlı owner `scripts/.accounts/e2e.env`
+  içindeki `E2E_OWNER_LIVE`'dan (ya da `RECLAIM_OWNER` ortam değişkeninden) okunur, repoya yazılmaz.
+- `DEMO_PUBLIC_BASE` **gerçekten dışarıdan erişilebilir** olmalı: simüle modun aksine demo yanıtını
+  attestor kendisi HTTPS ile çeker. Tünel/alan adı kapalıysa kanıt üretilemez.
+
+### `RECLAIM_DIRECT=1`
+
+`@reclaimprotocol/zk-fetch` sarmalayıcısı, kanıttan önce `RECLAIM_APP_ID`'yi Reclaim'in uygulama
+kaydında arar ve kayıtlı (zkFetch açık) değilse `zkFetch failed: Application not found` ile durur.
+`RECLAIM_DIRECT=1`, aynı çağrıyı doğrudan Reclaim attestor düğümüne yapar
+(`attestor-core.createClaimOnAttestor`, `RECLAIM_ATTESTOR_URL` ile değiştirilebilir). Üretilen claim
+byte byte aynıdır: aynı attestor imzalar, `owner` yine `RECLAIM_APP_SECRET`'ın adresidir; yalnız
+Reclaim'in kendi kullanım telemetrisi atlanır. Uygulama panelde zkFetch'e açıldığında bu bayrak
+kaldırılabilir.
 
 ## Simüle attestor (`ATTESTOR_MODE=simulated`)
 
