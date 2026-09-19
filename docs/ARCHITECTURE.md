@@ -1,6 +1,6 @@
 # ClipRail — Mimari ve Plan
 
-> Durum: hackathon sürümü (Stellar testnet). Son teslim: **20 Eylül 2026, ~18:00** (varsayım).
+> Durum: hackathon sürümü (Stellar testnet). Son teslim: **20 Eylül 2026, 13:00**. Hackathon kesintileri: Self entegrasyonu ve `prove_alive` stretch (bkz. DEVELOPMENT_PLAN §1).
 > Bu doküman "ne inşa ediyoruz ve neden böyle" sorusunun tek kaynağıdır. Arayüz imzaları için `INTERFACES.md`, iş planı için `DEVELOPMENT_PLAN.md`.
 
 ---
@@ -173,7 +173,8 @@ Kesin JSON biçimi (JCS kanonik sıralaması) spike'ta gerçek bir kanıttan ç�
 
 ## 9. Kimlik katmanı (Self)
 
-- **Seviye 1 (hackathon hedefi):** Kanıt Self SDK ile off-chain doğrulanır (testte `mockPassport`, Celo Sepolia). Relayer `humanity.register` çağırır. Güven noktası relayer'dır, bunu beyan ediyoruz.
+- **Seviye 0 (hackathon'da kullanılan):** Relayer, demo kaydı ile `humanity.register` çağırır (`/humanity/demo-register`). Kontrat tarafı Seviye 1 ile aynı.
+- **Seviye 1 (stretch):** Kanıt Self SDK ile off-chain doğrulanır (testte `mockPassport`, Celo Sepolia). Relayer `humanity.register` çağırır. Güven noktası relayer'dır, bunu beyan ediyoruz.
 - **Seviye 2 (stretch veya yol haritası):** `vc_and_disclose` Groth16/BN254 kanıtı Soroban'da doğrulanır, yaklaşık 50M talimat.
   - Kontroller: `scope`, `current_date`, `user_identifier == wallet`.
   - Celo'daki kimlik kökünü bir oracle Stellar'a taşır.

@@ -1,7 +1,7 @@
 # ClipRail — Geliştirme Planı (Detaylı)
 
 > Ekip: **Kerem** (`@KayaKerem`): kontratlar, verifier servisi, deploy, entegrasyon. **Sena** (`@Senaseser`): web arayüzü.
-> Başlangıç: 19 Eylül 2026, 18:30. Teslim: **20 Eylül 2026, 18:00** (varsayım; farklıysa takvimi kaydır).
+> Başlangıç: 19 Eylül 2026, 18:30. Teslim: **20 Eylül 2026, 13:00** (kesin). Toplam ~18 saat, uyku dahil. Güvenlik payı: 12:30'da her şey gönderilmiş olmalı.
 > Kaynaklar: `ARCHITECTURE.md` (neden ve ne), `INTERFACES.md` (imzalar). Görevler GitHub Projects'te; bu dosyadaki ID'ler issue başlıklarıyla aynı.
 
 ---
@@ -20,7 +20,7 @@ Proje şu koşulların hepsi sağlandığında biter:
    4. Dönem 1 kapanış kanıtı gönderilir.
    5. İtiraz → cevap → hakem kararı.
    6. Settle → claim.
-   7. Dönem 2 → holdback claim.
+   7. Dönem 2 kapanış kanıtı → dönem 1 holdback claim.
    8. İade.
 5. Her işlem için stellar.expert linki UI'da görünüyor.
 6. README (özet, mimari şema, kontrat ID'leri, çalıştırma adımları, demo akışı, güven modeli ve sınırlar) hazır.
@@ -30,18 +30,20 @@ Proje şu koşulların hepsi sağlandığında biter:
 
 | Kilometre taşı | Zaman | Kerem | Sena |
 |---|---|---|---|
-| **M0 Kurulum** | 19 Eyl 20:30 | Monorepo, toolchain, testnet hesapları, Reclaim spike başladı | Web iskeleti, cüzdan bağlantısı, mock API |
-| **M1 Çekirdek** | 20 Eyl 01:00 | `reclaim-verify` + `cliprail` çekirdeği (join/register/submit/settle/claim) testleriyle; gerçek kanıt fixture'ı alındı | Public kampanya sayfası, marka formu, clipper akışları mock ile |
-| (uyku) | 01:00–07:00 | | |
-| **M2 Testnet** | 20 Eyl 11:00 | Holdback + itiraz + refund + humanity; testnet deploy; bindings; verifier servisi | Bindings ile gerçek kontrata bağlama; marka ve clipper panelleri |
-| **M3 Uçtan uca** | 20 Eyl 15:00 | Seed/demo script; Self (Seviye 1) veya demo kaydı; hata düzeltme | Hakem sayfası, itiraz UI, cila, landing |
-| **M4 Teslim** | 20 Eyl 17:30 | README, demo videosu, gönderim | Demo videosu, ekran görüntüleri |
+| **M0 Kurulum** | 19 Eyl 20:00 | Monorepo, toolchain, testnet hesapları, Reclaim spike başladı | Web iskeleti, cüzdan bağlantısı, mock API |
+| **M1 Çekirdek** | 20 Eyl 00:30 | `reclaim-verify` + `cliprail` çekirdeği (join/register/submit/settle/claim) testleriyle; gerçek kanıt fixture'ı alındı | Public kampanya sayfası, marka formu, katılım ve klip kaydı mock ile |
+| (uyku) | 00:30–05:30 | | |
+| **M2 Testnet** | 20 Eyl 08:30 | İtiraz + holdback (dönemler arası) + refund + humanity (demo kaydı); testnet deploy; bindings; verifier servisi | Clipper ve marka panelleri; bindings ile gerçek kontrata bağlama başladı |
+| **M3 Uçtan uca** | 20 Eyl 11:00 | Seed/demo script; hata düzeltme | Gerçek kontratla tüm akış; hakem sayfası; cila |
+| **M4 Teslim** | 20 Eyl 12:30 | README, demo videosu, gönderim | Demo videosu, ekran görüntüleri |
 
-**Kesme kuralı:** Bir kilometre taşı 1 saatten fazla gecikirse **P1 işler kesilir**, önce P0 biter. Kesme sırası:
-1. Self (demo kaydı ile devam)
-2. `prove_alive` (sadece dönemler arası holdback kalır)
-3. Hakem (itiraz sadece "cevap yoksa dışla" olarak kalır)
-4. Landing sayfası cilası
+**13:00 için yapılan kesintiler:** Self (K17) stretch'e alındı; tek insan kaydı relayer ile (`/humanity/demo-register`) yapılacak. `prove_alive` yok: holdback sadece dönemler arası, son dönemin tutulan payı iadede markaya döner. Demo'da 2 dönem × 4 dakika.
+
+**Kesme kuralı:** Bir kilometre taşı 45 dakikadan fazla gecikirse **P1 işler kesilir**, önce P0 biter. Kesme sırası:
+1. Holdback (K10) — `holdback_bps = 0` ile devre dışı kalır, kod yolu bozulmaz
+2. Hakem (resolve + S11) — itiraz sadece "cevap yoksa dışla" olarak kalır
+3. Landing sayfası cilası (S13)
+4. YouTube gerçek kanıtı testnet'te gösterilemezse: sadece `demo` platformu + YouTube kanıtının off-chain doğrulaması slaytta
 
 ## 2. Repo yapısı (hedef)
 
@@ -282,14 +284,14 @@ Issue eşlemesi: K01–K19 = #1–#19 · S01–S13 = #20–#32 · X01–X03 = #3
 | K07 | `cliprail`: `register_clip` + global video kaydı | P0 | 1.5 | K05, K06 | M1 |
 | K08 | `cliprail`: `submit_proof`, dönem ağırlıkları, tavanlar, HWM | P0 | 2 | K07 | M1 |
 | K09 | `cliprail`: `settle_epoch` + `claim` + carry + bakiye kırpma | P0 | 1.5 | K08 | M1 |
-| K10 | `cliprail`: holdback + canlılık + `prove_alive` + `claim_holdback` | P1 | 1.5 | K09 | M2 |
+| K10 | `cliprail`: dönemler arası holdback + `claim_holdback` (`prove_alive` yok) | P1 | 1 | K09 | M2 |
 | K11 | `cliprail`: teminatlı itiraz (challenge/respond/resolve/finalize) | P0 | 2 | K09 | M2 |
 | K12 | `cliprail`: `refund`, okuma fonksiyonları, `quote`, event'ler | P0 | 1 | K09 | M2 |
 | K13 | Saldırı test paketi A1–A17 + bakiye değişmezi + bütçe ölçümü | P0 | 1.5 | K08–K12 | M2 |
 | K14 | `humanity` kontratı + `join` cross-call | P0 | 1 | K06 | M2 |
 | K15 | Deploy scriptleri + testnet deploy + bindings paketleri + `INTERFACES` §6 | P0 | 1 | K13, K14 | M2 |
 | K16 | Verifier servisi: `/proof`, `/proof/submit`, cache, relay, demo uç noktaları | P0 | 3 | K04, K15 | M2 |
-| K17 | Self Seviye 1: mock passport → nullifier → `humanity.register` | P1 | 3 | K14, K16 | M3 |
+| K17 | Self Seviye 1: mock passport → nullifier → `humanity.register` | **P2 (stretch)** | 3 | K14, K16 | Stretch |
 | K18 | Seed/demo scripti (hesapları fonla, kampanya kur, zaman çizelgesi) + `DEMO.md` | P0 | 1 | K15, K16 | M3 |
 | K19 | README + mimari şema + güven modeli + bütçe ölçümü | P0 | 1 | K15 | M4 |
 

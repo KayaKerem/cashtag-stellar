@@ -1,7 +1,7 @@
 # ClipRail — Proje Devir Dokümanı (Handoff)
 
 > **Kime:** Sena ve Kerem (ve projeye sonradan katılacak herkes)
-> **Ne zaman:** 19 Eylül 2026 · Teslim: 20 Eylül 2026 akşamı
+> **Ne zaman:** 19 Eylül 2026 · **Teslim: 20 Eylül 2026, 13:00**
 > **Repo:** https://github.com/KayaKerem/cliprail-stellar · **Görevler:** https://github.com/users/KayaKerem/projects/2 ("ClipRail Hackathon")
 
 ---
@@ -32,7 +32,7 @@ Bir **kumbara** düşün:
 | Public link + herkese açık izlenme sayısı | Kazıma botları, kanal analytics'i veya OAuth |
 | Kanıtın **kontrat içinde** doğrulanması | "Backend söyledi, inan" modeli |
 | Oransal, dönemli dağıtım + holdback + teminatlı itiraz | "İlk gelen alır" yarışı |
-| Self ile tek insan kaydı (yedek: demo kaydı) | Tam on-chain kimlik ZK doğrulaması (stretch) |
+| Kampanya başına tek insan kaydı (`humanity` kontratı; hackathon'da relayer ile) | Self entegrasyonu ve on-chain kimlik ZK doğrulaması (stretch) |
 | Freighter cüzdanı | Passkey, SEP-24 nakde çevirme (stretch veya slayt) |
 | "Sayı doğru, kişi tek, kurallar değişmez" | "Bot izlenmeyi tamamen çözdük" iddiası (**çözmüyoruz**, hafifletiyoruz) |
 
@@ -78,7 +78,7 @@ Ayrıntı: `docs/ARCHITECTURE.md`. Fonksiyon imzaları: `docs/INTERFACES.md`.
 
 - **Sena (web):** Tüm arayüz.
   - Sayfalar: landing, kampanya oluşturma, public kampanya sayfası, katılım, klip kaydı, clipper paneli, marka paneli, hakem sayfası.
-  - Önce mock veriyle çalışır. Kontrat testnet'e çıkınca (M2, ~20 Eyl 11:00) gerçek kontrata bağlanır.
+  - Önce mock veriyle çalışır. Kontrat testnet'e çıkınca (M2, ~20 Eyl 08:30) gerçek kontrata bağlanır.
   - Sözleşmesi `docs/INTERFACES.md` §5'teki `CliprailApi` arayüzü.
 - **Kerem (+ Claude):**
   - Kontratlar: `cliprail`, `humanity`, `reclaim-verify`.
@@ -107,14 +107,15 @@ Ayrıntı: `docs/ARCHITECTURE.md`. Fonksiyon imzaları: `docs/INTERFACES.md`.
 
 | Kilometre taşı | Saat | Tamamlanınca ne çalışıyor |
 |---|---|---|
-| M0 Kurulum | 19 Eyl 20:30 | Repo, araçlar, web iskeleti + cüzdan, ilk zkFetch denemesi |
-| M1 Çekirdek | 20 Eyl 01:00 | Kontrat çekirdeği testleriyle; web sayfaları mock ile |
-| M2 Testnet | 20 Eyl 11:00 | Kontratlar testnet'te; web gerçek kontrata bağlanıyor; verifier servisi çalışıyor |
-| M3 Uçtan uca | 20 Eyl 15:00 | Tüm akış testnet'te web üzerinden çalışıyor |
-| M4 Teslim | 20 Eyl 17:30 | README, demo videosu, gönderim |
+| M0 Kurulum | 19 Eyl 20:00 | Repo, araçlar, web iskeleti + cüzdan, ilk zkFetch denemesi |
+| M1 Çekirdek | 20 Eyl 00:30 | Kontrat çekirdeği testleriyle; web sayfaları mock ile |
+| M2 Testnet | 20 Eyl 08:30 | Kontratlar testnet'te; web gerçek kontrata bağlanıyor; verifier servisi çalışıyor |
+| M3 Uçtan uca | 20 Eyl 11:00 | Tüm akış testnet'te web üzerinden çalışıyor |
+| M4 Teslim | 20 Eyl 12:30 | README, demo videosu, gönderim (13:00 son teslim, 30 dk pay) |
 
-- **Gecikme kuralı:** Bir kilometre taşı 1 saatten fazla gecikirse P1 işler kesilir. Sıra: Self → canlılık kanıtı → hakem → landing cilası.
-- **Uyku:** 01:00–07:00 arası. Yorgun kod yazmak, sabah hata ayıklamaktan daha pahalıya gelir.
+- **Gecikme kuralı:** Bir kilometre taşı 45 dakikadan fazla gecikirse P1 işler kesilir. Sıra: holdback → hakem → landing cilası.
+- **Uyku:** 00:30–05:30 arası. Yorgun kod yazmak, sabah hata ayıklamaktan daha pahalıya gelir.
+- **13:00 için kesilenler:** Self (tek insan kaydı hackathon'da relayer ile yapılır) ve son dönem kalıcılık kontrolü (`prove_alive`).
 
 ## 9. Yapılacaklar (özet — ayrıntılar issue'larda)
 
@@ -144,7 +145,6 @@ Ayrıntı: `docs/ARCHITECTURE.md`. Fonksiyon imzaları: `docs/INTERFACES.md`.
 - K14 humanity
 - K15 Deploy ve bindings
 - K16 Verifier servisi
-- K17 Self
 - K18 Demo scripti
 - K19 README
 
@@ -154,6 +154,7 @@ Ayrıntı: `docs/ARCHITECTURE.md`. Fonksiyon imzaları: `docs/INTERFACES.md`.
 - X03 Gönderim
 
 **Stretch (bitmese de olur):**
+- K17 Self entegrasyonu
 - R01 On-chain kimlik ZK
 - R02 TikTok/X
 - R03 Passkey
@@ -192,6 +193,6 @@ Tüm P0 ve P1 görevleri kapandığında proje biter.
 
 1. zkTLS, platformun **gösterdiği** sayıyı kanıtlar. İzleyicinin gerçek insan olduğunu kanıtlamaz. Bunu gecikme, tavan ve itirazla hafifletiriz.
 2. Reclaim şu an tek bir attestor anahtarıyla çalışıyor. Güven "tek bir sunucu" yerine "üçüncü taraf, imzalı ve TEE destekli" bir yapıya geçiyor, "trustless" değil.
-3. Self kaydı hackathon'da relayer üzerinden yapılıyor. On-chain ZK doğrulaması hazır bir yol ama yol haritasında.
+3. Tek insan kaydı hackathon'da relayer ile yapılıyor (Self entegrasyonu ve on-chain ZK doğrulaması yol haritasında). `humanity` kontratı ve kampanya başına nullifier mantığı hazır.
 4. Kimlik kiralanabilir. Sybil maliyeti ~$2'dan gerçek bir kimliğin fiyatına çıkar, sıfırlanmaz.
 5. Canlı demoda izlenme artışı için kontrol ettiğimiz "demo" platformunu kullanıyoruz. Kanıt yine gerçek zkTLS kanıtı.
