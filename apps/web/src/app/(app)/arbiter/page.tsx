@@ -1,10 +1,5 @@
-import { PageHeader, Placeholder } from "@/components/layout/PageHeader";
+import { ArbiterPage } from "@/components/arbiter/ArbiterPage";
 
 export default function Page() {
-  return (
-    <>
-      <PageHeader title="Hakem" description="Cevaplanmış itirazlara karar ver." />
-      <Placeholder task="S11" />
-    </>
-  );
+  return <ArbiterPage />;
 }
