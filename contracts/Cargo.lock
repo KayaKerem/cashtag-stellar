@@ -310,6 +310,7 @@ dependencies = [
 name = "cliprail"
 version = "0.1.0"
 dependencies = [
+ "humanity",
  "reclaim-verify",
  "soroban-sdk",
 ]

@@ -13,3 +13,5 @@ reclaim-verify = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+reclaim-verify = { workspace = true, features = ["testutils"] }
+humanity = { path = "../humanity" }

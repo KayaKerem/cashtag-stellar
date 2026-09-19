@@ -1,0 +1,42 @@
+use soroban_sdk::contracterror;
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum Error {
+    AlreadyInitialized = 1,
+    NotInitialized = 2,
+    InvalidParams = 3,
+    CampaignNotFound = 4,
+    NotJoined = 5,
+    AlreadyJoined = 6,
+    NotHuman = 7,
+    WrongPhase = 8,
+    PlatformNotAllowed = 9,
+    VideoAlreadyRegistered = 10,
+    ClipNotFound = 11,
+    BadSignature = 12,
+    UnknownAttestor = 13,
+    UnknownOwner = 14,
+    UrlMismatch = 15,
+    MatchMismatch = 16,
+    CodeNotFound = 17,
+    ViewsParseError = 18,
+    ProofReused = 19,
+    ProofExpired = 20,
+    EpochNotReady = 21,
+    EpochOutOfRange = 22,
+    AlreadySettled = 23,
+    OpenDisputes = 24,
+    AlreadyClaimed = 25,
+    NothingToClaim = 26,
+    AlreadyDisputed = 27,
+    DisputeNotFound = 28,
+    NotArbiter = 29,
+    NotClipOwner = 30,
+    Excluded = 31,
+    RefundNotReady = 32,
+    AlreadyRefunded = 33,
+    PrevEpochNotSettled = 34,
+    ProofTooLarge = 35,
+}
