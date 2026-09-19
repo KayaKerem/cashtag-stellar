@@ -13,7 +13,8 @@ The first market we go after is **clipping campaigns**, and the on-chain naming 
 What is and is not proven today:
 
 - **A live Reclaim zkTLS proof is verified on-chain.** A real zkFetch proof signed by Reclaim's production attestor (`0x2448…9072`, `attestor.reclaimprotocol.org`, epoch 1) was accepted by the `cliprail` contract on testnet: [`register_clip` with a live opening proof](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) (clip 3, baseline 1200) and [`submit_proof` with a live closing proof](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69) (5200 views → weight 4000). The canonical `parameters` / `context` bytes matched our documented format exactly.
-- **In-contract proof verification** is also tested against Reclaim's reference vector (`contracts/reclaim-verify`), against a saved live proof (`fixtures/reclaim/demo-live-proof.json`, offline regression tests in `services/verifier/test/live-proof.test.ts` that recompute the identifier and the EIP-191 digest and recover the live attestor address), and in a full testnet lifecycle run (create → join → posts → proofs → dispute → settle → claim → holdback → refund).
+- **X (Twitter) is live as a platform.** `x` is registered on the demo deployment with [`set_platform("x", …)`](https://stellar.expert/explorer/testnet/tx/2707530e880bd48a5619a32d99850e040d0debc9133206d31aa3e9d5cbecadde), proofs are fetched server-side from X's public syndication endpoint (no login, no API key), and a live Reclaim proof over a **real public post** was replayed against the contract: signature, attestor and owner allowlists, URL equality, both required `responseMatches` and the metric all passed on-chain. The call stopped only at the final code-in-post check (`#17 CodeNotFound`), because that public post naturally carries no campaign code — the binding a real participant supplies with their `CR-XXXXXX`. Note the metric there is **likes** (`favorite_count`), not views. See [Platforms](#a-live-x-proof-replayed-on-chain).
+- **In-contract proof verification** is also tested against Reclaim's reference vector (`contracts/reclaim-verify`), against saved live proofs (`fixtures/reclaim/demo-live-proof.json` and `fixtures/reclaim/x-live-proof.json`, offline regression tests in `services/verifier/test/live-proof.test.ts` and `services/verifier/test/x-live-proof.test.ts` that recompute the identifier and the EIP-191 digest and recover the live attestor address), and in a full testnet lifecycle run (create → join → posts → proofs → dispute → settle → claim → holdback → refund).
 - **Humanity is verified on-chain.** `humanity.register_zk` checks an Anon Aadhaar Groth16 proof (BN254) inside Soroban, bound to the campaign (nullifier seed) and to the submitting wallet (signal hash), for ~30.8M CPU instructions (~0.034 XLM fee on testnet). The demo uses UIDAI **test** data signed with the Anon Aadhaar test key, proven server-side by the verifier; production pins the real UIDAI key and proves in the browser. A relayer `register` path remains as a fallback.
 - **Funding and cash-out are live on testnet.** A brand can fund a campaign with XLM in one transaction (`create_campaign_with_swap` through the Soroswap router, tested: 47.37 XLM → 5 USDC escrow), and a clipper can cash out USDC to TRY through a SEP-6 anchor (tested: 5 USDC → 242.70 TL; 5000 TL → 101.98 USDC on the way in).
 
@@ -38,6 +39,7 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 | Verifier service (`/health`, `/demo/videos/:id`) | **[VERIFIER_URL]** |
 | Contracts | [Demo deployment (testnet)](#demo-deployment-testnet), each linked to stellar.expert |
 | Live Reclaim zkTLS proof verified on-chain | [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69), replayed offline by `pnpm --filter verifier test` |
+| X (Twitter) live on-chain | [`set_platform("x", …)`](https://stellar.expert/explorer/testnet/tx/2707530e880bd48a5619a32d99850e040d0debc9133206d31aa3e9d5cbecadde) · [campaign 9 with `platforms: ["x"]`](https://stellar.expert/explorer/testnet/tx/a53eaa67fefae5e01fd0212823640fbc8dc01b5d0fec207660cbdbdbc31bc148) · [join → `CR-7ZYWBA`](https://stellar.expert/explorer/testnet/tx/5f0fc0c5815846e3fb5714143f5c34d4c069270d65ae378c7a3163dad62c81f8), and [a live X proof replayed against every contract check](#a-live-x-proof-replayed-on-chain) |
 | Full lifecycle, reproducible | `pnpm --filter e2e run e2e`: 39/39 steps, prints every explorer link |
 | Product lifecycle (Soroswap funding → ZK humanity → payouts → TRY cash-out) | `REFUND=1 pnpm --filter @cliprail/client smoke:full`, see [the run](#full-product-lifecycle-run-testnet) |
 
@@ -108,10 +110,10 @@ Whether the post is a short video, an image, a thread or a plain text update nev
 |---|---|---|---|
 | `demo` — `/demo/videos/:id` on our own verifier | Server-side: public endpoint, no login | `viewCount` — **views** | **Configured** — used for the live demo, so the number can move while you watch |
 | `youtube` — YouTube Data API v3 | Server-side: public, login-free JSON endpoint (API key sent in a redacted header) | `viewCount` — **views** | **Configured** — chosen first *only* because it exposes an endpoint a server-side prover can read |
-| `x` — X (Twitter), `cdn.syndication.twimg.com/tweet-result` | Server-side: public syndication endpoint, no login | `favorite_count` — **likes** (`"metric": "likes"`), so a campaign on `x` pays per like, not per view | **Configured** in `config/providers.json`; `set_platform` for it goes out with the next deploy |
+| `x` — X (Twitter), `cdn.syndication.twimg.com/tweet-result` | Server-side: public syndication endpoint, no login, no API key | `favorite_count` — **likes** (`"metric": "likes"`), so a campaign on `x` pays per like, not per view | **Live** — registered on the demo deployment with [`set_platform("x", …)`](https://stellar.expert/explorer/testnet/tx/2707530e880bd48a5619a32d99850e040d0debc9133206d31aa3e9d5cbecadde); a live Reclaim proof of a real public post passed every on-chain check ([below](#a-live-x-proof-replayed-on-chain)) |
 | X impressions/views, TikTok, Instagram | Device-side: the participant's own Reclaim app / browser extension fetches from their logged-in session | plays / views / impressions, whichever the provider entry extracts | **Next** — production path, see below |
 
-**Adding a platform is a config change, not a contract change.** One entry in `config/providers.json` — a URL template plus the two regexes that extract the metric and the caption — and one `set_platform` admin call. That is the whole integration; `cliprail` is not redeployed and not modified. The `x` platform is exactly that — one entry:
+**Adding a platform is a config change, not a contract change.** One entry in `config/providers.json` — a URL template plus the two regexes that extract the metric and the caption — and one `set_platform` admin call. That is the whole integration; `cliprail` is not redeployed and not modified. **X was added exactly this way and is live**: one entry plus [`set_platform("x", …)`](https://stellar.expert/explorer/testnet/tx/2707530e880bd48a5619a32d99850e040d0debc9133206d31aa3e9d5cbecadde) on the demo deployment. The entry:
 
 ```json
 "x": {
@@ -125,13 +127,36 @@ Whether the post is a short video, an image, a thread or a plain text update nev
 }
 ```
 
-The two capture groups are named `views` and `desc` because those are the contract's fixed extraction keys: `views` is "the number this platform pays on" and `desc` is "the text that must contain the campaign code". The `metric` field says what the number actually is — for `x` it is **likes**, and the dashboard and the campaign brief say likes, not views.
+The source is X's **public syndication endpoint** — the same one X's own embed widget calls when a post is embedded on a web page. It needs no login and no API key; the `token` parameter is not validated by the endpoint, which is why a constant token (`token=a`) works and the post id can be the URL suffix the contract checks, exactly as `register_clip` requires.
+
+The two capture groups are named `views` and `desc` because those are the contract's fixed extraction keys: `views` is "the number this platform pays on" and `desc` is "the text that must contain the campaign code". The `metric` field says what the number actually is.
+
+**On `x` that number is likes, not views — and we never call it views.** The syndication endpoint carries `favorite_count` and no impression count, so a campaign on `x` pays **per like**. The capture group is still spelled `views` only because that is the contract's fixed key name; `"metric": "likes"` is what the dashboard and the campaign brief show. This has a direct pricing consequence: **`r_max` for an `x` campaign must be set on a different scale than for a views-based campaign.** Likes run roughly 0.1–1% of impressions, so a rate copied from a views campaign would overpay by two to three orders of magnitude. The rate is "USDC per 1k of *this platform's* metric", and on `x` that is 1k likes.
+
+The `desc` regex is deliberately anchored on `"id_str":"…","text":"` rather than on a bare `"text":"`. X serializes hashtag objects earlier in the payload, and each of them has its own `text` key — a naive `"text":"(?<desc>…)"` match would extract a hashtag instead of the post body, and the campaign code would never be found. Anchoring on the preceding `id_str` field pins the match to the post's own text. The same bytes are pinned on-chain as required `responseMatches`, so a proof produced with a looser regex is rejected.
 
 `fixtures/required-substrings.json` is regenerated from `config/providers.json`, and `scripts/deploy.sh` feeds those exact byte strings to `set_platform(platform, url_prefix, url_suffix, required)`. From then on the contract enforces URL equality and the presence of exactly those `responseMatches` for every proof under that platform.
 
-**The metric is part of the provider config, not of the contract.** A campaign can pay per views, per plays, or per another agreed metric — the rate `r_max` is simply "USDC per 1k of that metric". Because the required `responseMatches` are pinned per platform, a proof produced with a *different* regex is rejected: a likes regex cannot be passed off as a views regex (attack [A5](#threat--mitigation)).
+**The metric is part of the provider config, not of the contract.** A campaign can pay per views, per plays, per likes, or per another agreed metric — the rate `r_max` is simply "USDC per 1k of that metric". Because the required `responseMatches` are pinned per platform, a proof produced with a *different* regex is rejected: a likes regex cannot be passed off as a views regex (attack [A5](#threat--mitigation)).
 
-**Why TikTok, Instagram and X's view counts take the device-side flow.** Their pages do not reliably serve those numbers to a datacenter IP without a login — the response depends on a logged-in session, which a server-side prover does not have. X's public syndication endpoint is the exception that proves the point: it is readable without a session, but it carries `favorite_count` and not the impression count, which is why `x` pays on likes today. Reclaim's device-side flow solves this at the fetch layer: the participant's own Reclaim mobile app or browser extension makes the request from their already-logged-in session, the session cookies stay private through the ZK redaction, and the attestor signs **the same claim shape** the contract already verifies. Neither the contract nor the proof pipeline changes — only *who runs the fetch* does. That is why the login-free platforms came first and why the device-side flow is the production path to the platforms and metrics clippers actually work with, not a workaround.
+### A live X proof, replayed on-chain
+
+A live Reclaim zkFetch proof was produced over the syndication response of a **real public X post** and replayed against the contract's checks on the demo deployment. Everything the contract verifies passed:
+
+- the attestor's secp256k1 signature, recovered in-contract;
+- the recovered address against the **live attestor allowlist**;
+- the proof `owner` against the owner allowlist;
+- root `url` equality — `url == urlPrefix ‖ post id ‖ urlSuffix` for the registered post id;
+- **both** required `responseMatches`, byte-for-byte, against the pinned `set_platform` strings;
+- the metric parsed out of `extractedParameters` (`favorite_count` → likes).
+
+The call stopped at exactly one step — the final "the participant's code is inside the post text" check, error **#17 `CodeNotFound`** — because the proof was taken over a well-known public post, which naturally does not contain a ClipRail campaign code. In other words: **every verification step passed; only the campaign-code binding was absent**, and a real participant satisfies it by putting their `CR-XXXXXX` code in the post. That last check is not a platform integration concern — it is the same code-in-caption check that `demo` and `youtube` already pass on testnet.
+
+The campaign side is live too: campaign **id 9** on the demo deployment was created with `platforms: ["x"]` ([tx](https://stellar.expert/explorer/testnet/tx/a53eaa67fefae5e01fd0212823640fbc8dc01b5d0fec207660cbdbdbc31bc148)), and `clipper1` joined it and received the code **`CR-7ZYWBA`** ([tx](https://stellar.expert/explorer/testnet/tx/5f0fc0c5815846e3fb5714143f5c34d4c069270d65ae378c7a3163dad62c81f8)) to place in the post.
+
+The proof is saved at `fixtures/reclaim/x-live-proof.json` and replayed offline by `services/verifier/test/x-live-proof.test.ts`, which recomputes the identifier and the EIP-191 digest, recovers the live attestor address and asserts both required substrings — so the X path stays a regression test that never touches the live Reclaim quota.
+
+**Why TikTok, Instagram and X's view counts take the device-side flow.** Their pages do not reliably serve those numbers to a datacenter IP without a login — the response depends on a logged-in session, which a server-side prover does not have. X's public syndication endpoint is the exception that proves the point: it is readable without a session, but it carries `favorite_count` and not the impression count, which is why `x` pays on likes today. Views on X are only reachable through a guest-token GraphQL endpoint whose query hash rotates with X's web bundle and may be bound to the requesting IP — we deliberately did **not** ship that, because pinning bytes on-chain against an endpoint that changes with every frontend deploy would break proofs on X's release schedule. Reclaim's device-side flow solves this at the fetch layer: the participant's own Reclaim mobile app or browser extension makes the request from their already-logged-in session, the session cookies stay private through the ZK redaction, and the attestor signs **the same claim shape** the contract already verifies. Neither the contract nor the proof pipeline changes — only *who runs the fetch* does. That is why the login-free platforms came first and why the device-side flow is the production path to the platforms and metrics clippers actually work with, not a workaround.
 
 ## Architecture
 
@@ -157,7 +182,7 @@ flowchart LR
   end
 
   AT["Reclaim attestor (TEE)<br/>attestor.reclaimprotocol.org<br/>live proof verified on-chain"]
-  SP[("Social platforms<br/>YouTube · X · TikTok · Instagram<br/>post URL + reach metric + caption")]
+  SP[("Social platforms<br/>YouTube · X (live: likes) · TikTok · Instagram<br/>post URL + reach metric + caption")]
   DEV["Participant device — next<br/>Reclaim app / browser extension<br/>fetch from the logged-in session<br/>(TikTok · Instagram · X view counts)"]
   AN["TRY anchor (tr-mock-anchor)<br/>SEP-1 · 10 · 12 · 38 · 6<br/>TL ⇄ USDC"]
   SE["stellar.expert"]
@@ -189,7 +214,7 @@ flowchart LR
   Web -- "tx and contract links" --> SE
 ```
 
-Solid edges are live on testnet. Dashed edges are the relayer fallback for humanity and the device-side proof path (next) — the latter changes only who performs the fetch; the attestor, the claim shape and the in-contract verification stay identical.
+Solid edges are live on testnet, and the server-side fetch covers `demo`, `youtube` and `x` (X on likes). Dashed edges are the relayer fallback for humanity and the device-side proof path, which remains next for TikTok, Instagram and X's view counts — it changes only who performs the fetch; the attestor, the claim shape and the in-contract verification stay identical.
 
 ### Campaign lifecycle
 
@@ -227,7 +252,7 @@ The verifier has **no authority over funds**. It cannot change a count because t
 
 ## Mechanism
 
-Per epoch `e`, for registered post `c` (a `clip` on-chain) of participant `p`. The parameter names say `views` because that is the metric of the platforms configured today; the formulas apply to whatever metric the platform's provider entry extracts:
+Per epoch `e`, for registered post `c` (a `clip` on-chain) of participant `p`. The parameter names say `views` because that is the contract's fixed extraction key and the metric of `demo` and `youtube`; on `x` the same slot carries **likes**. The formulas apply to whatever metric the platform's provider entry extracts:
 
 ```
 w_c   = min(max(views_c − baseline_c, 0), cap_views_clip) ;  w_c < min_views ⇒ 0
@@ -265,7 +290,9 @@ held_c   = pay_c · holdback_bps / 10000   (0 in the last epoch) ;  immediate_c 
 ### Honest limits
 
 - **zkTLS proves the number the platform serves, not that the audience is human.** We mitigate bot-inflated metrics with caps, disputes and pro-rata dilution. We do not claim to solve them.
-- **Only platforms with a login-free endpoint can be proven server-side today.** `demo`, `youtube` and `x` are configured because a datacenter prover can read those endpoints without a session — and on `x` that endpoint exposes likes, not impressions. TikTok, Instagram and X view counts need Reclaim's device-side flow (participant's app or extension, logged-in session, cookies redacted). The contract already accepts those proofs — the claim shape is identical — but the device-side client is not shipped yet, so those platforms are not configured.
+- **Only platforms with a login-free endpoint can be proven server-side today.** `demo`, `youtube` and `x` are live because a datacenter prover can read those endpoints without a session — and on `x` that endpoint exposes likes, not impressions. TikTok, Instagram and X view counts need Reclaim's device-side flow (participant's app or extension, logged-in session, cookies redacted). The contract already accepts those proofs — the claim shape is identical — but the device-side client is not shipped yet, so those platforms are not configured.
+- **X support rides on an undocumented embed endpoint.** `cdn.syndication.twimg.com/tweet-result` is the endpoint X's own embed widget calls; it is not a documented API, and X can change, rate-limit or block it at any time. This is a **best-effort integration, and it fails closed**: if the response shape changes, the pinned `responseMatches` bytes no longer match and the proof is *rejected* on-chain. A broken endpoint means proofs stop being accepted — it never means a wrong number is silently accepted.
+- **Long X posts truncate `text`.** For posts past the short-form limit the syndication payload moves the full body into `note_tweet` and leaves a truncated `text`, which is the field the `desc` regex reads. The campaign code should therefore appear **early in the post**, within the truncated part. The campaign brief says so, and a code that falls outside it simply fails the code check (error #17) rather than paying out incorrectly.
 - **One Reclaim attestor key.** The live address we allowlist (`0x244897572368eadf65bfbc5aec98d8e5443a9072`, `attestor.reclaimprotocol.org`) is confirmed by a [live on-chain proof](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69), but it is still a single key. Trust moves from "our server" to "a third-party, signed, TEE-backed attestor". That is better, but not trustless. Multi-attestor threshold verification is on the roadmap.
 - **Humanity uses UIDAI test data in the demo.** `register_zk` verifies a real Anon Aadhaar Groth16 proof on-chain, but the demo proof is generated by the verifier (`/humanity/aadhaar/prove`) from the official UIDAI test QR under the Anon Aadhaar **test** key. Production proves in the user's browser from their own Aadhaar QR and pins the real UIDAI key. Aadhaar covers India only until more identity sources are added. Identities can be rented, which raises the Sybil cost to the price of a real identity without eliminating it.
 - **The TRY anchor is a testnet sandbox** (`tr-mock-anchor.fly.dev`): the SEP-6/10/12/38 flow is real, but the bank leg (TL in and out) is simulated and no real money moves. A licensed Turkish anchor is needed for production.
@@ -363,7 +390,7 @@ packages/
   shared/           @cliprail/shared: timeline, payout, errors, video-id parsing, formatting (mirrors the contract)
 apps/web/           Next.js dashboard (brand, clipper, arbiter views; Stellar Wallets Kit)
 config/             providers.json (per platform: URL template + metric and caption regexes; one entry adds a platform)
-fixtures/           Reclaim reference vector, saved live attestor proof (reclaim/demo-live-proof.json), required substrings
+fixtures/           Reclaim reference vector, saved live attestor proofs (reclaim/demo-live-proof.json, reclaim/x-live-proof.json), required substrings
 scripts/            setup-accounts.sh, deploy.sh, bindings.sh
   e2e/              testnet lifecycle run (deploy.ts, run.ts), simulated attestor (proofgen.ts), demo seeding (seed-demo.ts)
 ```
@@ -419,12 +446,12 @@ pnpm --filter verifier dev                                 # http://localhost:87
 | `cliprail` contract (flows, disputes, A1–A17 attacks, Soroswap funding) | `cd contracts && cargo test` | 48 passed |
 | `humanity` contract (registry, Groth16 / Anon Aadhaar, field aliasing, wallet and campaign binding) | ″ | 36 passed |
 | `reclaim-verify` (Reclaim reference vector, k256 signatures, JSON scanner) | ″ | 24 passed |
-| Verifier service (incl. live-proof regression over `fixtures/reclaim/demo-live-proof.json`) | `pnpm --filter verifier test` | 94 passed (1 skipped — a network test) |
+| Verifier service (incl. live-proof regressions over `fixtures/reclaim/demo-live-proof.json` and `fixtures/reclaim/x-live-proof.json`) | `pnpm --filter verifier test` | 99 passed (1 skipped — a network test) |
 | `@cliprail/shared` (timeline/payout parity with contract) | `pnpm --filter @cliprail/shared test` | 72 passed |
 | `@cliprail/client` (chain/mock API, Soroswap quote, SEP-6/10/12/38 ramp) | `pnpm --filter @cliprail/client test` | 66 passed |
 | Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run e2e` | 39/39 steps |
 
-**340 unit and integration tests in total**, plus the 39-step testnet run and the product lifecycle run below. Tests never call the real zkFetch: the live-proof tests replay a saved attestor-signed proof offline, recomputing the identifier and the EIP-191 digest and recovering the live attestor address.
+**345 unit and integration tests in total**, plus the 39-step testnet run and the product lifecycle run below. Tests never call the real zkFetch: the live-proof tests replay saved attestor-signed proofs offline (including the X one), recomputing the identifier and the EIP-191 digest and recovering the live attestor address.
 
 ## Cost
 
@@ -492,7 +519,7 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 - **Bonded, time-boxed disputes with a default in the clipper's favor.** The arbiter can only rule on answered disputes, and a missed deadline cannot be used to stall payouts.
 - **Per-campaign nullifiers.** A person's identity cannot be linked across campaigns, and a nullifier is spent only within one campaign.
 - **Token-agnostic escrow.** The token is a campaign parameter, so USDC today and anchor-issued local stablecoins later need no contract change.
-- **Platforms and metrics live in config, not in the contract.** `cliprail` stores a platform symbol, a URL template and the required `responseMatches`; it never learns what a post contains or which network it is on. Adding X, TikTok or a non-video format is one provider entry plus one `set_platform` call, so the audited verification path stays the same for every platform. See [Platforms](#platforms).
+- **Platforms and metrics live in config, not in the contract.** `cliprail` stores a platform symbol, a URL template and the required `responseMatches`; it never learns what a post contains or which network it is on. Adding X took exactly that — one provider entry plus one `set_platform` call, with no contract change — and TikTok or a non-video format costs the same, so the audited verification path stays the same for every platform. See [Platforms](#platforms).
 - **Relayer kept as a fallback for humanity.** It keeps the demo usable if a device cannot generate a proof, while the trustless `register_zk` path is primary.
 
 ## Challenges
@@ -508,7 +535,7 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 
 | Milestone | Timeline | Deliverables |
 |---|---|---|
-| **M1: Production-ready testnet** | 2–4 weeks | **Device-side zkTLS (Reclaim app / browser extension) for TikTok, Instagram and X view counts**, which unlocks the platforms and metrics clippers actually use: the fetch runs in the participant's logged-in session with cookies redacted, the attestor signs the same claim shape, and each platform lands as one `config/providers.json` entry plus one `set_platform` call — no contract change; live Reclaim zkFetch proofs in the default flow for every post and epoch (the first live proof is already verified on-chain; next is a paid tier so the keeper is not quota-bound, plus a full multi-post, multi-epoch live run); TRY cash-out moved from the testnet sandbox anchor to a licensed Turkish anchor (SEP-6/SEP-24); verifier and keeper hosted on Hetzner behind HTTPS with monitoring; in-browser Anon Aadhaar proving; external security review of `cliprail`, `humanity` and `reclaim-verify` |
+| **M1: Production-ready testnet** | 2–4 weeks | **Device-side zkTLS (Reclaim app / browser extension) first**, which unlocks the platforms and metrics clippers actually use: **X view counts instead of the likes we can prove server-side today**, plus TikTok and Instagram. The fetch runs in the participant's logged-in session with cookies redacted, so the numbers come with author-verified analytics; the attestor signs the same claim shape, and each platform lands as one `config/providers.json` entry plus one `set_platform` call — no contract change; live Reclaim zkFetch proofs in the default flow for every post and epoch (the first live proof is already verified on-chain; next is a paid tier so the keeper is not quota-bound, plus a full multi-post, multi-epoch live run); TRY cash-out moved from the testnet sandbox anchor to a licensed Turkish anchor (SEP-6/SEP-24); verifier and keeper hosted on Hetzner behind HTTPS with monitoring; in-browser Anon Aadhaar proving; external security review of `cliprail`, `humanity` and `reclaim-verify` |
 | **M2: Mainnet pilot** | +1–2 months | Mainnet deployment with real UIDAI key pinned; pilot campaigns with 2–3 brands (crypto projects, music labels); passkey smart accounts and fee sponsorship so clippers need no seed phrase or XLM; more platforms and metrics added purely through provider config (each one entry + one `set_platform` call); admin timelock and multisig |
 | **M3: SCF Build Award** | +3 months | SCF Build application backed by pilot metrics; Self / zkPassport identity alongside Aadhaar; SDK and dashboard for agencies running many campaigns; multi-attestor threshold verification; Stellar Disbursement Platform integration for large payouts |
 
