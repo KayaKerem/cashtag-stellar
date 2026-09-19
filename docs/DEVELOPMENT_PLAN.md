@@ -49,7 +49,7 @@ Proje şu koşulların hepsi sağlandığında biter:
 
 ```
 cliprail-stellar/
-├─ README.md  CLAUDE.md  .gitignore  package.json  pnpm-workspace.yaml
+├─ README.md  .gitignore  package.json  pnpm-workspace.yaml
 ├─ docs/      ARCHITECTURE.md  INTERFACES.md  DEVELOPMENT_PLAN.md  HANDOFF.md  reclaim-notes.md  DEMO.md
 ├─ config/    providers.json
 ├─ fixtures/  youtube-open.json  demo-open.json  demo-close.json  (gerçek zkFetch çıktıları)

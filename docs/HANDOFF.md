@@ -80,7 +80,7 @@ Ayrıntı: `docs/ARCHITECTURE.md`. Fonksiyon imzaları: `docs/INTERFACES.md`.
   - Sayfalar: landing, kampanya oluşturma, public kampanya sayfası, katılım, klip kaydı, clipper paneli, marka paneli, hakem sayfası.
   - Önce mock veriyle çalışır. Kontrat testnet'e çıkınca (M2, ~20 Eyl 08:30) gerçek kontrata bağlanır.
   - Sözleşmesi `docs/INTERFACES.md` §5'teki `CliprailApi` arayüzü.
-- **Kerem (+ Claude):**
+- **Kerem:**
   - Kontratlar: `cliprail`, `humanity`, `reclaim-verify`.
   - Verifier servisi (zkFetch, relay, demo uç noktası, Self).
   - Testnet deploy, bindings, seed scripti, README.
