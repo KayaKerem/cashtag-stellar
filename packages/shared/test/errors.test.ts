@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { CLIPRAIL_ERRORS, errorMessage, parseContractError, userMessage } from "../src";
+import {
+  CLIPRAIL_ERRORS,
+  TOKEN_ERROR_MESSAGES,
+  errorMessage,
+  insufficientBalanceMessage,
+  parseContractError,
+  tokenErrorCode,
+  userMessage,
+} from "../src";
 
 describe("errors", () => {
   it("covers codes 1..35", () => {
@@ -31,5 +39,15 @@ describe("errors", () => {
     expect(userMessage(new Error("User declined access"))).toBe("İşlem cüzdanda reddedildi.");
     expect(userMessage(42)).toMatch(/Beklenmeyen/);
     expect(errorMessage(99)).toMatch(/#99/);
+  });
+
+  it("token (USDC) error messages", () => {
+    expect(insufficientBalanceMessage(100_000_000n, 25_000_000n)).toBe("USDC bakiyesi yetersiz: gereken 10.00, mevcut 2.50");
+    expect(userMessage("no_trustline")).toBe("Hesabın USDC trustline'ı yok");
+    expect(userMessage({ code: "insufficient_balance", message: "USDC bakiyesi yetersiz: gereken 1.00, mevcut 0.00" })).toMatch(/gereken 1\.00/);
+    expect(userMessage({ code: "token_error" })).toBe(TOKEN_ERROR_MESSAGES.token_error);
+    expect(tokenErrorCode(10)).toBe("insufficient_balance");
+    expect(tokenErrorCode(13)).toBe("no_trustline");
+    expect(tokenErrorCode(9)).toBe("token_error");
   });
 });

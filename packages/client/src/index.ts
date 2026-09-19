@@ -6,6 +6,7 @@ export * from "./chain";
 export * from "./mock";
 export * from "./errors";
 export * from "./proof";
+export * from "./token";
 export { runWrite, isRetryable, simulatedResult, unwrapResult, mapLimit, type TxLike, type WriteResult } from "./tx";
 export type { CliprailApi } from "@cliprail/shared";
 

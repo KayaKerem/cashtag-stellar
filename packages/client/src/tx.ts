@@ -1,5 +1,5 @@
 import { parseContractError, type ErrorSource } from "@cliprail/shared";
-import { CliprailError, errorFromName, toCliprailError } from "./errors";
+import { CliprailError, errorFromName, toCliprailError, type ErrorContext } from "./errors";
 
 /** Minimal slice of the bindings' AssembledTransaction we rely on (easy to fake in tests). */
 export interface TxLike<T> {
@@ -75,9 +75,9 @@ export interface WriteResult<T> {
  */
 export async function runWrite<T>(
   build: () => Promise<TxLike<unknown>>,
-  opts: { source?: ErrorSource; retries?: number; delayMs?: number } = {},
+  opts: { source?: ErrorSource; retries?: number; delayMs?: number; errorContext?: ErrorContext } = {},
 ): Promise<WriteResult<T>> {
-  const { source = "cliprail", retries = 2, delayMs = 1000 } = opts;
+  const { source = "cliprail", retries = 2, delayMs = 1000, errorContext } = opts;
   for (let attempt = 0; ; attempt++) {
     try {
       const tx = await build();
@@ -90,7 +90,7 @@ export async function runWrite<T>(
         if (delayMs) await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)));
         continue;
       }
-      throw toCliprailError(err, source);
+      throw toCliprailError(err, source, errorContext);
     }
   }
 }

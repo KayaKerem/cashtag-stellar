@@ -30,6 +30,26 @@ export function chainError(msg: string, space: ErrSpace = CLIPRAIL_SPACE): HttpE
   return new HttpError(502, msg.slice(0, 500), "chain_error");
 }
 
+/** Extra sends after a txBadSeq rejection. */
+export const BAD_SEQ_RETRIES = 2;
+
+/** `sendTransaction` errorResult (xdr.TransactionResult or its base64) is txBadSeq. */
+export function isBadSeq(errorResult: unknown): boolean {
+  if (!errorResult) return false;
+  try {
+    const r =
+      typeof errorResult === "string"
+        ? xdr.TransactionResult.fromXDR(errorResult, "base64")
+        : (errorResult as xdr.TransactionResult);
+    // stellar-sdk 17: `result` is a tagged union ({ type: "txBadSeq" })
+    const res = (r as unknown as { result: unknown }).result as { type?: string } | (() => { switch(): { name: string } });
+    const tag = typeof res === "function" ? res().switch().name : res?.type;
+    return tag === "txBadSeq";
+  } catch {
+    return false;
+  }
+}
+
 // Any account works as simulation source; it never signs.
 const SIM_SOURCE = Keypair.random().publicKey();
 
@@ -69,32 +89,50 @@ export class Chain {
     return rv ? scValToNative(rv) : undefined;
   }
 
-  /** Serialized part: build -> simulate/assemble -> sign -> send. Returns the tx hash. */
+  /**
+   * Serialized part: build -> simulate/assemble -> sign -> send. Returns the tx hash.
+   * On txBadSeq the sequence is re-read from RPC and the tx rebuilt + re-signed (up to
+   * BAD_SEQ_RETRIES more sends), still inside the lock.
+   */
   private send(contractId: string, method: string, args: xdr.ScVal[]): Promise<string> {
     const run = async () => {
       if (!this.kp) throw new HttpError(503, "RELAYER_SECRET missing", "config");
       if (!contractId) throw new HttpError(503, "contract id not configured", "config");
-      let account = await this.server.getAccount(this.kp.publicKey());
-      if (this.lastSeq !== null && BigInt(account.sequenceNumber()) < this.lastSeq)
-        account = new Account(this.kp.publicKey(), this.lastSeq.toString());
-      const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: this.cfg.networkPassphrase })
-        .addOperation(new Contract(contractId).call(method, ...args))
-        .setTimeout(60)
-        .build();
-      let prepared;
-      try {
-        prepared = await this.server.prepareTransaction(tx);
-      } catch (e: any) {
-        throw chainError(String(e?.message ?? e), this.space(contractId));
+      const kp = this.kp;
+      /** Sequence (account seq before the tx) of the previous attempt that failed with txBadSeq. */
+      let badBase: bigint | null = null;
+      for (let attempt = 0; ; attempt++) {
+        let base = BigInt((await this.server.getAccount(kp.publicKey())).sequenceNumber());
+        if (this.lastSeq !== null && base < this.lastSeq) base = this.lastSeq;
+        // RPC still reports the base that just failed: a tx we sent earlier (e.g. before a
+        // restart) is pending and consumed the next number, so step past it.
+        if (badBase !== null && base <= badBase) base = badBase + 1n;
+        const tx = new TransactionBuilder(new Account(kp.publicKey(), base.toString()), {
+          fee: BASE_FEE,
+          networkPassphrase: this.cfg.networkPassphrase,
+        })
+          .addOperation(new Contract(contractId).call(method, ...args))
+          .setTimeout(60)
+          .build();
+        let prepared;
+        try {
+          prepared = await this.server.prepareTransaction(tx);
+        } catch (e: any) {
+          throw chainError(String(e?.message ?? e), this.space(contractId));
+        }
+        prepared.sign(kp);
+        const sent = await this.server.sendTransaction(prepared);
+        if (sent.status === "ERROR" || sent.status === "TRY_AGAIN_LATER") {
+          this.lastSeq = null; // resync from RPC next time
+          if (isBadSeq(sent.errorResult) && attempt < BAD_SEQ_RETRIES) {
+            badBase = base;
+            continue;
+          }
+          throw new HttpError(502, `send failed: ${sent.status} ${sent.errorResult?.toXDR("base64") ?? ""}`, "send_failed");
+        }
+        this.lastSeq = BigInt(prepared.sequence);
+        return sent.hash;
       }
-      prepared.sign(this.kp);
-      const sent = await this.server.sendTransaction(prepared);
-      if (sent.status === "ERROR" || sent.status === "TRY_AGAIN_LATER") {
-        this.lastSeq = null; // resync from RPC next time
-        throw new HttpError(502, `send failed: ${sent.status} ${sent.errorResult?.toXDR("base64") ?? ""}`, "send_failed");
-      }
-      this.lastSeq = BigInt(prepared.sequence);
-      return sent.hash;
     };
     const p = this.queue.then(run, run);
     this.queue = p.catch(() => undefined);

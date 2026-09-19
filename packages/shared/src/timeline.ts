@@ -24,7 +24,7 @@ export const disputeEnd = (p: TimelineParams, e: number): bigint => proofEnd(p, 
 export const settleAt = (p: TimelineParams, e: number): bigint => disputeEnd(p, e) + p.arbiter_window;
 export const lastEpoch = (p: TimelineParams): number => p.epochs - 1;
 export const refundAt = (p: TimelineParams): bigint => settleAt(p, lastEpoch(p)) + p.claim_grace;
-/** claim_holdback(e) opens strictly after this (`now > proof_end(e+1)`). */
+/** claim_holdback(e) opens at this instant (`now >= proof_end(e+1)`, see lib.rs claim_holdback). */
 export const holdbackReleaseEnd = (p: TimelineParams, e: number): bigint => proofEnd(p, e + 1);
 
 /** Content epoch index at `now`: 0 before start, `epochs` after the last content period. */
@@ -65,9 +65,9 @@ export const canResolve = (p: TimelineParams, e: number, now: bigint) =>
 export const canSettle = (p: TimelineParams, e: number, now: bigint) => now >= settleAt(p, e);
 /** claim / claim_holdback: `now < refund_at` (and epoch settled). */
 export const canClaim = (p: TimelineParams, now: bigint) => now < refundAt(p);
-/** claim_holdback(e): `e < last`, `proof_end(e+1) < now < refund_at`. */
+/** claim_holdback(e): `e < last`, `proof_end(e+1) <= now < refund_at`. */
 export const canClaimHoldback = (p: TimelineParams, e: number, now: bigint) =>
-  e < lastEpoch(p) && now > holdbackReleaseEnd(p, e) && now < refundAt(p);
+  e < lastEpoch(p) && now >= holdbackReleaseEnd(p, e) && now < refundAt(p);
 /** refund: `now >= refund_at`. */
 export const canRefund = (p: TimelineParams, now: bigint) => now >= refundAt(p);
 

@@ -13,9 +13,10 @@ import {
 } from "@cliprail/shared";
 import { Client as CliprailClient, type CampaignParams as RawParams } from "cliprail-client";
 import { Client as HumanityClient } from "humanity-client";
-import { toCliprailError } from "./errors";
+import { toCliprailError, type ErrorContext } from "./errors";
 import { postJson } from "./http";
 import { proofJsonToReclaimProof, type ProofJson } from "./proof";
+import { ensureTokenBalance, rpcTokenReader, type TokenReader } from "./token";
 import { mapLimit, runWrite, simulatedResult, unwrapResult, type TxLike } from "./tx";
 
 /** Wallet signer; @creit.tech/stellar-wallets-kit and Freighter both fit (see README). */
@@ -35,6 +36,10 @@ export interface ChainApiOptions {
   /** Default `token` for createCampaign (testnet USDC SAC). */
   usdcSac?: string;
   signer: Signer;
+  /** USDC balance/trustline preflight before createCampaign / challenge (default: on). */
+  preflight?: boolean;
+  /** Override the SAC balance reader (tests). */
+  tokenReader?: TokenReader;
   /** Pause between write retries (ms). */
   retryDelayMs?: number;
   fetch?: typeof fetch;
@@ -132,15 +137,29 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
     }
   };
 
-  const write = async <T>(build: (c: CliprailClient, me: string) => Promise<TxLike<unknown>>) => {
-    let me: string;
+  const tokenReader = opts.tokenReader ?? rpcTokenReader(base);
+  const ownIds = [opts.cliprailId, opts.humanityId];
+  const me = async () => {
     try {
-      me = await opts.signer.getAddress();
+      return await opts.signer.getAddress();
     } catch (e) {
       throw toCliprailError(e);
     }
-    const c = writer(me);
-    return runWrite<T>(() => build(c, me), { retries: 2, delayMs: opts.retryDelayMs ?? 1000 });
+  };
+  /** Before a write that pulls `amount` of `token` from the signer. */
+  const preflight = async (token: string, from: string, amount: bigint) => {
+    if (opts.preflight !== false) await ensureTokenBalance(tokenReader, token, from, amount);
+  };
+
+  const write = async <T>(
+    build: (c: CliprailClient, me: string) => Promise<TxLike<unknown>>,
+    o: { from?: string; tokenIds?: string[] } = {},
+  ) => {
+    const addr = o.from ?? (await me());
+    const c = writer(addr);
+    // token (SAC) failures carry Error(Contract, #N) too; tell them apart from cliprail codes
+    const errorContext: ErrorContext = { tokenIds: [...(o.tokenIds ?? []), opts.usdcSac ?? ""], ownIds };
+    return runWrite<T>(() => build(c, addr), { retries: 2, delayMs: opts.retryDelayMs ?? 1000, errorContext });
   };
 
   const verifier = <T>(path: string, body: unknown) =>
@@ -173,7 +192,9 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
 
     async createCampaign(p) {
       const params = toRawParams(p, opts.usdcSac);
-      const r = await write<bigint>((c, me) => c.create_campaign({ brand: me, params }));
+      const from = await me();
+      await preflight(params.token, from, params.budget);
+      const r = await write<bigint>((c, brand) => c.create_campaign({ brand, params }), { from, tokenIds: [params.token] });
       return { id: big(r.result), txHash: r.txHash };
     },
     async registerHuman(id) {
@@ -182,14 +203,14 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
       return { txHash: r.txHash };
     },
     async join(id) {
-      const r = await write<string>((c, me) => c.join({ campaign_id: id, participant: me }));
+      const r = await write<string>((c, participant) => c.join({ campaign_id: id, participant }));
       return { code: String(r.result), txHash: r.txHash };
     },
     async registerClip(id, platform: Platform, videoId) {
       const { proof } = await verifier<{ proof: ProofJson }>("/proof", { platform, videoId });
       const rp = proofJsonToReclaimProof(proof);
-      const r = await write<bigint>((c, me) =>
-        c.register_clip({ campaign_id: id, participant: me, platform, video_id: videoId, proof: rp }),
+      const r = await write<bigint>((c, participant) =>
+        c.register_clip({ campaign_id: id, participant, platform, video_id: videoId, proof: rp }),
       );
       return { clipId: big(r.result), txHash: r.txHash };
     },
@@ -198,7 +219,13 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
       return { txHash: r.txHash };
     },
     async challenge(id, clipId, e, evidence) {
-      const r = await write<bigint>((c, me) => c.challenge({ campaign_id: id, clip_id: clipId, epoch: e, challenger: me, evidence }));
+      const from = await me();
+      const { params } = await getCampaign(id);
+      await preflight(params.token, from, params.bond);
+      const r = await write<bigint>(
+        (c, challenger) => c.challenge({ campaign_id: id, clip_id: clipId, epoch: e, challenger, evidence }),
+        { from, tokenIds: [params.token] },
+      );
       return { disputeId: big(r.result), txHash: r.txHash };
     },
     async respond(disputeId) {

@@ -103,9 +103,9 @@ describe("action guards", () => {
     expect(canClaim(p, 2140n)).toBe(false);
     expect(canRefund(p, 2139n)).toBe(false);
     expect(canRefund(p, 2140n)).toBe(true);
-    // holdback of epoch 0 opens strictly after proof_end(1) = 1690
-    expect(canClaimHoldback(p, 0, 1690n)).toBe(false);
-    expect(canClaimHoldback(p, 0, 1691n)).toBe(true);
+    // holdback of epoch 0 opens at proof_end(1) = 1690 (contract: now >= proof_end(e+1))
+    expect(canClaimHoldback(p, 0, 1689n)).toBe(false);
+    expect(canClaimHoldback(p, 0, 1690n)).toBe(true);
     expect(canClaimHoldback(p, 1, 2000n)).toBe(false); // last epoch has no holdback
   });
 });

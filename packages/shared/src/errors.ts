@@ -1,4 +1,5 @@
 // Error codes: contracts/cliprail/src/errors.rs (= INTERFACES §2.3) and contracts/humanity.
+import { formatUsdc } from "./format";
 
 export type ErrorSource = "cliprail" | "humanity";
 
@@ -45,6 +46,29 @@ export const HUMANITY_ERRORS: Record<number, { name: string; message: string }> 
   2: { name: "NullifierUsed", message: "Bu kimlik bu kampanyada zaten kullanıldı." },
   3: { name: "WalletRegistered", message: "Bu cüzdan zaten doğrulanmış." },
 };
+
+/**
+ * USDC (token contract / SAC) failures. Client-side codes: preflight checks before a write that
+ * moves USDC from the user, or a failed call whose diagnostic events point at the token contract.
+ */
+export type TokenErrorCode = "insufficient_balance" | "no_trustline" | "token_error";
+
+export const TOKEN_ERROR_MESSAGES: Record<TokenErrorCode, string> = {
+  insufficient_balance: "USDC bakiyesi yetersiz.",
+  no_trustline: "Hesabın USDC trustline'ı yok",
+  token_error: "USDC transferi başarısız oldu (token kontratı hatası).",
+};
+
+/** SAC `ContractError` numbers we name (soroban-env-host): 10 BalanceError, 13 TrustlineMissingError. */
+export const SAC_ERROR_CODES: Record<number, TokenErrorCode> = { 10: "insufficient_balance", 13: "no_trustline" };
+
+export const tokenErrorCode = (sacCode: number): TokenErrorCode => SAC_ERROR_CODES[sacCode] ?? "token_error";
+
+/** "USDC bakiyesi yetersiz: gereken 10.00, mevcut 2.50" (amounts in base units). */
+export const insufficientBalanceMessage = (needed: bigint, available: bigint): string =>
+  `USDC bakiyesi yetersiz: gereken ${formatUsdc(needed)}, mevcut ${formatUsdc(available)}`;
+
+const isTokenCode = (c: unknown): c is TokenErrorCode => typeof c === "string" && c in TOKEN_ERROR_MESSAGES;
 
 export const UNKNOWN_ERROR_MESSAGE = "Beklenmeyen bir hata oluştu.";
 
@@ -103,6 +127,11 @@ export function parseContractError(input: unknown, source: ErrorSource = "clipra
 
 /** Best-effort user-facing Turkish message for anything thrown. */
 export function userMessage(err: unknown, source: ErrorSource = "cliprail"): string {
+  if (err && typeof err === "object" && isTokenCode((err as { code?: unknown }).code)) {
+    const e = err as { code: TokenErrorCode; message?: unknown };
+    return typeof e.message === "string" && e.message ? e.message : TOKEN_ERROR_MESSAGES[e.code];
+  }
+  if (isTokenCode(err)) return TOKEN_ERROR_MESSAGES[err];
   const parsed = parseContractError(err, source);
   if (parsed) return parsed.message;
   const text = err instanceof Error ? err.message : typeof err === "string" ? err : "";
