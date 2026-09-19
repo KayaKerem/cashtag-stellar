@@ -9,7 +9,7 @@ import {
   type ErrorSource,
 } from "@cliprail/shared";
 
-export type CliprailErrorSource = ErrorSource | "token" | "verifier" | "wallet" | "network";
+export type CliprailErrorSource = ErrorSource | "token" | "verifier" | "wallet" | "network" | "anchor";
 
 /**
  * Typed error thrown by every api method.

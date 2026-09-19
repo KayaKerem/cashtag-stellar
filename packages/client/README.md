@@ -57,6 +57,30 @@ try {
 
 ID'ler `bigint`, dönemler `number` türündedir. Tutarlar i128 (`bigint`, 7 ondalık) olarak gelir; biçimlendirme için `@cliprail/shared` içindeki `format` yardımcılarını kullan. Explorer linki: `https://stellar.expert/explorer/testnet/tx/<txHash>`.
 
+## Anchor (SEP-1 / SEP-10 / SEP-24): TL yatırma ve çekme
+
+`src/anchor.ts` herhangi bir SEP-24 anchor'ıyla çalışır. Varsayılan `testanchor.stellar.org` ve `SRT`. Etkinliğin TRY anchor'ı belli olunca yalnızca home domain ve varlık kodu değişir.
+
+```ts
+import { discoverAnchor, sep10Auth, ensureTrustline, anchorAsset, startInteractive, waitForTransaction, completeWithdrawPayment } from "@cliprail/client";
+
+const anchor = await discoverAnchor("testanchor.stellar.org");         // stellar.toml + /info
+const jwt = await sep10Auth({ anchor, account, signer });               // challenge doğrulanır, cüzdan imzalar
+const asset = anchorAsset(anchor, "SRT");                               // CURRENCIES içinden issuer
+await ensureTrustline(asset, account, signer);                          // gerekiyorsa changeTrust
+const { id, url } = await startInteractive({ anchor, jwt, kind: "deposit", assetCode: "SRT", account, amount: "100", lang: "tr" });
+window.open(url, "anchor", "width=500,height=800");                     // KYC / banka bilgisi anchor penceresinde
+const tx = await waitForTransaction({ anchor, jwt, id, onUpdate: (t) => setStatus(t.statusLabel) });
+
+// Çekim: kind "withdraw"; durum pending_user_transfer_start olunca ödeme cüzdandan imzalanır.
+const w = await waitForTransaction({ anchor, jwt, id: wid, until: ["pending_user_transfer_start"] });
+if (w.needsUserPayment) await completeWithdrawPayment({ tx: w, asset, account, signer });
+```
+
+- Hatalar `CliprailError { source: "anchor", code: "anchor_*" }`; Türkçe mesajlar `@cliprail/shared` (`ANCHOR_ERROR_MESSAGES`, `SEP24_STATUS_LABELS`).
+- Anchor varlığının kontrat tarafındaki karşılığı SAC'tır: `asset.contractId(networkPassphrase)`. SAC ağda yoksa bir kez `stellar contract asset deploy --asset KOD:ISSUER --network testnet` çalıştırılır.
+- Uçtan uca test: `pnpm --filter e2e anchor-smoke` (testanchor formunu HTTP ile doldurur).
+
 ## Ortam değişkenleri
 
 | Değişken | Değer (testnet, INTERFACES §6) |

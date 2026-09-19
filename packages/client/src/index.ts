@@ -7,6 +7,7 @@ export * from "./mock";
 export * from "./errors";
 export * from "./proof";
 export * from "./token";
+export * from "./anchor";
 export * from "./humanity-zk";
 export { runWrite, isRetryable, simulatedResult, unwrapResult, mapLimit, type TxLike, type WriteResult } from "./tx";
 export type { CliprailApi } from "@cliprail/shared";

@@ -9,9 +9,11 @@
     "seed": "tsx seed-demo.ts",
     "set-demo-host": "tsx set-demo-host.ts",
     "e2e": "tsx deploy.ts && tsx run.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "anchor-smoke": "tsx anchor-smoke.ts"
   },
   "dependencies": {
+    "@cliprail/client": "workspace:*",
     "@cliprail/shared": "workspace:*",
     "@stellar/stellar-sdk": "^17.1.0",
     "canonicalize": "^5.1.0",

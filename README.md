@@ -6,7 +6,7 @@ A brand locks a USDC budget in a Soroban escrow with rules that cannot change af
 
 > **The number is real** (zkTLS, verified on-chain) · **One human, once** (per-campaign nullifier) · **The rules can't change** (Soroban escrow)
 
-**Full lifecycle on testnet: 39/39 steps** (`pnpm --filter e2e run` reproduces it and prints every explorer link).
+**Full lifecycle on testnet: 39/39 steps** (`pnpm --filter e2e run e2e` reproduces it and prints every explorer link).
 
 What is and is not proven today:
 
@@ -25,7 +25,7 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 | Live dashboard (Next.js) | **[LIVE_DEMO_URL]** |
 | Verifier service (`/health`, `/demo/videos/:id`) | **[VERIFIER_URL]** |
 | Contracts | [Testnet deployment](#testnet-deployment), each linked to stellar.expert |
-| Full lifecycle, reproducible | `pnpm --filter e2e run`: 39/39 steps, prints every explorer link |
+| Full lifecycle, reproducible | `pnpm --filter e2e run e2e`: 39/39 steps, prints every explorer link |
 
 **Test wallets.** Use any wallet supported by Stellar Wallets Kit (e.g. Freighter switched to *Testnet*) and fund it with Friendbot. Campaign budgets use test USDC from our test issuer; `bash scripts/setup-accounts.sh` creates and funds every role (admin, relayer, arbiter, brand, clippers) and issues test USDC. No mainnet funds are involved.
 
@@ -35,8 +35,8 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 (cd contracts && cargo test)                                 # cliprail, humanity (incl. Groth16), reclaim-verify
 pnpm install && pnpm -r test                                 # verifier, @cliprail/shared, @cliprail/client
 pnpm --filter e2e run deploy -- --redeploy                       # fresh e2e instance on testnet (simulated attestor)
-pnpm --filter e2e run                                        # full lifecycle on testnet, prints explorer links
-pnpm --filter e2e seed -- --mode local                       # demo seed; --mode real requires Reclaim credentials
+pnpm --filter e2e run e2e                                    # full lifecycle on testnet, prints explorer links
+pnpm --filter e2e run seed -- --mode local                       # demo seed; --mode real requires Reclaim credentials
 ```
 
 A fresh e2e instance is needed per run because the video registry is global. Code worth reading: `contracts/reclaim-verify/src/lib.rs` (in-contract zkTLS), `contracts/humanity/src/groth16.rs` (BN254 Groth16), `contracts/cliprail/src/test/attacks.rs` (A1–A17).
@@ -326,7 +326,7 @@ pnpm --filter verifier dev                                 # http://localhost:87
 | Verifier service | `pnpm --filter verifier test` | 50 passed |
 | `@cliprail/shared` (timeline/payout parity with contract) | `pnpm --filter @cliprail/shared test` | 65 passed |
 | `@cliprail/client` | `pnpm --filter @cliprail/client test` | 17 passed |
-| Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run` | 39/39 steps |
+| Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run e2e` | 39/39 steps |
 
 **232 unit and integration tests in total**, plus the 39-step testnet run. Tests never call the real zkFetch.
 
