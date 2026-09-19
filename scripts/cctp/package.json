@@ -1,0 +1,26 @@
+{
+  "name": "cctp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "keygen": "tsx keygen.ts",
+    "bridge": "tsx bridge.ts",
+    "fund-campaign": "tsx fund-campaign.ts",
+    "dry-run": "tsx dry-run.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cliprail/client": "workspace:*",
+    "@cliprail/shared": "workspace:*",
+    "@stellar/stellar-sdk": "^17.1.0",
+    "tsx": "^4.23.13",
+    "viem": "^2.56.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
