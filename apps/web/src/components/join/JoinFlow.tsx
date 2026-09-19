@@ -2,6 +2,7 @@
 
 import { canJoin } from "@cliprail/shared";
 import { AddressChip } from "@/components/common/AddressChip";
+import { HumanStep, ZkDoneCard, type ZkResult } from "./HumanStep";
 import { CodeBadge } from "@/components/common/CodeBadge";
 import { CopyButton } from "@/components/common/CopyButton";
 import { EmptyState, Skeleton } from "@/components/common/EmptyState";
@@ -14,6 +15,7 @@ import { errorMessage } from "@/lib/api/errors";
 import { useCampaign, useIsHuman, useParticipant, useWrite } from "@/lib/api/hooks";
 import { useNow } from "@/lib/hooks/useNow";
 import { useWallet } from "@/lib/wallet/WalletProvider";
+import { useState } from "react";
 
 type StepState = "done" | "current" | "locked";
 
@@ -60,8 +62,8 @@ export function JoinFlow({ id }: { id: bigint }) {
   const campaign = useCampaign(id);
   const human = useIsHuman(id, account);
   const participant = useParticipant(id, account);
-  const registerHuman = useWrite((a, cid: bigint) => a.registerHuman(cid), { campaignId: id });
   const join = useWrite((a, cid: bigint) => a.join(cid), { campaignId: id });
+  const [zkResult, setZkResult] = useState<ZkResult | null>(null);
 
   if (campaign.isLoading) return <Skeleton className="h-96" />;
   const c = campaign.data;
@@ -134,30 +136,13 @@ export function JoinFlow({ id }: { id: bigint }) {
           ) : humanLoading ? (
             <Skeleton className="h-24" />
           ) : s2 === "done" ? (
-            <p className="text-sm text-muted">Bu kampanya için tek ve gerçek bir insan olarak kaydın var.</p>
+            zkResult ? (
+              <ZkDoneCard result={zkResult} />
+            ) : (
+              <p className="text-sm text-muted">Bu kampanya için tek ve gerçek bir insan olarak kaydın var.</p>
+            )
           ) : s2 === "current" ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-dashed border-border-strong p-4">
-                <p className="text-sm font-medium">Self ile doğrula</p>
-                <p className="mt-1 text-xs text-muted">
-                  Pasaportunla, kimliğini göstermeden ZK kanıtı. Yakında; hackathon sürümünde demo doğrulaması kullanılıyor.
-                </p>
-                <span className="label-mono mt-3 inline-block rounded-full bg-surface-2 px-2.5 py-1 text-[10px] text-muted">Yakında</span>
-              </div>
-              <div className="rounded-2xl border border-border-strong p-4">
-                <p className="text-sm font-medium">Demo doğrulaması</p>
-                <p className="mt-1 text-xs text-muted">
-                  Relayer bu cüzdanı kampanya için tek insan olarak kaydeder (humanity kontratı).
-                </p>
-                <TxButton
-                  className="mt-3"
-                  action={() => registerHuman.mutateAsync(id)}
-                  successTitle="İnsan doğrulaması tamam"
-                >
-                  Doğrula
-                </TxButton>
-              </div>
-            </div>
+            <HumanStep campaignId={id} onZkDone={setZkResult} />
           ) : (
             <p className="text-sm text-muted">Önce cüzdanını bağla.</p>
           )}
