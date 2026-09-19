@@ -1,10 +1,11 @@
 "use client";
 
 import { MOCK_ACCOUNTS } from "@cliprail/client";
-import type { Platform } from "@cliprail/shared";
+import { parseUsdc, type Platform } from "@cliprail/shared";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PhaseTimeline } from "@/components/common/PhaseTimeline";
+import { FundingChoice, SWAP_CAMPAIGN_TOKEN, SWAP_TOKEN_IN, swapErrorMessage, type FundWith } from "./SwapFunding";
 import { useToast } from "@/components/common/Toast";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useApi } from "@/lib/api/ApiProvider";
@@ -68,11 +69,23 @@ export function CampaignFormPage() {
   const now = useNow();
   const [form, setForm] = useState<CampaignForm>(() => emptyForm(MOCK_ACCOUNTS.arbiter));
   const [touched, setTouched] = useState(false);
+  const [fundWith, setFundWith] = useState<FundWith>("usdc");
 
   const { params, errors } = useMemo(() => buildParams(form, account, now), [form, account, now]);
   const shown: FormErrors = touched ? errors : {};
 
   const create = useWrite((api, p: NonNullable<typeof params>) => api.createCampaign(p));
+  const createSwap = useWrite((api, p: NonNullable<typeof params>) =>
+    api.createCampaignWithSwap({ ...p, token: SWAP_CAMPAIGN_TOKEN }, { tokenIn: SWAP_TOKEN_IN }),
+  );
+  const pending = create.isPending || createSwap.isPending;
+  const budgetValue = (() => {
+    try {
+      return form.budget.trim() ? parseUsdc(form.budget) : null;
+    } catch {
+      return null;
+    }
+  })();
 
   const set = <K extends Key>(k: K, v: CampaignForm[K]) => setForm((f) => ({ ...f, [k]: v }));
   const text = (k: Key) => ({
@@ -101,11 +114,21 @@ export function CampaignFormPage() {
       return;
     }
     try {
-      const res = await create.mutateAsync(params);
-      toast.success(`Kampanya #${res.id} kuruldu`, { txHash: res.txHash, body: "Bütçe kontrata kilitlendi." });
-      router.push(`/c/${res.id}`);
+      if (fundWith === "xlm") {
+        const res = await createSwap.mutateAsync(params);
+        toast.success(`Kampanya #${res.id} kuruldu`, {
+          txHash: res.txHash,
+          body: "XLM Soroswap'ta USDC'ye çevrilip kontrata kilitlendi.",
+        });
+        router.push(`/c/${res.id}`);
+      } else {
+        const res = await create.mutateAsync(params);
+        toast.success(`Kampanya #${res.id} kuruldu`, { txHash: res.txHash, body: "Bütçe kontrata kilitlendi." });
+        router.push(`/c/${res.id}`);
+      }
     } catch (err) {
-      toast.error(err, "Kampanya kurulamadı");
+      if (fundWith === "xlm") toast.show({ tone: "error", title: "Kampanya kurulamadı", body: swapErrorMessage(err) });
+      else toast.error(err, "Kampanya kurulamadı");
     }
   }
 
@@ -162,6 +185,7 @@ export function CampaignFormPage() {
             <Field label="Toplam bütçe" help="USDC. Her dönem bütçe/dönem sayısı kadar dağıtılır; harcanmayan sonraki döneme devreder." error={shown.budget} suffix="USDC">
               <input {...text("budget")} inputMode="decimal" placeholder="500" />
             </Field>
+            <FundingChoice value={fundWith} onChange={setFundWith} budget={budgetValue} />
             <Field label="Oran tavanı" help="1000 izlenme başına en fazla ödeme. Talep fazlaysa oran orantılı düşer: r = min(tavan, 1000·B/W)." error={shown.rate_max_per_1k} suffix="USDC / 1k">
               <input {...text("rate_max_per_1k")} inputMode="decimal" placeholder="1" />
             </Field>
@@ -257,18 +281,21 @@ export function CampaignFormPage() {
           <PhaseTimeline params={preview} now={now} compact />
           <div className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
             <p className="text-sm text-muted">
-              Gönderdiğinde bütçe cüzdanından kontrata transfer edilir. Bu kurallar sonradan <strong className="text-fg">değiştirilemez</strong>.
+              {fundWith === "xlm"
+                ? "Gönderdiğinde XLM tek işlemde Soroswap'ta USDC'ye çevrilir ve kontrata kilitlenir; takas başarısız olursa hiçbir şey kilitlenmez."
+                : "Gönderdiğinde bütçe cüzdanından kontrata transfer edilir."}{" "}
+              Bu kurallar sonradan <strong className="text-fg">değiştirilemez</strong>.
             </p>
             {touched && Object.keys(errors).length > 0 && (
               <p className="mt-3 text-sm text-danger">{Object.keys(errors).length} alanda hata var.</p>
             )}
             <button
               type="submit"
-              disabled={create.isPending}
+              disabled={pending}
               className="label-mono mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink text-sm text-ink-fg transition hover:opacity-90 disabled:opacity-50"
             >
-              {create.isPending && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
-              {needWallet ? "Önce cüzdan bağla" : create.isPending ? "İmzalanıyor…" : "Kampanyayı kur"}
+              {pending && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
+              {needWallet ? "Önce cüzdan bağla" : pending ? "İmzalanıyor…" : fundWith === "xlm" ? "XLM ile fonla ve kur" : "Kampanyayı kur"}
             </button>
           </div>
         </aside>
