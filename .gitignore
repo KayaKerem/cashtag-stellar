@@ -1,0 +1,13 @@
+node_modules/
+.next/
+dist/
+target/
+*.wasm
+.env
+.env.*
+!.env.example
+scripts/.accounts
+fixtures/cache/
+.DS_Store
+.soroban/
+.stellar/
