@@ -12,9 +12,19 @@ What is and is not proven today:
 
 - **In-contract proof verification** is tested against Reclaim's reference vector (`contracts/reclaim-verify`) and in a full testnet lifecycle run (create → join → clips → proofs → dispute → settle → claim → holdback → refund) using Reclaim-format proofs signed by a **simulated attestor**.
 - **Live Reclaim zkFetch run:** pending credentials. **[TBD: link to live-proof testnet run]**
-- **Humanity is verified on-chain.** `humanity.register_zk` checks an Anon Aadhaar Groth16 proof (BN254) inside Soroban, bound to the campaign (nullifier seed) and to the submitting wallet (signal hash), for ~29.5M CPU instructions. The demo uses UIDAI **test** data signed with the Anon Aadhaar test key; production pins the real UIDAI key. A relayer `register` path remains as a fallback.
+- **Humanity is verified on-chain.** `humanity.register_zk` checks an Anon Aadhaar Groth16 proof (BN254) inside Soroban, bound to the campaign (nullifier seed) and to the submitting wallet (signal hash), for ~30.8M CPU instructions (~0.034 XLM fee on testnet). The demo uses UIDAI **test** data signed with the Anon Aadhaar test key, proven server-side by the verifier; production pins the real UIDAI key and proves in the browser. A relayer `register` path remains as a fallback.
+- **Funding and cash-out are live on testnet.** A brand can fund a campaign with XLM in one transaction (`create_campaign_with_swap` through the Soroswap router, tested: 47.37 XLM → 5 USDC escrow), and a clipper can cash out USDC to TRY through a SEP-6 anchor (tested: 5 USDC → 242.70 TL; 5000 TL → 101.98 USDC on the way in).
 
 Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **Scale track**. Live demo: **[LIVE_DEMO_URL]** · Demo video: **[TBD: demo video link]**
+
+### Scale track requirements
+
+- [x] **Integration (load-bearing): Soroswap.** `cliprail.create_campaign_with_swap` calls the Soroswap router from inside the contract, swaps the brand's XLM (or any asset with a pool) into exactly `budget` of Circle USDC and escrows it atomically. See [Stellar integrations](#stellar-integrations).
+- [x] **Anchor / local currency: TRY via SEP-6.** SEP-1 discovery, SEP-10 auth, SEP-12 KYC, SEP-38 quotes and SEP-6 `deposit-exchange` / `withdraw-exchange` against the testnet anchor `tr-mock-anchor.fly.dev` (brand funds in TL, clipper cashes out to TL).
+- [x] **Core feature:** verifiable pay-per-view escrow: in-contract zkTLS proof verification, on-chain Anon Aadhaar humanity (`register_zk`), pro-rata settle, holdback, bonded disputes, refund. [Full product lifecycle run](#full-product-lifecycle-run-testnet) on the demo deployment.
+- [x] **Architecture diagram (Mermaid):** [Architecture](#architecture).
+- [x] **SCF roadmap:** [Roadmap → SCF / InstAward](#roadmap--scf--instaward).
+- [x] **Stellar skills cited:** [Stellar skills used](#stellar-skills-used).
 
 **Jump to:** [How to evaluate](#how-to-evaluate) · [Architecture](#architecture) · [Stellar integrations](#stellar-integrations) · [Stellar skills used](#stellar-skills-used) · [Design decisions & trade-offs](#design-decisions--trade-offs) · [Challenges](#challenges) · [Honest limits](#honest-limits) · [Roadmap → SCF / InstAward](#roadmap--scf--instaward)
 
@@ -24,10 +34,11 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 |---|---|
 | Live dashboard (Next.js) | **[LIVE_DEMO_URL]** |
 | Verifier service (`/health`, `/demo/videos/:id`) | **[VERIFIER_URL]** |
-| Contracts | [Testnet deployment](#testnet-deployment), each linked to stellar.expert |
+| Contracts | [Demo deployment (testnet)](#demo-deployment-testnet), each linked to stellar.expert |
 | Full lifecycle, reproducible | `pnpm --filter e2e run e2e`: 39/39 steps, prints every explorer link |
+| Product lifecycle (Soroswap funding → ZK humanity → payouts → TRY cash-out) | `REFUND=1 pnpm --filter @cliprail/client smoke:full`, see [the run](#full-product-lifecycle-run-testnet) |
 
-**Test wallets.** Use any wallet supported by Stellar Wallets Kit (e.g. Freighter switched to *Testnet*) and fund it with Friendbot. Campaign budgets use test USDC from our test issuer; `bash scripts/setup-accounts.sh` creates and funds every role (admin, relayer, arbiter, brand, clippers) and issues test USDC. No mainnet funds are involved.
+**Test wallets.** Use any wallet supported by Stellar Wallets Kit (e.g. Freighter switched to *Testnet*) and fund it with Friendbot. Campaign budgets use **Circle testnet USDC** (`USDC:GBBD47…LFLA5`, add a trustline). A brand without USDC can fund a campaign with XLM through Soroswap, or buy USDC with TL through the TRY anchor. No mainnet funds are involved.
 
 **Five-minute check:**
 
@@ -92,7 +103,8 @@ flowchart LR
   subgraph Stellar["Stellar testnet · Soroban"]
     CR["cliprail escrow contract<br/>campaigns · epochs · pro-rata settle<br/>holdback · bonded disputes · refund<br/>in-contract zkTLS verify (secp256k1 + keccak)"]
     HU["humanity contract<br/>register_zk: Groth16 on BN254 (Anon Aadhaar)<br/>per-campaign nullifier bound to wallet<br/>register: relayer fallback"]
-    USDC[("USDC SAC<br/>token-agnostic escrow asset")]
+    USDC[("Circle USDC SAC<br/>token-agnostic escrow asset")]
+    SW["Soroswap router<br/>XLM → USDC swap"]
   end
 
   subgraph VS["Verifier service · holds no funds"]
@@ -104,12 +116,12 @@ flowchart LR
 
   AT["Reclaim attestor (TEE)"]
   SP[("Social platforms<br/>YouTube Data API")]
-  AN["Anchor: SEP-10 + SEP-24<br/>TRY on/off-ramp<br/>(in progress)"]
+  AN["TRY anchor (tr-mock-anchor)<br/>SEP-1 · 10 · 12 · 38 · 6<br/>TL ⇄ USDC"]
   SE["stellar.expert"]
 
   Brand --> Web
   Clipper --> Web
-  Web -- "signed txs: create_campaign · join ·<br/>register_clip · claim · challenge · refund" --> CR
+  Web -- "signed txs: create_campaign(_with_swap) · join ·<br/>register_clip · claim · challenge · refund" --> CR
   Web -- "register_zk" --> HU
   Web -- "POST /proof · /humanity/*" --> ZK
   Arbiter -- resolve --> CR
@@ -125,13 +137,14 @@ flowchart LR
 
   CR -- is_verified --> HU
   CR <-- escrow in and payouts out --> USDC
-  Brand -. "TRY → USDC" .-> AN
-  Clipper -. "USDC → TRY" .-> AN
-  AN -.- USDC
+  CR -- "swap_tokens_for_exact_tokens<br/>(create_campaign_with_swap)" --> SW
+  SW -- "exact budget in USDC" --> USDC
+  Web -- "TL → USDC (brand) · USDC → TL (clipper)<br/>SEP-10 · SEP-38 quote · SEP-6" --> AN
+  AN -- "USDC payments" --> USDC
   Web -- "tx and contract links" --> SE
 ```
 
-Solid edges are live on testnet. Dashed edges are fallbacks or not yet live (the anchor ramp is in progress).
+Solid edges are live on testnet. The dashed edge is the relayer fallback for humanity.
 
 ### Campaign lifecycle
 
@@ -145,7 +158,8 @@ sequenceDiagram
   participant V as Verifier / keeper
   participant T as USDC SAC
 
-  B->>CR: create_campaign(immutable rules, budget)
+  B->>CR: create_campaign(immutable rules, budget) or create_campaign_with_swap(XLM)
+  Note over B,CR: with_swap: cliprail swaps XLM → exact budget via Soroswap in the same tx
   CR->>T: budget into escrow
   C->>H: register_zk(Anon Aadhaar Groth16 proof)
   Note over H: BN254 pairing check, (campaign, nullifier) ↔ wallet
@@ -208,7 +222,7 @@ held_c   = pay_c · holdback_bps / 10000   (0 in the last epoch) ;  immediate_c 
 - **zkTLS proves the count the platform displays, not that viewers are human.** We mitigate bot views with caps, disputes and pro-rata dilution. We do not claim to solve them.
 - **One Reclaim attestor key.** The address we allowlist (`0x2448…9072`, from Reclaim's reference vector) is to be confirmed with a live proof. Trust moves from "our server" to "a third-party, signed, TEE-backed attestor". That is better, but not trustless.
 - **Humanity uses UIDAI test data in the demo.** `register_zk` verifies a real Anon Aadhaar Groth16 proof on-chain, but the demo proof is generated by the verifier (`/humanity/aadhaar/prove`) from the official UIDAI test QR under the Anon Aadhaar **test** key. Production proves in the user's browser from their own Aadhaar QR and pins the real UIDAI key. Aadhaar covers India only until more identity sources are added. Identities can be rented, which raises the Sybil cost to the price of a real identity without eliminating it.
-- **The anchor on/off-ramp (SEP-10/SEP-24, TRY) is in progress** and not part of the testnet run.
+- **The TRY anchor is a testnet sandbox** (`tr-mock-anchor.fly.dev`): the SEP-6/10/12/38 flow is real, but the bank leg (TL in and out) is simulated and no real money moves. A licensed Turkish anchor is needed for production.
 - **The live demo uses a platform endpoint we control** (`/demo/videos/:id`) so viewers can watch the count grow within minutes. Once Reclaim credentials are in place it is a **real zkTLS proof** verified in-contract; until then the testnet run uses a simulated attestor. The YouTube path uses the same verifier.
 - The proof `timestampS` is chosen by the prover, so freshness relies on the allowlisted `owner` (our zkFetch app).
 
@@ -236,22 +250,56 @@ Every row has a dedicated test in [`contracts/cliprail/src/test/attacks.rs`](con
 | A16 | Early refund | `refund_at` | `a16_early_refund` |
 | A17 | Video deleted after payout | No next-epoch proof, so its holdback goes to survivors | `a17_deleted_video_forfeits_holdback` |
 
-## Testnet deployment
+## Demo deployment (testnet)
+
+The canonical deployment used by the dashboard, the verifier and every run in this README:
+
+| Component | ID / endpoint |
+|---|---|
+| `cliprail` | [`CBI6VFC5E2KFBRSDVCLMQVDOC7Q3AIO3EIMXTHSS2YXEUSY52EF2TQVZ`](https://stellar.expert/explorer/testnet/contract/CBI6VFC5E2KFBRSDVCLMQVDOC7Q3AIO3EIMXTHSS2YXEUSY52EF2TQVZ) |
+| `humanity` (Anon Aadhaar `register_zk` configured) | [`CBXO7SKDQ22E7J7QAASIFLSJ7JAPX45YM3QA5KARY5OJHMFP3KTKP5MN`](https://stellar.expert/explorer/testnet/contract/CBXO7SKDQ22E7J7QAASIFLSJ7JAPX45YM3QA5KARY5OJHMFP3KTKP5MN) |
+| USDC (Circle testnet USDC, SAC of `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`) | [`CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
+| Soroswap router (set via `set_router`) | [`CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD`](https://stellar.expert/explorer/testnet/contract/CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD) |
+| TRY anchor | [`tr-mock-anchor.fly.dev`](https://tr-mock-anchor.fly.dev/.well-known/stellar.toml): SEP-1 / SEP-6 / SEP-10 / SEP-12 / SEP-38 (testnet sandbox, no real money) |
+| zkTLS attestor | **simulated** (Reclaim-format signatures from a clearly labeled test key allowlisted only on this instance); to be switched to live Reclaim |
+
+Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Verifier URL: **[VERIFIER_URL]**
+
+<details>
+<summary>Legacy deployment (pre-ZK, own test USDC)</summary>
+
+Earlier instance with relayer-only humanity and a self-issued test USDC; kept for reference, not used by the demo.
 
 | Contract | ID |
 |---|---|
 | `cliprail` | [`CCICEPQCY25RNF5SAJ3FPUXPXEIRQ3GOUMSVZGVCHRJ6L6Q3FHJL3TST`](https://stellar.expert/explorer/testnet/contract/CCICEPQCY25RNF5SAJ3FPUXPXEIRQ3GOUMSVZGVCHRJ6L6Q3FHJL3TST) |
 | `humanity` | [`CAUU4KCBSL3L5CCLU2S5GNZ354S4X3DP6Z5ZSWMSDDCNNNE3AJSCGKMQ`](https://stellar.expert/explorer/testnet/contract/CAUU4KCBSL3L5CCLU2S5GNZ354S4X3DP6Z5ZSWMSDDCNNNE3AJSCGKMQ) |
-| USDC (test issuer, SAC) | [`CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E`](https://stellar.expert/explorer/testnet/contract/CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E) |
+| USDC (own test issuer, SAC) | [`CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E`](https://stellar.expert/explorer/testnet/contract/CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E) |
 
-**e2e instance (simulated attestor)**, separate from the main deployment, used for the lifecycle run:
+</details>
 
-| Contract | ID |
-|---|---|
-| `cliprail` (e2e) | [`CC4SMPQWP56TUVAUAWMK4BLOONQPBLJAWDVNPE6HMZGEMG67WW4XR7T3`](https://stellar.expert/explorer/testnet/contract/CC4SMPQWP56TUVAUAWMK4BLOONQPBLJAWDVNPE6HMZGEMG67WW4XR7T3) |
-| `humanity` (e2e) | [`CB24BRMGW4ZTLJVC2ETKU5URUD7PXQ6BOYEKV4JUIO7O62GZWM6ZZZUM`](https://stellar.expert/explorer/testnet/contract/CB24BRMGW4ZTLJVC2ETKU5URUD7PXQ6BOYEKV4JUIO7O62GZWM6ZZZUM) |
+## Full product lifecycle run (testnet)
 
-Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Verifier URL: **[VERIFIER_URL]**
+`REFUND=1 pnpm --filter @cliprail/client smoke:full` drives the real product path with `@cliprail/client` (`createApi("chain")` + `createTryRamp("chain")`, the same code the dashboard uses) against the [demo deployment](#demo-deployment-testnet), with keypair signers for brand, two clippers and the arbiter. Run of 2026-09-20: **30/30 steps PASS**, ~8 minutes (2 epochs of 120 s). Attestor: simulated; humanity: Anon Aadhaar TEST proofs, proven by the verifier.
+
+| Step | Action | Result | Tx |
+|---|---|---|---|
+| 1 | Brand funds campaign #4 with XLM via Soroswap (`create_campaign_with_swap`, require_humanity) | 47.37 XLM → 5.0000000 USDC escrowed (Circle USDC) | [49dfd8c5…](https://stellar.expert/explorer/testnet/tx/49dfd8c54fd47c572e61c84000a6f1e0937d3db010929c869ef89fafab8f61d8) |
+| 2 | clipper1 `register_zk` (Anon Aadhaar, fresh identity) → `is_verified` | verified | [1d21c283…](https://stellar.expert/explorer/testnet/tx/1d21c283f48831a03017344bbd617c6d36d80e8267c5c6a92f001544f65145ea) |
+| 2 | clipper1 `join` | code CR-694479 | [d3fed1b0…](https://stellar.expert/explorer/testnet/tx/d3fed1b0d6e3a3e93c6cbc2f0f1107b742f2d0757172c2debd2fb14df4d61d73) |
+| 2 | clipper2 `register_zk` → `is_verified` | verified | [c97b285d…](https://stellar.expert/explorer/testnet/tx/c97b285d9a98eb1893840643890275fa4eada5e2d25948a7bb11ec2bb52a2be0) |
+| 2 | clipper2 `join` | code CR-YN0D2A | [2b2edd22…](https://stellar.expert/explorer/testnet/tx/2b2edd226a67930353088bea6e623a1b2b24f8cd61d5813d24ac42f2f4ec0160) |
+| 3 | clipper1 `register_clip` (opening proof, code in description) | baseline 100 views | [8c51b35a…](https://stellar.expert/explorer/testnet/tx/8c51b35ab2fc2141b0541c0df141e2efc1a1067dc6f750736a2767c6565fc9ba) |
+| 3 | clipper2 `register_clip` | baseline 100 views | [d3d55bb3…](https://stellar.expert/explorer/testnet/tx/d3d55bb36b93b4f4ba8eff68e979907fd8f3d7b3e7b3b02046c5194f9a9b6d3e) |
+| 3 | Keeper: closing proofs e0 + `settle_epoch` e0 | weights 4000 / 2000; spent 2.4999996 USDC, held 0.4999999 | — |
+| 3 | clipper1 / clipper2 `claim` e0 | 1.3333331 / 0.6666665 USDC | [a123688b…](https://stellar.expert/explorer/testnet/tx/a123688beb3f242fcffcfe77d0ed116d6a7844b4883414f71487fcf8cb49e360) · [8dc1d336…](https://stellar.expert/explorer/testnet/tx/8dc1d336dafbb266695f84361ee8a4bc1e249f48616b59c3d8e6c55425da4832) |
+| 3 | Keeper: closing proofs e1 (liveness for e0 holdback) | weights 1000 / 500 | — |
+| 3 | clipper1 / clipper2 `claim_holdback` e0 | 0.3333332 / 0.1666666 USDC | [3f559212…](https://stellar.expert/explorer/testnet/tx/3f5592120c44867bab7b969a7dfdc614b59377ba189288e06d21d0e13e8ae23a) · [5c9a0fd1…](https://stellar.expert/explorer/testnet/tx/5c9a0fd17eaaea980d5cd8696d1b57de020615f368b5c669b58985678ed84216) |
+| 3 | Keeper `settle_epoch` e1; clipper1 / clipper2 `claim` e1 | 1.0000000 / 0.5000000 USDC | [c857a66a…](https://stellar.expert/explorer/testnet/tx/c857a66ac0aa5aefa889165be8118f6d0582d06113905a5aa99217abd287d88d) · [e49d5f14…](https://stellar.expert/explorer/testnet/tx/e49d5f14c56e4c05bea4f989ccccef4477f654029764055e7b7bb485c0cbf168) |
+| 4 | clipper1 cashes out all earnings to TRY (SEP-10 → SEP-12 → SEP-38 quote → SEP-6 `withdraw-exchange` → USDC payment) | 2.6666663 USDC → 129.44 TL (48.54 TL/USDC), status `completed`, bank ref FAST-W68GO36XTZ | [b252098a…](https://stellar.expert/explorer/testnet/tx/b252098a198be9555fc08bdf1dc17679701b86223fd2349734c26028849b38c7) |
+| 5 | Brand `refund` after `refund_at` | 1.0000006 USDC unspent budget back to brand | [16847542…](https://stellar.expert/explorer/testnet/tx/1684754223d5e8e5b4351ff3789f832e4872e58ab406403d26d227c795a6b867) |
+
+Totals: clipper1 earned 2.6666663 USDC, clipper2 1.3333331 USDC (2:1, matching their proven view growth); 5 USDC in = 3.9999994 paid out + 1.0000006 refunded (7-decimal rounding dust stays with the brand). The TL payout on the anchor side is simulated (testnet sandbox).
 
 ## Repository layout
 
@@ -320,15 +368,15 @@ pnpm --filter verifier dev                                 # http://localhost:87
 
 | Suite | Command | Result |
 |---|---|---|
-| `cliprail` contract (flows, disputes, A1–A17 attacks) | `cd contracts && cargo test` | 40 passed |
+| `cliprail` contract (flows, disputes, A1–A17 attacks, Soroswap funding) | `cd contracts && cargo test` | 48 passed |
 | `humanity` contract (registry, Groth16 / Anon Aadhaar, field aliasing, wallet and campaign binding) | ″ | 36 passed |
 | `reclaim-verify` (Reclaim reference vector, k256 signatures, JSON scanner) | ″ | 24 passed |
-| Verifier service | `pnpm --filter verifier test` | 50 passed |
-| `@cliprail/shared` (timeline/payout parity with contract) | `pnpm --filter @cliprail/shared test` | 65 passed |
-| `@cliprail/client` | `pnpm --filter @cliprail/client test` | 17 passed |
+| Verifier service | `pnpm --filter verifier test` | 89 passed (1 skipped) |
+| `@cliprail/shared` (timeline/payout parity with contract) | `pnpm --filter @cliprail/shared test` | 72 passed |
+| `@cliprail/client` (chain/mock API, Soroswap quote, SEP-6/10/12/38 ramp) | `pnpm --filter @cliprail/client test` | 66 passed |
 | Testnet lifecycle (simulated attestor) | `pnpm --filter e2e run e2e` | 39/39 steps |
 
-**232 unit and integration tests in total**, plus the 39-step testnet run. Tests never call the real zkFetch.
+**335 unit and integration tests in total**, plus the 39-step testnet run and the product lifecycle run below. Tests never call the real zkFetch.
 
 ## Cost
 
@@ -343,15 +391,16 @@ Measured on testnet in the lifecycle run: average CPU instructions from simulati
 | `challenge` | ~2.3M | ~0.059 XLM |
 | `settle_epoch` | ~1.5M | ~0.0012 XLM |
 | `claim` | ~2.0M | ~0.0023 XLM |
-| `humanity.register_zk` (Groth16, 9 public inputs) | ~29.5M | — |
+| `humanity.register_zk` (Groth16, 9 public inputs) | ~30.8M | ~0.034 XLM |
 
 Reclaim proof verification alone costs 3.2M instructions (142 B context) to 10.2M (7.9 KB), measured on the real wasm including VM setup. Every call stays far inside Soroban's 400M-instruction per-transaction budget. The most expensive call is `create_campaign` at ~0.11 XLM; the recurring payout calls (`settle_epoch`, `claim`) cost a small fraction of a cent.
 
 ## Why Stellar
 
 - **Native USDC and low fees.** A classic USDC payment costs ~0.00001 XLM, and the Soroban calls above cost cents or less (`claim` ~0.0023 XLM), which makes per-epoch micro-payouts with no minimum threshold possible.
-- **Anchors and MoneyGram** let clippers cash out locally (SEP-24) in markets PayPal does not serve.
-- **Host crypto functions** (`secp256k1_recover`, `keccak256`) make it cheap enough to verify a Reclaim zkTLS proof fully inside a Soroban contract: a full verification measures ~3–10M instructions of the 400M per-transaction budget. BN254 pairing and MSM host functions make on-chain Groth16 identity proofs practical: Anon Aadhaar verifies in ~29.5M instructions.
+- **Anchors and MoneyGram** let clippers cash out locally (SEP-6 / SEP-24) in markets PayPal does not serve; ClipRail's TRY cash-out already runs over SEP-6 on testnet.
+- **Soroban DeFi composability:** the escrow calls the Soroswap router directly, so a brand can fund in XLM and the contract still escrows exact USDC.
+- **Host crypto functions** (`secp256k1_recover`, `keccak256`) make it cheap enough to verify a Reclaim zkTLS proof fully inside a Soroban contract: a full verification measures ~3–10M instructions of the 400M per-transaction budget. BN254 pairing and MSM host functions make on-chain Groth16 identity proofs practical: Anon Aadhaar verifies in ~30.8M instructions.
 - A layer that complements the **Stellar Disbursement Platform**: SDP distributes, ClipRail proves what should be paid.
 
 ## Stellar integrations
@@ -361,12 +410,13 @@ Each integration below carries weight in the protocol; none is decorative.
 | Integration | Status | What it does in ClipRail |
 |---|---|---|
 | **Stellar Wallets Kit** (`@creit.tech/stellar-wallets-kit`) | Live | Wallet connection and transaction signing in the dashboard (Freighter and other kit wallets) for brands, clippers and arbiters. Every state change that moves money is signed by the user's own wallet |
-| **Circle USDC via the Stellar Asset Contract** | Live (test issuer on testnet) | The escrow asset. `create_campaign`, `claim`, bonds and `refund` are SEP-41 `transfer` calls on the SAC. The contract is token-agnostic: it takes the token address per campaign, so an anchor-issued TRY token works the same way |
+| **Circle USDC via the Stellar Asset Contract** | Live (Circle testnet USDC SAC) | The escrow asset. `create_campaign`, `claim`, bonds and `refund` are SEP-41 `transfer` calls on the SAC. The contract is token-agnostic: it takes the token address per campaign, so an anchor-issued TRY token works the same way |
+| **Soroswap** (router) | Live, contract-level | `create_campaign_with_swap`: the `cliprail` contract calls the Soroswap router (`swap_tokens_for_exact_tokens`) and escrows exactly `budget` USDC in the same brand-signed transaction, with a slippage cap and deadline; the client quotes via `router_get_amounts_in`. Tested on testnet: 47.37 XLM → 5 USDC escrow |
 | **Soroban host crypto: secp256k1 + keccak256** | Live | Recover the Reclaim attestor address and hash the claim identifier, so a zkTLS proof is verified fully in-contract (~3–10M instructions) |
-| **Soroban host crypto: BN254 pairing + G1 MSM** | Live | Groth16 verification of Anon Aadhaar proofs in `humanity.register_zk` (~29.5M instructions) |
+| **Soroban host crypto: BN254 pairing + G1 MSM** | Live | Groth16 verification of Anon Aadhaar proofs in `humanity.register_zk` (~30.8M CPU instructions, ~0.034 XLM fee on testnet) |
 | **Reclaim Protocol zkTLS** (zkFetch, attestor) | Integrated; live-credential run pending | Produces signed proofs of the view count and description the platform served. Tests and the e2e run use a simulated attestor that signs in the exact Reclaim format |
-| **Anon Aadhaar circuits (PSE)** v2 | Live on-chain verify; demo uses UIDAI test data | Proof of a unique Aadhaar holder with a per-campaign nullifier, bound to the Stellar wallet via the signal hash |
-| **Anchor: SEP-10 auth + SEP-24 interactive deposit/withdraw** (TRY) | In progress | Brand funds in TRY, clipper cashes out USDC to TRY. The escrow needs no change for this |
+| **Anon Aadhaar circuits (PSE)** v2 | Live (`register_zk` on-chain verify); demo uses UIDAI test data, proven server-side | Proof of a unique Aadhaar holder with a per-campaign nullifier, bound to the Stellar wallet via the signal hash |
+| **TRY anchor: SEP-1 + SEP-10 + SEP-12 + SEP-38 + SEP-6** (`tr-mock-anchor.fly.dev`) | Live via SEP-6 (testnet sandbox) | Brand buys USDC with TL (`deposit-exchange`), clipper cashes out USDC to TL (`withdraw-exchange`) with a firm SEP-38 quote. Tested: 5000 TL → 101.98 USDC; 5 USDC → 242.70 TL. The escrow needs no change for this |
 | **Stellar RPC + stellar.expert** | Live | The dashboard, keeper and e2e scripts read contract state and simulate/submit transactions via Stellar RPC; every transaction and contract is linked on stellar.expert |
 
 ## Stellar skills used
@@ -381,9 +431,9 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 | `skills/smart-contracts/security.md` | Checklist for escrow accounting, auth, replay and time windows |
 | `skills/zk-proofs/SKILL.md` | Groth16 verification with the BN254 host functions, public-input canonicality |
 | `skills/dapp/SKILL.md` | Stellar Wallets Kit and Freighter integration, transaction building, simulation and signing in Next.js |
-| `skills/assets/SKILL.md` | Test USDC issuance, trustlines, SAC deployment |
+| `skills/assets/SKILL.md` | Circle testnet USDC trustlines, SAC interop, test-asset issuance |
 | `skills/data/SKILL.md` | Stellar RPC reads, events, explorer links |
-| `skills/standards/SKILL.md` | SEP-1 / SEP-10 / SEP-24 anchor flow for the TRY on/off-ramp, SEP-41 token interface |
+| `skills/standards/SKILL.md` | SEP-1 / SEP-10 / SEP-12 / SEP-38 / SEP-6 anchor flow for the TRY on/off-ramp, SEP-41 token interface; Soroswap in the DeFi ecosystem reference |
 
 ## Design decisions & trade-offs
 
@@ -409,7 +459,7 @@ We built with the Stellar developer skills from [github.com/stellar/stellar-dev-
 
 | Milestone | Timeline | Deliverables |
 |---|---|---|
-| **M1: Production-ready testnet** | 2–4 weeks | Live Reclaim zkFetch proofs in the default flow (multi-proof run on testnet); anchor SEP-10/SEP-24 TRY cash-out integrated in the clipper flow; verifier and keeper hosted on Hetzner behind HTTPS with monitoring; in-browser Anon Aadhaar proving; external security review of `cliprail`, `humanity` and `reclaim-verify` |
+| **M1: Production-ready testnet** | 2–4 weeks | Live Reclaim zkFetch proofs in the default flow (multi-proof run on testnet); TRY cash-out moved from the testnet sandbox anchor to a licensed Turkish anchor (SEP-6/SEP-24); verifier and keeper hosted on Hetzner behind HTTPS with monitoring; in-browser Anon Aadhaar proving; external security review of `cliprail`, `humanity` and `reclaim-verify` |
 | **M2: Mainnet pilot** | +1–2 months | Mainnet deployment with real UIDAI key pinned; pilot campaigns with 2–3 brands (crypto projects, music labels); passkey smart accounts and fee sponsorship so clippers need no seed phrase or XLM; device-side zkTLS for TikTok, X and Instagram; admin timelock and multisig |
 | **M3: SCF Build Award** | +3 months | SCF Build application backed by pilot metrics; Self / zkPassport identity alongside Aadhaar; SDK and dashboard for agencies running many campaigns; multi-attestor threshold verification; Stellar Disbursement Platform integration for large payouts |
 
