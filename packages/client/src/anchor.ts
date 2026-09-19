@@ -345,7 +345,7 @@ export async function sep10Auth({ anchor, account, signer, fetch: f = globalThis
     signed = (await signer.signTransaction(body.transaction, { networkPassphrase: passphrase, address: account })).signedTxXdr;
   } catch (e) {
     const text = e instanceof Error ? e.message : String(e);
-    if (/reject|declin|denied|cancel/i.test(text)) throw new CliprailError("wallet_rejected", "wallet", "İşlem cüzdanda reddedildi.", null, e);
+    if (/reject|declin|denied|cancel/i.test(text)) throw new CliprailError("wallet_rejected", "wallet", "The transaction was rejected in your wallet.", null, e);
     throw anchorError("anchor_auth_failed", text, e);
   }
 
@@ -394,7 +394,7 @@ export async function startInteractive(o: StartInteractiveOptions): Promise<{ id
   const f = o.fetch ?? globalThis.fetch;
   const info = o.anchor.sep24?.[o.kind]?.[o.assetCode];
   if (o.anchor.sep24 && (!info || !info.enabled)) throw anchorError("anchor_asset_unsupported", `${o.kind} ${o.assetCode}`);
-  const body: Record<string, string> = { asset_code: o.assetCode, account: o.account, lang: o.lang ?? "tr", ...o.extra };
+  const body: Record<string, string> = { asset_code: o.assetCode, account: o.account, lang: o.lang ?? "en", ...o.extra };
   if (o.assetIssuer) body.asset_issuer = o.assetIssuer;
   if (o.amount) body.amount = o.amount;
   const res = await anchorFetch(f, `${sep24Server(o.anchor)}/transactions/${o.kind}/interactive`, {
@@ -431,7 +431,7 @@ export interface AnchorTransaction {
   amountInAsset?: string;
   amountOutAsset?: string;
   amountFeeAsset?: string;
-  /** Off-chain reference: deposit transfer reference (açıklama) / withdrawal bank payout reference. */
+  /** Off-chain reference: deposit transfer reference (payment description) / withdrawal bank payout reference. */
   externalTransactionId?: string;
   /** Deposit settled as a claimable balance (account had no trustline). */
   claimableBalanceId?: string;
@@ -582,7 +582,7 @@ async function signAndSubmit(
     signed = (await signer.signTransaction(xdr, { networkPassphrase: passphrase, address: account })).signedTxXdr;
   } catch (e) {
     const text = e instanceof Error ? e.message : String(e);
-    if (/reject|declin|denied|cancel/i.test(text)) throw new CliprailError("wallet_rejected", "wallet", "İşlem cüzdanda reddedildi.", null, e);
+    if (/reject|declin|denied|cancel/i.test(text)) throw new CliprailError("wallet_rejected", "wallet", "The transaction was rejected in your wallet.", null, e);
     throw anchorError(failCode, text, e);
   }
   try {
@@ -784,7 +784,7 @@ export interface Sep6DepositResponse {
   instructions: Record<string, { value: string; description?: string }>;
   bankName?: string;
   iban?: string;
-  /** Reference to write in the bank transfer description (açıklama). */
+  /** Reference to write in the bank transfer description. */
   reference?: string;
   /** Transaction page (sandbox: "simulate incoming transfer" button). */
   moreInfoUrl?: string;
@@ -810,7 +810,7 @@ export async function sep6Deposit(o: Sep6DepositOptions): Promise<Sep6DepositRes
     amount,
     type,
     funding_method: type,
-    lang: o.lang ?? "tr",
+    lang: o.lang ?? "en",
     ...(o.claimableBalanceSupported ? { claimable_balance_supported: "true" } : {}),
     ...(exchange ? { destination_asset: code, source_asset: o.sourceAsset ?? TRY_SEP38_ASSET, quote_id: o.quoteId } : {}),
     ...o.extra,
@@ -896,7 +896,7 @@ export async function sep6Withdraw(o: Sep6WithdrawOptions): Promise<Sep6Withdraw
     dest_extra: o.destExtra,
     refund_memo: o.refundMemo,
     refund_memo_type: o.refundMemo ? (o.refundMemoType ?? "text") : undefined,
-    lang: o.lang ?? "tr",
+    lang: o.lang ?? "en",
     ...(exchange ? { source_asset: code, destination_asset: o.destinationAsset ?? TRY_SEP38_ASSET, quote_id: o.quoteId } : {}),
     ...o.extra,
   };

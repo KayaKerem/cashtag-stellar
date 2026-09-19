@@ -1,4 +1,4 @@
-// Anchor (SEP-1 / SEP-10 / SEP-24 / SEP-6 / SEP-12 / SEP-38) error codes and status labels — Turkish user messages.
+// Anchor (SEP-1 / SEP-10 / SEP-24 / SEP-6 / SEP-12 / SEP-38) error codes and status labels — English user messages.
 
 export type AnchorErrorCode =
   | "anchor_unreachable"
@@ -27,35 +27,35 @@ export type AnchorErrorCode =
   | "anchor_amount_invalid";
 
 export const ANCHOR_ERROR_MESSAGES: Record<AnchorErrorCode, string> = {
-  anchor_unreachable: "Anchor'a ulaşılamadı, biraz sonra tekrar dene.",
-  anchor_toml_invalid: "Anchor'un stellar.toml dosyası eksik ya da hatalı.",
-  anchor_wrong_network: "Anchor farklı bir Stellar ağında çalışıyor.",
-  anchor_sep24_unsupported: "Anchor etkileşimli para yatırma/çekme (SEP-24) desteklemiyor.",
-  anchor_asset_unsupported: "Bu varlık anchor tarafından desteklenmiyor.",
-  anchor_challenge_invalid: "Anchor'un giriş isteği doğrulanamadı; güvenlik için imzalanmadı.",
-  anchor_auth_failed: "Anchor girişi başarısız oldu.",
-  anchor_unauthorized: "Anchor oturumunun süresi doldu, tekrar giriş yap.",
-  anchor_request_failed: "Anchor isteği reddetti.",
-  anchor_tx_not_found: "Anchor işlemi bulunamadı.",
-  anchor_tx_failed: "Anchor işlemi başarısız oldu.",
-  anchor_not_ready: "İşlem henüz ödeme adımında değil.",
-  anchor_timeout: "Anchor işlemi beklenen sürede tamamlanmadı.",
-  anchor_account_missing: "Stellar hesabı bulunamadı; önce hesaba biraz XLM yatırılmalı.",
-  anchor_trustline_failed: "Varlık için trustline eklenemedi.",
-  anchor_payment_failed: "Anchor'a ödeme gönderilemedi.",
-  anchor_underfunded: "Bakiye yetersiz (işlem ücreti için XLM ya da gönderilecek varlık).",
-  anchor_sep6_unsupported: "Anchor programatik para yatırma/çekme (SEP-6) desteklemiyor.",
-  anchor_kyc_failed: "Kimlik doğrulama (KYC) bilgileri anchor'a gönderilemedi.",
-  anchor_kyc_rejected: "Kimlik doğrulama (KYC) anchor tarafından onaylanmadı.",
-  anchor_quote_failed: "TL/USDC kur teklifi alınamadı, tekrar dene.",
-  anchor_simulate_failed: "Test havalesi simüle edilemedi.",
-  anchor_pending_trust: "USDC trustline eksik; anchor ödemeyi trustline eklenince yapacak.",
-  anchor_amount_invalid: "Geçersiz tutar.",
+  anchor_unreachable: "Could not reach the anchor, try again in a moment.",
+  anchor_toml_invalid: "The anchor's stellar.toml file is missing or invalid.",
+  anchor_wrong_network: "The anchor runs on a different Stellar network.",
+  anchor_sep24_unsupported: "The anchor does not support interactive deposits/withdrawals (SEP-24).",
+  anchor_asset_unsupported: "The anchor does not support this asset.",
+  anchor_challenge_invalid: "The anchor's sign-in challenge could not be verified, so it was not signed.",
+  anchor_auth_failed: "Signing in to the anchor failed.",
+  anchor_unauthorized: "The anchor session expired, sign in again.",
+  anchor_request_failed: "The anchor rejected the request.",
+  anchor_tx_not_found: "Anchor transaction not found.",
+  anchor_tx_failed: "The anchor transaction failed.",
+  anchor_not_ready: "The transaction is not at the payment step yet.",
+  anchor_timeout: "The anchor transaction did not finish in time.",
+  anchor_account_missing: "Stellar account not found; fund it with some XLM first.",
+  anchor_trustline_failed: "Could not add the trustline for this asset.",
+  anchor_payment_failed: "Could not send the payment to the anchor.",
+  anchor_underfunded: "Not enough balance (XLM for the fee, or the asset being sent).",
+  anchor_sep6_unsupported: "The anchor does not support programmatic deposits/withdrawals (SEP-6).",
+  anchor_kyc_failed: "Could not send your identity (KYC) details to the anchor.",
+  anchor_kyc_rejected: "The anchor did not approve your identity (KYC) details.",
+  anchor_quote_failed: "Could not get a TRY/USDC quote, try again.",
+  anchor_simulate_failed: "Could not simulate the test bank transfer.",
+  anchor_pending_trust: "The USDC trustline is missing; the anchor will pay once it is added.",
+  anchor_amount_invalid: "Invalid amount.",
 };
 
 export const isAnchorErrorCode = (c: unknown): c is AnchorErrorCode => typeof c === "string" && c in ANCHOR_ERROR_MESSAGES;
 
-/** Turkish message for an anchor error code; `detail` (anchor's own text) is appended when given. */
+/** English message for an anchor error code; `detail` (the anchor's own text) is appended when given. */
 export function anchorErrorMessage(code: AnchorErrorCode, detail?: string | null): string {
   const base = ANCHOR_ERROR_MESSAGES[code];
   const d = detail?.trim();
@@ -82,22 +82,22 @@ export type Sep24Status =
   | "error";
 
 export const SEP24_STATUS_LABELS: Record<Sep24Status, string> = {
-  incomplete: "Bilgiler bekleniyor (anchor penceresini tamamla)",
-  pending_user_transfer_start: "Ödemeni bekliyor",
-  pending_user_transfer_complete: "Ödeme alındı, işleniyor",
-  pending_external: "Banka tarafında işleniyor",
-  pending_anchor: "Anchor işliyor",
-  pending_stellar: "Stellar ağında işleniyor",
-  pending_trust: "Trustline bekleniyor",
-  pending_user: "Senden bir işlem bekleniyor",
-  on_hold: "Beklemede (anchor inceliyor)",
-  completed: "Tamamlandı",
-  refunded: "İade edildi",
-  expired: "Süresi doldu",
-  no_market: "Piyasa yok",
-  too_small: "Tutar çok düşük",
-  too_large: "Tutar çok yüksek",
-  error: "Hata",
+  incomplete: "Waiting for your details (finish in the anchor window)",
+  pending_user_transfer_start: "Waiting for your payment",
+  pending_user_transfer_complete: "Payment received, processing",
+  pending_external: "Processing at the bank",
+  pending_anchor: "The anchor is processing",
+  pending_stellar: "Processing on the Stellar network",
+  pending_trust: "Waiting for a trustline",
+  pending_user: "Waiting for an action from you",
+  on_hold: "On hold (the anchor is reviewing)",
+  completed: "Completed",
+  refunded: "Refunded",
+  expired: "Expired",
+  no_market: "No market",
+  too_small: "Amount too small",
+  too_large: "Amount too large",
+  error: "Error",
 };
 
 /** Statuses after which the anchor will not move the transaction any further. */
@@ -121,30 +121,30 @@ export type Sep6Status = Sep24Status | "pending_customer_info_update" | "pending
 
 export const SEP6_STATUS_LABELS: Record<Sep6Status, string> = {
   ...SEP24_STATUS_LABELS,
-  incomplete: "Bilgiler bekleniyor",
-  pending_customer_info_update: "Kimlik (KYC) bilgisi bekleniyor",
-  pending_transaction_info_update: "İşlem bilgisi bekleniyor",
+  incomplete: "Waiting for your details",
+  pending_customer_info_update: "Waiting for identity (KYC) details",
+  pending_transaction_info_update: "Waiting for transaction details",
 };
 
-/** Direction-specific wording (TL yatırma = deposit, TL'ye çekme = withdrawal). */
+/** Direction-specific wording (TRY in = deposit, TRY out = withdrawal). */
 export const SEP6_DEPOSIT_STATUS_LABELS: Partial<Record<Sep6Status, string>> = {
-  pending_user_transfer_start: "TL havalesi bekleniyor",
-  pending_anchor: "TL alındı, USDC gönderiliyor",
-  pending_stellar: "USDC Stellar ağında gönderiliyor",
-  pending_trust: "USDC trustline'ı bekleniyor",
-  completed: "USDC hesabına geçti",
-  error: "Hata (TL iade edildi)",
+  pending_user_transfer_start: "Waiting for the bank transfer",
+  pending_anchor: "TRY received, sending USDC",
+  pending_stellar: "Sending USDC on the Stellar network",
+  pending_trust: "Waiting for the USDC trustline",
+  completed: "USDC arrived in your account",
+  error: "Error (TRY refunded)",
 };
 
 export const SEP6_WITHDRAW_STATUS_LABELS: Partial<Record<Sep6Status, string>> = {
-  pending_user_transfer_start: "USDC ödemen bekleniyor",
-  pending_anchor: "USDC alındı, TL gönderiliyor",
-  pending_external: "TL banka hesabına gönderiliyor",
-  completed: "TL banka hesabına gönderildi",
-  error: "İptal edildi",
+  pending_user_transfer_start: "Waiting for your USDC payment",
+  pending_anchor: "USDC received, sending TRY",
+  pending_external: "Sending TRY to your bank account",
+  completed: "TRY sent to your bank account",
+  error: "Canceled",
 };
 
-/** Turkish label for a SEP-6 status; `kind` ("deposit", "withdrawal", "deposit-exchange", ...) picks the wording. */
+/** English label for a SEP-6 status; `kind` ("deposit", "withdrawal", "deposit-exchange", ...) picks the wording. */
 export function sep6StatusLabel(status: string, kind?: string | null): string {
   const k = (kind ?? "").toLowerCase();
   const table = k.startsWith("deposit") ? SEP6_DEPOSIT_STATUS_LABELS : k.startsWith("withdraw") ? SEP6_WITHDRAW_STATUS_LABELS : null;
@@ -157,10 +157,10 @@ export const isSep6Final = (s: string): boolean => isSep24Final(s);
 export type Sep12Status = "ACCEPTED" | "PROCESSING" | "NEEDS_INFO" | "REJECTED";
 
 export const SEP12_STATUS_LABELS: Record<Sep12Status, string> = {
-  ACCEPTED: "Kimlik doğrulandı",
-  PROCESSING: "Kimlik doğrulanıyor",
-  NEEDS_INFO: "Kimlik bilgisi gerekli",
-  REJECTED: "Kimlik doğrulaması reddedildi",
+  ACCEPTED: "Identity verified",
+  PROCESSING: "Verifying your identity",
+  NEEDS_INFO: "Identity details needed",
+  REJECTED: "Identity verification rejected",
 };
 
 export const sep12StatusLabel = (s: string): string => SEP12_STATUS_LABELS[s as Sep12Status] ?? s;
@@ -180,17 +180,17 @@ export type AnchorRampStep =
   | "done";
 
 export const ANCHOR_RAMP_STEP_LABELS: Record<AnchorRampStep, string> = {
-  discover: "Anchor bilgileri alınıyor",
-  trustline: "USDC trustline kontrol ediliyor",
-  auth: "Anchor'a cüzdanla giriş yapılıyor",
-  kyc: "Kimlik doğrulama (KYC)",
-  quote: "Kur teklifi alınıyor",
-  deposit: "Yatırma talimatı oluşturuluyor",
-  bank_transfer: "TL havalesi gönderiliyor (test)",
-  withdraw: "Çekim talimatı oluşturuluyor",
-  payment: "USDC anchor'a gönderiliyor",
-  waiting: "Anchor işlemi tamamlıyor",
-  done: "Tamamlandı",
+  discover: "Fetching anchor details",
+  trustline: "Checking the USDC trustline",
+  auth: "Signing in to the anchor",
+  kyc: "Identity verification (KYC)",
+  quote: "Getting the exchange rate",
+  deposit: "Creating the deposit instructions",
+  bank_transfer: "Sending the bank transfer (test)",
+  withdraw: "Creating the withdrawal instructions",
+  payment: "Paying the anchor",
+  waiting: "The anchor is finishing the transaction",
+  done: "Completed",
 };
 
 /** Default TRY ⇄ USDC anchor (hackathon mock, SEP-1/6/10/12/38) and its SEP-38 off-chain asset. */
@@ -199,17 +199,17 @@ export const TRY_SEP38_ASSET = "iso4217:TRY";
 
 const toNum = (v: string | number): number => (typeof v === "number" ? v : Number(String(v).replace(/\s/g, "")));
 
-/** "5000" → "5.000,00 TL" (Turkish grouping, 2 decimals). */
+/** "5000" → "5,000.00 TRY" (en-US grouping, 2 decimals). */
 export function formatTry(amount: string | number, opts: { symbol?: boolean } = {}): string {
   const n = toNum(amount);
   if (!Number.isFinite(n)) return String(amount);
-  const s = n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return opts.symbol === false ? s : `${s} TL`;
+  const s = n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return opts.symbol === false ? s : `${s} TRY`;
 }
 
-/** TRY per USDC → "1 USDC = 49,03 TL". */
+/** TRY per USDC → "1 USDC = 49.03 TRY". */
 export function formatTryRate(tryPerUsdc: string | number): string {
   const n = toNum(tryPerUsdc);
   if (!Number.isFinite(n)) return String(tryPerUsdc);
-  return `1 USDC = ${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} TL`;
+  return `1 USDC = ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} TRY`;
 }

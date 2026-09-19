@@ -21,7 +21,7 @@ describe("error mapping", () => {
   it("parses host errors, bindings Err names and verifier codes", () => {
     const a = toCliprailError(new Error("HostError: Error(Contract, #19)\n..."));
     expect(a).toMatchObject({ code: 19, source: "cliprail", errorName: "ProofReused" });
-    expect(a.message).toMatch(/daha önce kullanılmış/);
+    expect(a.message).toMatch(/already been used/);
     expect(errorFromName("WrongPhase")).toMatchObject({ code: 8 });
     expect(errorFromName("NullifierUsed", "humanity")).toMatchObject({ code: 2, source: "humanity" });
     expect(toCliprailError(new Error("User declined access"))).toMatchObject({ code: "wallet_rejected", source: "wallet" });

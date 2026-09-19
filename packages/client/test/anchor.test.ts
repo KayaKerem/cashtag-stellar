@@ -33,7 +33,7 @@ code = "TRY"
 issuer = "${ISSUER}"
 is_asset_anchored = true
 anchor_asset_type = "fiat"
-desc = "Türk lirası # not a comment"
+desc = "Turkish lira # not a comment"
 
 [[CURRENCIES]]
 code = "native"
@@ -66,7 +66,7 @@ describe("SEP-1 discovery", () => {
     const t = parseToml(TOML) as Record<string, any>;
     expect(t.ACCOUNTS).toEqual(["GAAA", "GBBB"]);
     expect(t.CURRENCIES).toHaveLength(2);
-    expect(t.CURRENCIES[0]).toMatchObject({ code: "TRY", is_asset_anchored: true, desc: "Türk lirası # not a comment" });
+    expect(t.CURRENCIES[0]).toMatchObject({ code: "TRY", is_asset_anchored: true, desc: "Turkish lira # not a comment" });
     expect(t.DOCUMENTATION.ORG_NAME).toBe("Example");
   });
 
@@ -150,7 +150,7 @@ describe("SEP-10", () => {
 describe("SEP-24", () => {
   const anchorInfo = async () => discoverAnchor(HOME, { fetch: mockFetch(anchorRoutes) });
 
-  it("starts an interactive flow with lang=tr", async () => {
+  it("starts an interactive flow with lang=en", async () => {
     const f = mockFetch((url, init) =>
       url === `https://${HOME}/sep24/transactions/deposit/interactive` && init?.method === "POST"
         ? { body: { type: "interactive_customer_info_needed", url: "https://anchor.example/kyc?t=1", id: "tx1" } }
@@ -159,7 +159,7 @@ describe("SEP-24", () => {
     const r = await startInteractive({ anchor: await anchorInfo(), jwt: "j", kind: "deposit", assetCode: "TRY", account: "GUSER", amount: "100", fetch: f });
     expect(r).toEqual({ id: "tx1", url: "https://anchor.example/kyc?t=1" });
     const body = JSON.parse((f.mock.calls[0][1] as RequestInit).body as string);
-    expect(body).toEqual({ asset_code: "TRY", account: "GUSER", amount: "100", lang: "tr" });
+    expect(body).toEqual({ asset_code: "TRY", account: "GUSER", amount: "100", lang: "en" });
     await expect(
       startInteractive({ anchor: await anchorInfo(), jwt: "j", kind: "deposit", assetCode: "EUR", account: "GUSER", fetch: f }),
     ).rejects.toMatchObject({ code: "anchor_asset_unsupported" });
@@ -186,7 +186,7 @@ describe("SEP-24", () => {
     const tx = await pollTransaction({ anchor: await anchorInfo(), jwt: "j", id: "w1", fetch: f });
     expect(tx).toMatchObject({
       status: "pending_user_transfer_start",
-      statusLabel: "Ödemeni bekliyor",
+      statusLabel: "Waiting for your payment",
       needsUserPayment: true,
       final: false,
       amountIn: "50",
@@ -204,7 +204,7 @@ describe("SEP-24", () => {
       final: true,
       needsUserPayment: false,
       amountFee: "0.5",
-      statusLabel: "Tamamlandı",
+      statusLabel: "Completed",
     });
   });
 

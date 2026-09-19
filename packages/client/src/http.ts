@@ -19,7 +19,7 @@ export async function postJson<T>(
       body: JSON.stringify(body, (_k, v) => (typeof v === "bigint" ? v.toString() : v)),
     });
   } catch (e) {
-    throw new CliprailError("network", "verifier", "Doğrulama servisine ulaşılamadı.", null, e);
+    throw new CliprailError("network", "verifier", "Could not reach the verification service.", null, e);
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (res.ok) return data as T;
@@ -28,10 +28,10 @@ export async function postJson<T>(
   const code = typeof data.code === "string" ? data.code : `http_${res.status}`;
   const msg =
     res.status === 401
-      ? "Doğrulama servisi yetkilendirmesi başarısız."
+      ? "The verification service rejected the authorization."
       : res.status === 429
-        ? "Çok fazla istek, bir dakika sonra tekrar dene."
-        : `Doğrulama servisi hatası: ${String(data.error ?? res.statusText)}`;
+        ? "Too many requests, try again in a minute."
+        : `Verification service error: ${String(data.error ?? res.statusText)}`;
   throw new CliprailError(code, "verifier", msg, null, data);
 }
 

@@ -35,9 +35,9 @@ export function parseUsdc(input: string): bigint {
   let s = input.trim().replace(/[\s_]/g, "");
   if (!s.includes(".") && (s.match(/,/g)?.length ?? 0) === 1) s = s.replace(",", ".");
   const m = /^(-)?(\d*)(?:\.(\d*))?$/.exec(s);
-  if (!m || (m[2] === "" && (m[3] ?? "") === "")) throw new Error("Geçersiz tutar.");
+  if (!m || (m[2] === "" && (m[3] ?? "") === "")) throw new Error("Invalid amount.");
   const frac = m[3] ?? "";
-  if (frac.length > USDC_DECIMALS) throw new Error("En fazla 7 ondalık basamak girilebilir.");
+  if (frac.length > USDC_DECIMALS) throw new Error("Use at most 7 decimal places.");
   const v = BigInt(m[2] || "0") * USDC_UNIT + BigInt(frac.padEnd(USDC_DECIMALS, "0") || "0");
   return m[1] ? -v : v;
 }

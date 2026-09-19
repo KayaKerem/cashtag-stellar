@@ -15,7 +15,7 @@ export type CliprailErrorSource = ErrorSource | "token" | "verifier" | "wallet" 
  * Typed error thrown by every api method.
  * `code`: contract error number (source cliprail/humanity) or a string tag
  * ("wallet_rejected", "http_401", "unknown", ...; source "token": "insufficient_balance",
- * "no_trustline", "token_error"). `message` is Turkish, ready for the UI.
+ * "no_trustline", "token_error"). `message` is English, ready for the UI.
  */
 export class CliprailError extends Error {
   readonly code: number | string;
@@ -111,6 +111,6 @@ export function toCliprailError(err: unknown, source: ErrorSource = "cliprail", 
   const text = err instanceof Error ? err.message : typeof err === "string" ? err : "";
   if (REJECT_RE.test(text)) return new CliprailError("wallet_rejected", "wallet", userMessage(err, source), null, err);
   if (/fetch failed|network|ECONN|timeout/i.test(text))
-    return new CliprailError("network", "network", "Ağa bağlanılamadı, tekrar dene.", null, err);
+    return new CliprailError("network", "network", "Could not connect to the network, try again.", null, err);
   return new CliprailError("unknown", source, text ? `${UNKNOWN_ERROR_MESSAGE} (${text.slice(0, 160)})` : UNKNOWN_ERROR_MESSAGE, null, err);
 }

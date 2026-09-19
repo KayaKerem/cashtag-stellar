@@ -28,9 +28,9 @@ export function withSlippage(quote: bigint, bps: number): bigint {
 
 /** Soroswap router `CombinedRouterError` codes we surface to the UI. */
 export const SOROSWAP_ERRORS: Record<number, { name: string; message: string }> = {
-  503: { name: "DeadlineExpired", message: "Takas süresi doldu, tekrar dene." },
-  508: { name: "ExcessiveInputAmount", message: "Fiyat kaydı (slippage) limiti aşıldı, tekrar teklif al." },
-  509: { name: "PairDoesNotExist", message: "Bu varlık için Soroswap havuzu yok." },
-  511: { name: "InsufficientLiquidity", message: "Soroswap havuzunda yeterli likidite yok." },
-  514: { name: "InvalidPath", message: "Takas yolu geçersiz." },
+  503: { name: "DeadlineExpired", message: "The swap deadline passed, try again." },
+  508: { name: "ExcessiveInputAmount", message: "The slippage limit was exceeded, get a new quote." },
+  509: { name: "PairDoesNotExist", message: "There is no Soroswap pool for this asset." },
+  511: { name: "InsufficientLiquidity", message: "The Soroswap pool does not have enough liquidity." },
+  514: { name: "InvalidPath", message: "The swap path is invalid." },
 };

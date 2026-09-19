@@ -9,7 +9,7 @@ describe("anchor messages", () => {
   });
 
   it("appends anchor detail", () => {
-    expect(anchorErrorMessage("anchor_request_failed", "asset not supported")).toBe("Anchor isteği reddetti. (asset not supported)");
+    expect(anchorErrorMessage("anchor_request_failed", "asset not supported")).toBe("The anchor rejected the request. (asset not supported)");
     expect(anchorErrorMessage("anchor_timeout")).toBe(ANCHOR_ERROR_MESSAGES.anchor_timeout);
   });
 

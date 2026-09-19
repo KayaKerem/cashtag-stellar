@@ -116,7 +116,7 @@ describe("timelineRows", () => {
     expect(rows).toHaveLength(2 * 6 + 1);
     const active = rows.filter((r) => r.active).map((r) => r.key);
     expect(active).toEqual(["0:challenge", "1:content"]);
-    expect(rows[0]!.label).toBe("Dönem 1 · İçerik dönemi");
+    expect(rows[0]!.label).toBe("Epoch 1 · Content");
     expect(rows.at(-1)).toMatchObject({ phase: "refund", start: 2140n, end: null });
   });
 });

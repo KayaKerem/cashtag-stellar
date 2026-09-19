@@ -24,7 +24,7 @@ export function soroswapError(err: unknown): CliprailError {
   const code = m ? Number(m[1]) : undefined;
   const known = code !== undefined ? SOROSWAP_ERRORS[code] : undefined;
   if (known) return new CliprailError(code!, "swap", known.message, known.name, err);
-  return new CliprailError("swap_quote_failed", "swap", "Soroswap fiyat teklifi alınamadı (havuz/likidite yok olabilir).", null, err);
+  return new CliprailError("swap_quote_failed", "swap", "Could not get a Soroswap quote (the pool or liquidity may be missing).", null, err);
 }
 
 export function rpcSwapQuoter(o: { rpcUrl: string; networkPassphrase: string; allowHttp?: boolean }): SwapQuoter {

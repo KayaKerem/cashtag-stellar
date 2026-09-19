@@ -35,15 +35,15 @@ describe("errors", () => {
   });
 
   it("user messages", () => {
-    expect(userMessage("Error(Contract, #26)")).toBe("Alınacak ödeme yok.");
-    expect(userMessage(new Error("User declined access"))).toBe("İşlem cüzdanda reddedildi.");
-    expect(userMessage(42)).toMatch(/Beklenmeyen/);
+    expect(userMessage("Error(Contract, #26)")).toBe("Nothing to claim.");
+    expect(userMessage(new Error("User declined access"))).toBe("The transaction was rejected in your wallet.");
+    expect(userMessage(42)).toMatch(/Something went wrong/);
     expect(errorMessage(99)).toMatch(/#99/);
   });
 
   it("token (USDC) error messages", () => {
-    expect(insufficientBalanceMessage(100_000_000n, 25_000_000n)).toBe("USDC bakiyesi yetersiz: gereken 10.00, mevcut 2.50");
-    expect(userMessage("no_trustline")).toBe("Hesabın USDC trustline'ı yok");
+    expect(insufficientBalanceMessage(100_000_000n, 25_000_000n)).toBe("Not enough USDC: need 10.00, have 2.50");
+    expect(userMessage("no_trustline")).toBe("This account has no USDC trustline");
     expect(userMessage({ code: "insufficient_balance", message: "USDC bakiyesi yetersiz: gereken 1.00, mevcut 0.00" })).toMatch(/gereken 1\.00/);
     expect(userMessage({ code: "token_error" })).toBe(TOKEN_ERROR_MESSAGES.token_error);
     expect(tokenErrorCode(10)).toBe("insufficient_balance");

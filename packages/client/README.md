@@ -1,13 +1,13 @@
 # @cliprail/client
 
-`CliprailApi` arayüzünün (docs/INTERFACES.md §5) UI'dan bağımsız uygulaması. Web tarafı yalnızca arayüz yazar.
+UI-independent implementation of the `CliprailApi` interface (docs/INTERFACES.md §5). The web app only writes the interface.
 
-- `createApi("mock", opts?)`: bellekte çalışan sahte API. 2 kampanya, 3 katılımcı, klipler ve açık bir itiraz ile başlar. Saat gerçek zamanda ilerler (`speed` ile hızlandırılabilir), yazma işlemleri ~800 ms sonra sahte `txHash` döner. Aşama kuralları ve ödeme hesabı `@cliprail/shared` ile aynıdır. `MockApi` ayrıca `now()` ve `advance(saniye)` sunar.
-- `createApi("chain", opts)`: testnet. Okumalar simülasyonla yapılır (cüzdan gerekmez). Yazmalar kullanıcının cüzdanıyla imzalanır. Geçici hatalarda (footprint, ExceededLimit, tx_bad_seq, TRY_AGAIN_LATER) işlem yeniden simüle edilir, en fazla 2 kez.
-- Tüm hatalar `CliprailError { code, source, message }` olarak gelir. `message` Türkçedir ve doğrudan gösterilebilir. `code` kontrat hata numarası (§2.3) ya da `"wallet_rejected"`, `"network"`, `"unauthorized"` gibi bir etikettir.
-- `registerClip` önce verifier'dan kanıt alır (`POST /proof`, 5–30 sn sürer), sonra `register_clip` işlemini imzalatır. `registerHuman` ve `submitClose` verifier üzerinden gider.
-- `registerHumanZk(id, {identity?})` → `{txHash, nullifier}`: verifier'dan Anon Aadhaar kanıtı alır (`POST /humanity/aadhaar/prove`, ~30 sn, kuyruk varsa daha uzun), sonra `humanity.register_zk`'yı bağlı cüzdana imzalatır. **TEST modu:** kanıt UIDAI TEST anahtarı/verisiyle, `identity` adlı demo kimlik için üretilir (verilmezse cüzdana özel kimlik). Production'da kanıt tarayıcıda kullanıcının kendi QR'ından üretilir. Bindings yeniden üretilene kadar çağrı ham `ScVal` argümanlarla yapılır (`src/humanity-zk.ts`). Mock: ~3 sn bekler ve başarılı olur; aynı `identity` başka cüzdanla tekrar kullanılırsa `NullifierUsed`.
-- humanity hata kodları 4–8 (`NotConfigured`, `InvalidProof`, `StaleProof`, `InputNotInField`, `NotAnAccount`) kontratla henüz teyit edilmedi.
+- `createApi("mock", opts?)`: an in-memory fake API. It starts with 2 campaigns, 3 participants, clips and one open challenge. The clock runs in real time (speed it up with `speed`), and writes return a fake `txHash` after ~800 ms. Phase rules and payout math are the same as in `@cliprail/shared`. `MockApi` also exposes `now()` and `advance(seconds)`.
+- `createApi("chain", opts)`: testnet. Reads run through simulation (no wallet needed). Writes are signed with the user's wallet. On transient errors (footprint, ExceededLimit, tx_bad_seq, TRY_AGAIN_LATER) the call is re-simulated, at most twice.
+- Every error arrives as `CliprailError { code, source, message }`. `message` is English and can be shown as is. `code` is the contract error number (§2.3) or a tag such as `"wallet_rejected"`, `"network"` or `"unauthorized"`.
+- `registerClip` first fetches a proof from the verifier (`POST /proof`, takes 5–30 s), then has the `register_clip` transaction signed. `registerHuman` and `submitClose` also go through the verifier.
+- `registerHumanZk(id, {identity?})` → `{txHash, nullifier}`: fetches an Anon Aadhaar proof from the verifier (`POST /humanity/aadhaar/prove`, ~30 s, longer when queued), then has `humanity.register_zk` signed by the connected wallet. **TEST mode:** the proof is generated with the UIDAI TEST key/data for the demo identity named `identity` (when omitted, an identity derived from the wallet). In production the proof is generated in the browser from the user's own QR code. Until the bindings are regenerated, the call is made with raw `ScVal` arguments (`src/humanity-zk.ts`). Mock: waits ~3 s and succeeds; reusing the same `identity` from another wallet raises `NullifierUsed`.
+- Humanity error codes 4–8 (`NotConfigured`, `InvalidProof`, `StaleProof`, `InputNotInField`, `NotAnAccount`) have not been confirmed against the contract yet.
 
 ## Next.js
 
@@ -18,7 +18,7 @@ const nextConfig = { transpilePackages: ["@cliprail/shared", "@cliprail/client"]
 export default nextConfig;
 ```
 
-`apps/web/package.json` bağımlılıkları: `"@cliprail/client": "workspace:*"`, `"@cliprail/shared": "workspace:*"`.
+`apps/web/package.json` dependencies: `"@cliprail/client": "workspace:*"`, `"@cliprail/shared": "workspace:*"`.
 
 ```ts
 "use client";
@@ -27,7 +27,7 @@ import { StellarWalletsKit, WalletNetwork, allowAllModules, FREIGHTER_ID } from 
 
 const kit = new StellarWalletsKit({ network: WalletNetwork.TESTNET, selectedWalletId: FREIGHTER_ID, modules: allowAllModules() });
 
-// Signer adaptörü (Freighter için: @stellar/freighter-api getAddress / signTransaction aynı biçimde)
+// Signer adapter (for Freighter: @stellar/freighter-api getAddress / signTransaction have the same shape)
 const signer = {
   getAddress: async () => (await kit.getAddress()).address,
   signTransaction: (xdr: string, o: { networkPassphrase: string; address?: string }) => kit.signTransaction(xdr, o),
@@ -47,7 +47,7 @@ export const api =
         signer,
       });
 
-// Kullanım
+// Usage
 try {
   const { code, txHash } = await api.join(1n);
 } catch (e) {
@@ -55,51 +55,51 @@ try {
 }
 ```
 
-ID'ler `bigint`, dönemler `number` türündedir. Tutarlar i128 (`bigint`, 7 ondalık) olarak gelir; biçimlendirme için `@cliprail/shared` içindeki `format` yardımcılarını kullan. Explorer linki: `https://stellar.expert/explorer/testnet/tx/<txHash>`.
+Ids are `bigint` and epochs are `number`. Amounts arrive as i128 (`bigint`, 7 decimals); format them with the `format` helpers in `@cliprail/shared`. Explorer link: `https://stellar.expert/explorer/testnet/tx/<txHash>`.
 
-## Anchor (SEP-1 / SEP-10 / SEP-24): TL yatırma ve çekme
+## Anchor (SEP-1 / SEP-10 / SEP-24): TRY deposits and withdrawals
 
-`src/anchor.ts` herhangi bir SEP-24 anchor'ıyla çalışır. Varsayılan `testanchor.stellar.org` ve `SRT`. Etkinliğin TRY anchor'ı belli olunca yalnızca home domain ve varlık kodu değişir.
+`src/anchor.ts` works with any SEP-24 anchor. The defaults are `testanchor.stellar.org` and `SRT`. Once the event's TRY anchor is known, only the home domain and the asset code change.
 
 ```ts
 import { discoverAnchor, sep10Auth, ensureTrustline, anchorAsset, startInteractive, waitForTransaction, completeWithdrawPayment } from "@cliprail/client";
 
 const anchor = await discoverAnchor("testanchor.stellar.org");         // stellar.toml + /info
-const jwt = await sep10Auth({ anchor, account, signer });               // challenge doğrulanır, cüzdan imzalar
-const asset = anchorAsset(anchor, "SRT");                               // CURRENCIES içinden issuer
-await ensureTrustline(asset, account, signer);                          // gerekiyorsa changeTrust
-const { id, url } = await startInteractive({ anchor, jwt, kind: "deposit", assetCode: "SRT", account, amount: "100", lang: "tr" });
-window.open(url, "anchor", "width=500,height=800");                     // KYC / banka bilgisi anchor penceresinde
+const jwt = await sep10Auth({ anchor, account, signer });               // the challenge is verified, the wallet signs
+const asset = anchorAsset(anchor, "SRT");                               // issuer from CURRENCIES
+await ensureTrustline(asset, account, signer);                          // changeTrust when needed
+const { id, url } = await startInteractive({ anchor, jwt, kind: "deposit", assetCode: "SRT", account, amount: "100", lang: "en" });
+window.open(url, "anchor", "width=500,height=800");                     // KYC / bank details in the anchor window
 const tx = await waitForTransaction({ anchor, jwt, id, onUpdate: (t) => setStatus(t.statusLabel) });
 
-// Çekim: kind "withdraw"; durum pending_user_transfer_start olunca ödeme cüzdandan imzalanır.
+// Withdrawal: kind "withdraw"; once the status is pending_user_transfer_start, the payment is signed from the wallet.
 const w = await waitForTransaction({ anchor, jwt, id: wid, until: ["pending_user_transfer_start"] });
 if (w.needsUserPayment) await completeWithdrawPayment({ tx: w, asset, account, signer });
 ```
 
-- Hatalar `CliprailError { source: "anchor", code: "anchor_*" }`; Türkçe mesajlar `@cliprail/shared` (`ANCHOR_ERROR_MESSAGES`, `SEP24_STATUS_LABELS`).
-- Anchor varlığının kontrat tarafındaki karşılığı SAC'tır: `asset.contractId(networkPassphrase)`. SAC ağda yoksa bir kez `stellar contract asset deploy --asset KOD:ISSUER --network testnet` çalıştırılır.
-- Uçtan uca test: `pnpm --filter e2e anchor-smoke` (testanchor formunu HTTP ile doldurur).
+- Errors are `CliprailError { source: "anchor", code: "anchor_*" }`; the English messages live in `@cliprail/shared` (`ANCHOR_ERROR_MESSAGES`, `SEP24_STATUS_LABELS`).
+- The contract-side counterpart of an anchor asset is its SAC: `asset.contractId(networkPassphrase)`. If the SAC is not on the network yet, run `stellar contract asset deploy --asset CODE:ISSUER --network testnet` once.
+- End-to-end test: `pnpm --filter e2e anchor-smoke` (fills in the testanchor form over HTTP).
 
-## Ortam değişkenleri
+## Environment variables
 
-| Değişken | Değer (testnet, INTERFACES §6) |
+| Variable | Value (testnet, INTERFACES §6) |
 |---|---|
 | `NEXT_PUBLIC_RPC_URL` | `https://soroban-testnet.stellar.org` |
 | `NEXT_PUBLIC_CLIPRAIL_ID` | `CCICEPQCY25RNF5SAJ3FPUXPXEIRQ3GOUMSVZGVCHRJ6L6Q3FHJL3TST` |
 | `NEXT_PUBLIC_HUMANITY_ID` | `CAUU4KCBSL3L5CCLU2S5GNZ354S4X3DP6Z5ZSWMSDDCNNNE3AJSCGKMQ` |
 | `NEXT_PUBLIC_USDC_SAC` | `CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E` |
-| `NEXT_PUBLIC_VERIFIER_URL` | lokal `http://localhost:8787`, sonra Hetzner HTTPS adresi |
-| `NEXT_PUBLIC_WRITE_TOKEN` | verifier `WRITE_TOKEN` değeri |
+| `NEXT_PUBLIC_VERIFIER_URL` | local `http://localhost:8787`, later the Hetzner HTTPS address |
+| `NEXT_PUBLIC_WRITE_TOKEN` | the verifier's `WRITE_TOKEN` value |
 
-`NEXT_PUBLIC_WRITE_TOKEN` tarayıcıya gömülür, yani herkes görebilir. Yalnızca demo içindir ve gerçek bir sır olarak kullanılmamalıdır.
+`NEXT_PUBLIC_WRITE_TOKEN` is embedded in the browser bundle, so anyone can read it. It is for the demo only and must not be treated as a real secret.
 
-## Komutlar
+## Commands
 
 ```sh
-pnpm --filter @cliprail/client test        # birim testleri (mock, kanıt dönüşümü, hata eşleme, yeniden deneme)
+pnpm --filter @cliprail/client test        # unit tests (mock, proof conversion, error mapping, retries)
 pnpm --filter @cliprail/client typecheck
-pnpm --filter @cliprail/client smoke       # E2E kontratına salt okunur istekler (scripts/.accounts/e2e.env)
+pnpm --filter @cliprail/client smoke       # read-only calls against the E2E contract (scripts/.accounts/e2e.env)
 ```
 
-`smoke` betiği `SMOKE_SECRET` ortam değişkenini kullanır. Tanımlı değilse anahtarı `stellar keys show brand` komutuyla alır ve ekrana yazmaz.
+The `smoke` script uses the `SMOKE_SECRET` environment variable. When it is not set, it reads the key with `stellar keys show brand` and never prints it.

@@ -4,56 +4,56 @@ import { formatUsdc } from "./format";
 export type ErrorSource = "cliprail" | "humanity";
 
 export const CLIPRAIL_ERRORS: Record<number, { name: string; message: string }> = {
-  1: { name: "AlreadyInitialized", message: "Kontrat zaten başlatılmış." },
-  2: { name: "NotInitialized", message: "Kontrat henüz başlatılmamış." },
-  3: { name: "InvalidParams", message: "Kampanya parametreleri geçersiz." },
-  4: { name: "CampaignNotFound", message: "Kampanya bulunamadı." },
-  5: { name: "NotJoined", message: "Bu kampanyaya katılmamışsın." },
-  6: { name: "AlreadyJoined", message: "Bu kampanyaya zaten katıldın." },
-  7: { name: "NotHuman", message: "Önce insan doğrulamasını tamamla." },
-  8: { name: "WrongPhase", message: "Bu işlem şu anki aşamada yapılamaz." },
-  9: { name: "PlatformNotAllowed", message: "Bu platform kampanyada izinli değil." },
-  10: { name: "VideoAlreadyRegistered", message: "Bu video zaten kayıtlı." },
-  11: { name: "ClipNotFound", message: "Klip bulunamadı." },
-  12: { name: "BadSignature", message: "Kanıt imzası geçersiz." },
-  13: { name: "UnknownAttestor", message: "Kanıtı imzalayan tanınmıyor." },
-  14: { name: "UnknownOwner", message: "Kanıt sahibi (uygulama) tanınmıyor." },
-  15: { name: "UrlMismatch", message: "Kanıttaki adres bu videoyla eşleşmiyor." },
-  16: { name: "MatchMismatch", message: "Kanıt beklenen biçimde değil." },
-  17: { name: "CodeNotFound", message: "Katılım kodun video açıklamasında bulunamadı." },
-  18: { name: "ViewsParseError", message: "İzlenme sayısı okunamadı." },
-  19: { name: "ProofReused", message: "Bu kanıt daha önce kullanılmış." },
-  20: { name: "ProofExpired", message: "Kanıtın süresi geçmiş, yenisini üret." },
-  21: { name: "EpochNotReady", message: "Dönem henüz hazır değil." },
-  22: { name: "EpochOutOfRange", message: "Geçersiz dönem." },
-  23: { name: "AlreadySettled", message: "Dönem zaten kapatılmış." },
-  24: { name: "OpenDisputes", message: "Sonuçlanmamış itiraz var." },
-  25: { name: "AlreadyClaimed", message: "Bu ödeme zaten alınmış." },
-  26: { name: "NothingToClaim", message: "Alınacak ödeme yok." },
-  27: { name: "AlreadyDisputed", message: "Bu klip için zaten itiraz var." },
-  28: { name: "DisputeNotFound", message: "İtiraz bulunamadı." },
-  29: { name: "NotArbiter", message: "Bu işlemi yalnızca hakem yapabilir." },
-  30: { name: "NotClipOwner", message: "Bu klip sana ait değil." },
-  31: { name: "Excluded", message: "Klip bu dönem için dışlandı." },
-  32: { name: "RefundNotReady", message: "İade zamanı henüz gelmedi." },
-  33: { name: "AlreadyRefunded", message: "Kampanya zaten iade edilmiş." },
-  34: { name: "PrevEpochNotSettled", message: "Önceki dönem henüz kapatılmadı." },
-  35: { name: "ProofTooLarge", message: "Kanıt çok büyük." },
-  36: { name: "RouterNotSet", message: "Takasla fonlama bu kontratta yapılandırılmamış." },
-  37: { name: "BadPath", message: "Takas yolu geçersiz (ilk varlık ödenen, son varlık kampanya tokenı olmalı)." },
-  38: { name: "SwapFailed", message: "Takas başarısız (fiyat kaydı limiti, süre ya da likidite). Yeni teklif alıp tekrar dene." },
+  1: { name: "AlreadyInitialized", message: "The contract is already initialized." },
+  2: { name: "NotInitialized", message: "The contract is not initialized yet." },
+  3: { name: "InvalidParams", message: "The campaign parameters are invalid." },
+  4: { name: "CampaignNotFound", message: "Campaign not found." },
+  5: { name: "NotJoined", message: "You have not joined this campaign." },
+  6: { name: "AlreadyJoined", message: "You already joined this campaign." },
+  7: { name: "NotHuman", message: "Complete human verification first." },
+  8: { name: "WrongPhase", message: "This action is not allowed in the current phase." },
+  9: { name: "PlatformNotAllowed", message: "This platform is not allowed in this campaign." },
+  10: { name: "VideoAlreadyRegistered", message: "This video is already registered." },
+  11: { name: "ClipNotFound", message: "Clip not found." },
+  12: { name: "BadSignature", message: "The proof signature is invalid." },
+  13: { name: "UnknownAttestor", message: "The proof signer is not recognized." },
+  14: { name: "UnknownOwner", message: "The proof owner (app) is not recognized." },
+  15: { name: "UrlMismatch", message: "The URL in the proof does not match this video." },
+  16: { name: "MatchMismatch", message: "The proof is not in the expected format." },
+  17: { name: "CodeNotFound", message: "Your join code is missing from the video description." },
+  18: { name: "ViewsParseError", message: "Could not read the view count." },
+  19: { name: "ProofReused", message: "This proof has already been used." },
+  20: { name: "ProofExpired", message: "The proof has expired, generate a new one." },
+  21: { name: "EpochNotReady", message: "This epoch is not ready yet." },
+  22: { name: "EpochOutOfRange", message: "Invalid epoch." },
+  23: { name: "AlreadySettled", message: "This epoch is already settled." },
+  24: { name: "OpenDisputes", message: "There are unresolved challenges." },
+  25: { name: "AlreadyClaimed", message: "This payout was already claimed." },
+  26: { name: "NothingToClaim", message: "Nothing to claim." },
+  27: { name: "AlreadyDisputed", message: "This clip already has a challenge." },
+  28: { name: "DisputeNotFound", message: "Challenge not found." },
+  29: { name: "NotArbiter", message: "Only the arbiter can do this." },
+  30: { name: "NotClipOwner", message: "This clip is not yours." },
+  31: { name: "Excluded", message: "This clip was excluded from this epoch." },
+  32: { name: "RefundNotReady", message: "It is not time for a refund yet." },
+  33: { name: "AlreadyRefunded", message: "This campaign was already refunded." },
+  34: { name: "PrevEpochNotSettled", message: "The previous epoch is not settled yet." },
+  35: { name: "ProofTooLarge", message: "The proof is too large." },
+  36: { name: "RouterNotSet", message: "Funding with a swap is not configured on this contract." },
+  37: { name: "BadPath", message: "The swap path is invalid (it must start with the asset you pay and end with the campaign token)." },
+  38: { name: "SwapFailed", message: "Swap failed (slippage limit, deadline or liquidity). Get a new quote and try again." },
 };
 
 export const HUMANITY_ERRORS: Record<number, { name: string; message: string }> = {
-  1: { name: "AlreadyInitialized", message: "Doğrulama kontratı zaten başlatılmış." },
-  2: { name: "NullifierUsed", message: "Bu kimlik bu kampanyada zaten kullanıldı." },
-  3: { name: "WalletRegistered", message: "Bu cüzdan zaten doğrulanmış." },
+  1: { name: "AlreadyInitialized", message: "The verification contract is already initialized." },
+  2: { name: "NullifierUsed", message: "This identity was already used in this campaign." },
+  3: { name: "WalletRegistered", message: "This wallet is already verified." },
   // register_zk (Anon Aadhaar). Codes 4..8 assumed to follow 1..3 — TO BE CONFIRMED against contracts/humanity.
-  4: { name: "NotConfigured", message: "ZK kimlik doğrulaması bu kontratta yapılandırılmamış." },
-  5: { name: "InvalidProof", message: "Kimlik kanıtı geçersiz." },
-  6: { name: "StaleProof", message: "Kimlik kanıtı çok eski, yenisini üret." },
-  7: { name: "InputNotInField", message: "Kanıt girdileri geçersiz (alan sınırı dışında)." },
-  8: { name: "NotAnAccount", message: "Doğrulama yalnız hesap (G...) cüzdanlarıyla yapılabilir." },
+  4: { name: "NotConfigured", message: "ZK identity verification is not configured on this contract." },
+  5: { name: "InvalidProof", message: "The identity proof is invalid." },
+  6: { name: "StaleProof", message: "The identity proof is too old, generate a new one." },
+  7: { name: "InputNotInField", message: "The proof inputs are invalid (outside the field range)." },
+  8: { name: "NotAnAccount", message: "Only account (G...) wallets can be verified." },
 };
 
 /**
@@ -63,9 +63,9 @@ export const HUMANITY_ERRORS: Record<number, { name: string; message: string }> 
 export type TokenErrorCode = "insufficient_balance" | "no_trustline" | "token_error";
 
 export const TOKEN_ERROR_MESSAGES: Record<TokenErrorCode, string> = {
-  insufficient_balance: "USDC bakiyesi yetersiz.",
-  no_trustline: "Hesabın USDC trustline'ı yok",
-  token_error: "USDC transferi başarısız oldu (token kontratı hatası).",
+  insufficient_balance: "Not enough USDC.",
+  no_trustline: "This account has no USDC trustline",
+  token_error: "USDC transfer failed (token contract error).",
 };
 
 /** SAC `ContractError` numbers we name (soroban-env-host): 10 BalanceError, 13 TrustlineMissingError. */
@@ -73,13 +73,13 @@ export const SAC_ERROR_CODES: Record<number, TokenErrorCode> = { 10: "insufficie
 
 export const tokenErrorCode = (sacCode: number): TokenErrorCode => SAC_ERROR_CODES[sacCode] ?? "token_error";
 
-/** "USDC bakiyesi yetersiz: gereken 10.00, mevcut 2.50" (amounts in base units). */
+/** "Not enough USDC: need 10.00, have 2.50" (amounts in base units). */
 export const insufficientBalanceMessage = (needed: bigint, available: bigint): string =>
-  `USDC bakiyesi yetersiz: gereken ${formatUsdc(needed)}, mevcut ${formatUsdc(available)}`;
+  `Not enough USDC: need ${formatUsdc(needed)}, have ${formatUsdc(available)}`;
 
 const isTokenCode = (c: unknown): c is TokenErrorCode => typeof c === "string" && c in TOKEN_ERROR_MESSAGES;
 
-export const UNKNOWN_ERROR_MESSAGE = "Beklenmeyen bir hata oluştu.";
+export const UNKNOWN_ERROR_MESSAGE = "Something went wrong.";
 
 export interface ParsedError {
   source: ErrorSource;
@@ -134,7 +134,7 @@ export function parseContractError(input: unknown, source: ErrorSource = "clipra
   return null;
 }
 
-/** Best-effort user-facing Turkish message for anything thrown. */
+/** Best-effort user-facing English message for anything thrown. */
 export function userMessage(err: unknown, source: ErrorSource = "cliprail"): string {
   if (err && typeof err === "object" && isTokenCode((err as { code?: unknown }).code)) {
     const e = err as { code: TokenErrorCode; message?: unknown };
@@ -144,6 +144,6 @@ export function userMessage(err: unknown, source: ErrorSource = "cliprail"): str
   const parsed = parseContractError(err, source);
   if (parsed) return parsed.message;
   const text = err instanceof Error ? err.message : typeof err === "string" ? err : "";
-  if (/reject|declin|denied|cancel/i.test(text)) return "İşlem cüzdanda reddedildi.";
+  if (/reject|declin|denied|cancel/i.test(text)) return "The transaction was rejected in your wallet.";
   return UNKNOWN_ERROR_MESSAGE;
 }

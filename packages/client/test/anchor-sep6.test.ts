@@ -187,7 +187,7 @@ describe("SEP-6 / 12 / 38 primitives", () => {
     expect(new URL(calls.at(-1)!.url).searchParams.get("destination_asset")).toBe("iso4217:TRY");
     expect(w).toMatchObject({ id: "sep_wd", accountId: TREASURY, memo: "860873126114", memoType: "id", paymentUri: "web+stellar:pay?x" });
     const tx = withdrawResponseToTx(w, "5");
-    expect(tx).toMatchObject({ needsUserPayment: true, withdrawAnchorAccount: TREASURY, withdrawMemoType: "id", statusLabel: "USDC ödemen bekleniyor" });
+    expect(tx).toMatchObject({ needsUserPayment: true, withdrawAnchorAccount: TREASURY, withdrawMemoType: "id", statusLabel: "Waiting for your USDC payment" });
   });
 
   it("simulates the bank transfer and polls the SEP-6 transaction", async () => {
@@ -196,7 +196,7 @@ describe("SEP-6 / 12 / 38 primitives", () => {
     const t = await simulateDepositArrival({ anchor, id: "sep_dep", amount: "5000", fetch: f });
     expect(calls.at(-1)!.url).toBe(`${B}/sep6/tx/sep_dep/simulate-bank-transfer`);
     expect(JSON.parse(String(calls.at(-1)!.init?.body))).toEqual({ amount: "5000" });
-    expect(t).toMatchObject({ status: "pending_anchor", statusLabel: "TL alındı, USDC gönderiliyor", amountOut: "101.9826321" });
+    expect(t).toMatchObject({ status: "pending_anchor", statusLabel: "TRY received, sending USDC", amountOut: "101.9826321" });
     const p = await pollTransaction({ anchor, jwt: "jwt-1", id: "sep_dep", fetch: f });
     expect(p).toMatchObject({ amountInAsset: "iso4217:TRY", amountOutAsset: USDC });
     expect(p.instructions?.external_transfer_memo.value).toBe("TRMA-AAAA-BBBB");

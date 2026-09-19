@@ -23,10 +23,10 @@ describe("token (SAC) error mapping", () => {
   it("maps SAC #10 / #13 raised by the token to token codes, not cliprail names", () => {
     const bal = toCliprailError(new Error(hostError(USDC, 10, '["balance is not sufficient to spend", 0, 100]')), "cliprail", ctx);
     expect(bal).toMatchObject({ code: "insufficient_balance", source: "token", errorName: null });
-    expect(bal.message).toMatch(/USDC bakiyesi yetersiz/);
+    expect(bal.message).toMatch(/Not enough USDC/);
     const tl = toCliprailError(new Error(hostError(USDC, 13)), "cliprail", ctx);
     expect(tl).toMatchObject({ code: "no_trustline", source: "token" });
-    expect(tl.message).toBe("Hesabın USDC trustline'ı yok");
+    expect(tl.message).toBe("This account has no USDC trustline");
     expect(toCliprailError(hostError(USDC, 9), "cliprail", ctx)).toMatchObject({ code: "token_error", source: "token" });
   });
 
@@ -67,7 +67,7 @@ describe("ensureTokenBalance", () => {
     await expect(ensureTokenBalance(reader(async () => 25_000_000n), USDC, USER, 100_000_000n)).rejects.toMatchObject({
       code: "insufficient_balance",
       source: "token",
-      message: "USDC bakiyesi yetersiz: gereken 10.00, mevcut 2.50",
+      message: "Not enough USDC: need 10.00, have 2.50",
     });
   });
 
@@ -77,7 +77,7 @@ describe("ensureTokenBalance", () => {
         `HostError: Error(Contract, #13)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:${USDC}, topics:[error, Error(Contract, #13)], data:["trustline entry is missing for account", ${USER}]`,
       );
     });
-    await expect(ensureTokenBalance(r, USDC, USER, 1n)).rejects.toMatchObject({ code: "no_trustline", message: "Hesabın USDC trustline'ı yok" });
+    await expect(ensureTokenBalance(r, USDC, USER, 1n)).rejects.toMatchObject({ code: "no_trustline", message: "This account has no USDC trustline" });
     await expect(ensureTokenBalance(reader(async () => { throw new Error("Error(Contract, #13)"); }), USDC, USER, 1n)).rejects.toMatchObject({ code: "no_trustline" });
   });
 

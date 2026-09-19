@@ -291,31 +291,31 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
     const s1 = t - 740n;
     const c1 = createCampaignS(A.brand, {
       ...common, budget: 3000n * USDC, start: s1, epochs: 3, platforms: ["youtube", "demo"], require_humanity: true,
-      title: "Yaz koleksiyonu klipleri", brief_url: "https://example.com/brief/yaz",
+      title: "Summer collection clips", brief_url: "https://example.com/brief/summer",
     });
     for (const a of [A.clipper1, A.clipper2, A.clipper3]) {
       humans.add(`${c1}:${a}`);
       joinS(c1, a, s1 + 30n);
     }
     const k1 = registerClipS(c1, A.clipper1, "youtube", "dQw4w9WgXcQ", s1 + 60n);
-    const k2 = registerClipS(c1, A.clipper2, "demo", "demo-kedi-01", s1 + 90n);
-    const k3 = registerClipS(c1, A.clipper3, "demo", "demo-kahve-07", s1 + 120n);
-    registerClipS(c1, A.clipper1, "demo", "demo-sahil-03", s1 + 650n);
+    const k2 = registerClipS(c1, A.clipper2, "demo", "demo-cat-01", s1 + 90n);
+    const k3 = registerClipS(c1, A.clipper3, "demo", "demo-coffee-07", s1 + 120n);
+    registerClipS(c1, A.clipper1, "demo", "demo-beach-03", s1 + 650n);
     submitCloseS(c1, k1, 0, s1 + 610n, clips[0].clip.baseline + 11_000n);
     submitCloseS(c1, k2, 0, s1 + 615n);
     submitCloseS(c1, k3, 0, s1 + 620n, clips[2].clip.baseline + 48_000n);
-    challengeS(c1, k3, 0, A.clipper1, "İzlenmeler bot trafiği gibi görünüyor: https://example.com/kanit", s1 + 730n);
+    challengeS(c1, k3, 0, A.clipper1, "The views look like bot traffic: https://example.com/evidence", s1 + 730n);
 
     // #2: epoch 0 settled (claimable), epoch 1 content.
     const s2 = t - 1000n;
     const c2 = createCampaignS(A.brand, {
       ...common, budget: 1000n * USDC, start: s2, epochs: 2, platforms: ["demo"], require_humanity: false,
-      title: "Uygulama lansmanı", brief_url: "https://example.com/brief/lansman",
+      title: "App launch", brief_url: "https://example.com/brief/launch",
     });
     joinS(c2, A.clipper1, s2 + 10n);
     joinS(c2, A.clipper2, s2 + 20n);
-    const k5 = registerClipS(c2, A.clipper1, "demo", "demo-lansman-01", s2 + 40n);
-    const k6 = registerClipS(c2, A.clipper2, "demo", "demo-lansman-02", s2 + 50n);
+    const k5 = registerClipS(c2, A.clipper1, "demo", "demo-launch-01", s2 + 40n);
+    const k6 = registerClipS(c2, A.clipper2, "demo", "demo-launch-02", s2 + 50n);
     submitCloseS(c2, k5, 0, s2 + 630n);
     submitCloseS(c2, k6, 0, s2 + 640n);
     settleS(c2, 0, s2 + 900n);
@@ -366,7 +366,7 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
     registerHuman: (id) =>
       write((_t, who) => {
         camp(id);
-        if (humans.has(`${id}:${who}`)) throw new CliprailError(3, "humanity", "Bu cüzdan zaten doğrulanmış.", "WalletRegistered");
+        if (humans.has(`${id}:${who}`)) throw new CliprailError(3, "humanity", "This wallet is already verified.", "WalletRegistered");
         humans.add(`${id}:${who}`);
         return {};
       }),
@@ -375,8 +375,8 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
       return write((_t, who) => {
         camp(id);
         const nullifier = mockNullifier(id, o?.identity ?? `wallet-${who}`);
-        if (humans.has(`${id}:${who}`)) throw new CliprailError(3, "humanity", "Bu cüzdan zaten doğrulanmış.", "WalletRegistered");
-        if (zkNullifiers.has(`${id}:${nullifier}`)) throw new CliprailError(2, "humanity", "Bu kimlik bu kampanyada zaten kullanıldı.", "NullifierUsed");
+        if (humans.has(`${id}:${who}`)) throw new CliprailError(3, "humanity", "This wallet is already verified.", "WalletRegistered");
+        if (zkNullifiers.has(`${id}:${nullifier}`)) throw new CliprailError(2, "humanity", "This identity was already used in this campaign.", "NullifierUsed");
         zkNullifiers.add(`${id}:${nullifier}`);
         humans.add(`${id}:${who}`);
         return { nullifier };

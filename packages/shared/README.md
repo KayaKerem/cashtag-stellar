@@ -1,19 +1,20 @@
 # @cliprail/shared
 
-Web ve servislerin ortak kullandığı, bağımlılıksız TypeScript mantığı. Formüller kontrattaki (`contracts/cliprail/src/epoch.rs`, `lib.rs`) ile birebir aynıdır; tutarlar ve zamanlar `bigint`.
+Dependency-free TypeScript logic shared by the web app and the services. The formulas match the contract (`contracts/cliprail/src/epoch.rs`, `lib.rs`) exactly; amounts and timestamps are `bigint`.
 
-| Dosya | İçerik |
+| File | Contents |
 |---|---|
-| `types.ts` | Kontrat tipleri (INTERFACES v2 §2.1, §5), `CliprailApi`, binding çıktısını düzelten `normalize*` yardımcıları (`{ tag: "Active" }` → `"Active"`) |
-| `timeline.ts` | `contentEnd`, `proofEnd`, …, `currentEpoch`, `phaseOf`, `can*` kontrolleri, `timelineRows` (Türkçe etiketli) |
+| `types.ts` | Contract types (INTERFACES v2 §2.1, §5), `CliprailApi`, the `normalize*` helpers that clean up the bindings output (`{ tag: "Active" }` → `"Active"`) |
+| `timeline.ts` | `contentEnd`, `proofEnd`, …, `currentEpoch`, `phaseOf`, the `can*` guards, `timelineRows` (with English labels) |
 | `payout.ts` | `epochBudget`, `rateEstimate`, `estimateEpoch`, `payFor`, `heldOf`, `estimateClipPay`, `holdbackShare` |
-| `errors.ts` | 1–35 kontrat hataları + humanity hataları → Türkçe mesaj; `parseContractError`, `userMessage` |
-| `format.ts` | `formatUsdc`, `parseUsdc`, `shortAddress`, stellar.expert testnet linkleri |
-| `video.ts` | `parseVideoLink(platform, girdi)` → `{ ok, id }` / `{ ok: false, error }` |
+| `errors.ts` | Contract errors 1–38 + humanity errors → English message; `parseContractError`, `userMessage` |
+| `anchor.ts` | Anchor (SEP-1/6/10/12/24/38) error messages, status labels, ramp step labels, `formatTry`, `formatTryRate` |
+| `format.ts` | `formatUsdc`, `parseUsdc`, `shortAddress`, stellar.expert testnet links |
+| `video.ts` | `parseVideoLink(platform, input)` → `{ ok, id }` / `{ ok: false, error }` |
 
-Pencereler yarı açıktır: kanıt `[content_end, proof_end)`, itiraz `[proof_end, challenge_end)`, cevap `< dispute_end`, hakem `[dispute_end, settle_at)`, settle `≥ settle_at`, claim `< refund_at`.
+The windows are half-open: proof `[content_end, proof_end)`, challenge `[proof_end, challenge_end)`, response `< dispute_end`, arbiter `[dispute_end, settle_at)`, settle `≥ settle_at`, claim `< refund_at`.
 
-## apps/web'den kullanım
+## Using it from apps/web
 
 `apps/web/package.json`:
 
@@ -21,7 +22,7 @@ Pencereler yarı açıktır: kanıt `[content_end, proof_end)`, itiraz `[proof_e
 { "dependencies": { "@cliprail/shared": "workspace:*" } }
 ```
 
-Paket derlenmez, doğrudan `src/index.ts` export edilir. Bu yüzden `next.config.ts` içinde transpile edilmesi gerekir:
+The package is not built; `src/index.ts` is exported directly, so it has to be transpiled in `next.config.ts`:
 
 ```ts
 const nextConfig = { transpilePackages: ["@cliprail/shared"] };
@@ -36,7 +37,7 @@ phaseOf(campaign.params, 0, now);          // "proof"
 formatUsdc(48_000_000n);                   // "4.80"
 ```
 
-## Test
+## Tests
 
 ```sh
 pnpm --filter @cliprail/shared test

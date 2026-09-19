@@ -41,11 +41,11 @@ function youtubeId(input: string): string | null {
 
 export function parseVideoLink(platform: Platform | string, input: string): VideoLinkResult {
   const s = (input ?? "").trim();
-  if (!s) return { ok: false, error: "Video bağlantısı ya da kimliği gir." };
+  if (!s) return { ok: false, error: "Enter a video link or id." };
   if (platform === "youtube") {
     const id = youtubeId(s);
     if (id && YOUTUBE_ID_RE.test(id)) return { ok: true, id };
-    return { ok: false, error: "Geçerli bir YouTube bağlantısı değil (11 karakterlik video kimliği bulunamadı)." };
+    return { ok: false, error: "Not a valid YouTube link (no 11-character video id found)." };
   }
   if (platform === "demo") {
     let id = s;
@@ -54,7 +54,7 @@ export function parseVideoLink(platform: Platform | string, input: string): Vide
       id = u?.pathname.split("/").filter(Boolean).pop() ?? "";
     }
     if (DEMO_ID_RE.test(id)) return { ok: true, id };
-    return { ok: false, error: "Demo video kimliği 1–32 karakter olmalı: küçük harf, rakam ve tire." };
+    return { ok: false, error: "A demo video id must be 1-32 characters: lowercase letters, digits and hyphens." };
   }
-  return { ok: false, error: "Desteklenmeyen platform." };
+  return { ok: false, error: "Unsupported platform." };
 }

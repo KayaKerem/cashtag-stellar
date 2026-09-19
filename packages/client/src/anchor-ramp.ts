@@ -224,7 +224,7 @@ export async function anchorWithdrawToTRY(p: TryWithdrawParams): Promise<TryWith
   const classic = { horizonUrl: p.horizonUrl, networkPassphrase: p.networkPassphrase };
 
   const bal = await assetBalance(asset, p.account, classic);
-  if (bal === null) throw anchorError("anchor_trustline_failed", `${asset.getCode()} trustline yok`);
+  if (bal === null) throw anchorError("anchor_trustline_failed", `no ${asset.getCode()} trustline`);
   if (Number(bal) < Number(amountUSDC)) throw anchorError("anchor_underfunded", `${bal} ${asset.getCode()}`);
 
   const jwt = await authAndKyc({ ...p, kycFields: p.kycFields ?? (p.iban ? { bank_account_number: p.iban } : undefined) }, anchor, f);

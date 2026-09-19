@@ -85,12 +85,12 @@ export interface TimelineRow {
 }
 
 const PHASE_LABEL: Record<Exclude<Phase, "upcoming">, string> = {
-  content: "İçerik dönemi",
-  proof: "Kanıt penceresi",
-  challenge: "İtiraz penceresi",
-  response: "Cevap süresi",
-  arbiter: "Hakem kararı",
-  settleable: "Ödeme",
+  content: "Content",
+  proof: "Proof",
+  challenge: "Challenge",
+  response: "Response",
+  arbiter: "Arbiter",
+  settleable: "Payout",
 };
 
 /** One row per phase per epoch plus a final refund row. Intervals are half-open [start, end). */
@@ -107,7 +107,7 @@ export function timelineRows(p: TimelineParams, now: bigint): TimelineRow[] {
       active: now >= start && (end === null || now < end),
     });
   for (let e = 0; e < p.epochs; e++) {
-    const n = `Dönem ${e + 1}`;
+    const n = `Epoch ${e + 1}`;
     push(e, "content", `${n} · ${PHASE_LABEL.content}`, epochStart(p, e), contentEnd(p, e));
     push(e, "proof", `${n} · ${PHASE_LABEL.proof}`, contentEnd(p, e), proofEnd(p, e));
     push(e, "challenge", `${n} · ${PHASE_LABEL.challenge}`, proofEnd(p, e), challengeEnd(p, e));
@@ -115,7 +115,7 @@ export function timelineRows(p: TimelineParams, now: bigint): TimelineRow[] {
     push(e, "arbiter", `${n} · ${PHASE_LABEL.arbiter}`, disputeEnd(p, e), settleAt(p, e));
     push(e, "settleable", `${n} · ${PHASE_LABEL.settleable}`, settleAt(p, e), refundAt(p));
   }
-  push(null, "refund", "İade (markaya)", refundAt(p), null);
+  push(null, "refund", "Refund (to the brand)", refundAt(p), null);
   return rows;
 }
 
