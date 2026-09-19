@@ -332,3 +332,75 @@ fn cost_of_one_verify() {
     std::println!("verify(): context {} B -> host cpu {cpu} insns, mem {mem} B (native test: guest-side Rust scanning not metered)", ctx.len());
     assert!(cpu < 40_000_000);
 }
+
+// ------------------------------------------------------------------ nested-key exploits (review)
+
+const EVIL_URL: &str = r#""url":"https://evil.example/fake.json"}"#;
+
+fn params_with(extra_before_rm: &str, tail_url: &str) -> String {
+    // `extra_before_rm` goes between "body" and "method" (e.g. headers / paramValues members).
+    let rm = &REF_PARAMETERS[REF_PARAMETERS.find(r#""responseMatches""#).unwrap()..REF_PARAMETERS.find(r#","url""#).unwrap()];
+    format!(r#"{{"body":"",{extra_before_rm}"method":"GET",{rm},{tail_url}"#)
+}
+
+#[test]
+fn nested_url_in_headers_or_param_values_is_ignored() {
+    let t = Ctx::new();
+    for extra in [
+        format!(r#""headers":{{"url":"{REF_URL}"}},"#),
+        format!(r#""paramValues":{{"url":"{REF_URL}"}},"#),
+        format!(r#""headers":{{"x":["url",{{"url":"{REF_URL}"}}]}},"#),
+    ] {
+        let p = params_with(&extra, EVIL_URL);
+        assert_eq!(t.run(&t.proof(&p, REF_CONTEXT)), Err(VerifyError::UrlMismatch), "{p}");
+    }
+    // Sanity: same shape with the real top-level url passes.
+    let ok = params_with(r#""headers":{"url":"https://evil.example"},"#, &format!(r#""url":"{REF_URL}"}}"#));
+    assert!(t.run(&t.proof(&ok, REF_CONTEXT)).is_ok());
+}
+
+#[test]
+fn duplicate_top_level_url_is_rejected() {
+    let t = Ctx::new();
+    // JSON.parse keeps the last duplicate, so the attestor would fetch the evil URL.
+    let p = REF_PARAMETERS.replace(r#""url":"#, &format!(r#""url":"{REF_URL}","url":"#)).replace(REF_URL, "https://evil.example/fake.json");
+    let p = p.replacen("https://evil.example/fake.json", REF_URL, 1);
+    assert_eq!(t.run(&t.proof(&p, REF_CONTEXT)), Err(VerifyError::UrlMismatch));
+}
+
+#[test]
+fn response_matches_lookalike_under_headers_is_ignored() {
+    let t = Ctx::new();
+    // Real responseMatches captures `title` as desc; the expected regex only sits in a header value.
+    let fake_rm = format!(r#""headers":{{"x":"{}"}},"#, REQ_DESC.replace('\\', "\\\\").replace('"', "\\\""));
+    let p = params_with(&fake_rm, &format!(r#""url":"{REF_URL}"}}"#)).replace(r#"\"description\""#, r#"\"title\""#);
+    assert!(p.contains(r#"description"#));
+    assert_eq!(t.run(&t.proof(&p, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    // Also as a nested object carrying the exact bytes.
+    let mut p2 = params_with(&format!(r#""headers":{{"x":[{REQ_DESC}]}},"#), &format!(r#""url":"{REF_URL}"}}"#));
+    let at = p2.rfind(r#"\"description\""#).unwrap();
+    p2.replace_range(at..at + 17, r#"\"title\""#);
+    assert!(p2.contains(REQ_DESC));
+    assert_eq!(t.run(&t.proof(&p2, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+}
+
+#[test]
+fn nested_extracted_parameters_are_ignored() {
+    let t = Ctx::new();
+    let fake = r#"{"desc":"CR-7F3K9Q","views":"999999999"}"#;
+    let real = r#"{"desc":"no code","views":"5"}"#;
+    // Fake object nested in a client-controlled key sorted before the real one.
+    let ctx = format!(r#"{{"a":{{"extractedParameters":{fake}}},"contextAddress":"0x0","extractedParameters":{real},"providerHash":"0x00"}}"#);
+    assert_eq!(t.run(&t.proof(REF_PARAMETERS, &ctx)), Err(VerifyError::CodeNotFound));
+    // Nested inside an array / contextMessage-like object, with no real one at top level.
+    for ctx in [
+        format!(r#"{{"contextMessage":{{"extractedParameters":{fake}}},"providerHash":"0x00"}}"#),
+        format!(r#"{{"contextMessage":[{{"extractedParameters":{fake}}}],"providerHash":"0x00"}}"#),
+        String::from(r#"{"contextMessage":"\"extractedParameters\":{\"desc\":\"CR-7F3K9Q\",\"views\":\"9\"}","providerHash":"0x00"}"#),
+    ] {
+        assert_eq!(t.run(&t.proof(REF_PARAMETERS, &ctx)), Err(VerifyError::ViewsParseError), "{ctx}");
+    }
+    // Fake views nested one level deeper inside the real extractedParameters.
+    let ctx = format!(r#"{{"extractedParameters":{{"desc":"CR-7F3K9Q","x":{fake},"views":"7"}},"providerHash":"0x00"}}"#);
+    assert_eq!(t.run(&t.proof(REF_PARAMETERS, &ctx)).unwrap().views, 7);
+}

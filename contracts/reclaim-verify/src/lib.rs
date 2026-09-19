@@ -109,29 +109,26 @@ pub fn verify(
         return Err(UnknownOwner);
     }
 
-    // 3. Request shape: exact URL and every expected responseMatch / redaction substring.
+    // 3. Request shape, looked up only among the root object's own keys (never nested ones
+    //    such as headers.url or paramValues.url). Duplicate keys fail closed.
     let mut sbuf = [0u8; MAX_SMALL + 8];
-    let url_len = expected_url.len() as usize;
-    if url_len > MAX_SMALL {
-        return Err(TooLarge);
-    }
-    sbuf[..7].copy_from_slice(b"\"url\":\"");
-    expected_url.copy_into_slice(&mut sbuf[7..7 + url_len]);
-    sbuf[7 + url_len] = b'"';
-    if find(params, &sbuf[..8 + url_len]).is_none() {
+    let url = field(params, b"url").map_err(|_| UrlMismatch)?.ok_or(UrlMismatch)?;
+    if str_contents(url) != Some(copy(expected_url, &mut sbuf)?) {
         return Err(UrlMismatch);
     }
+    let matches = field(params, b"responseMatches").map_err(|_| MatchMismatch)?.ok_or(MatchMismatch)?;
     for r in required.iter() {
-        if find(params, copy(&r, &mut sbuf)?).is_none() {
+        if find(matches, copy(&r, &mut sbuf)?).is_none() {
             return Err(MatchMismatch);
         }
     }
 
-    // 4. Extracted values from context.extractedParameters.
-    let (views, desc) = extracted(ctx).ok_or(ViewsParseError)?;
-    let views = parse_u64(views.ok_or(ViewsParseError)?).ok_or(ViewsParseError)?;
+    // 4. Extracted values from the root-level context.extractedParameters object.
+    let ext = field(ctx, b"extractedParameters").map_err(|_| ViewsParseError)?.ok_or(ViewsParseError)?;
+    let views = field(ext, b"views").map_err(|_| ViewsParseError)?.ok_or(ViewsParseError)?;
+    let views = parse_u64(str_contents(views).ok_or(ViewsParseError)?).ok_or(ViewsParseError)?;
     let code = copy(code, &mut sbuf)?;
-    let desc = desc.ok_or(CodeNotFound)?;
+    let desc = field(ext, b"desc").map_err(|_| CodeNotFound)?.and_then(str_contents).ok_or(CodeNotFound)?;
     if code.is_empty() || find(desc, code).is_none() {
         return Err(CodeNotFound);
     }
@@ -234,33 +231,71 @@ fn json_str(b: &[u8], i: usize) -> Option<(&[u8], usize)> {
     }
 }
 
-/// Walks the flat `"extractedParameters":{"k":"v",...}` object of canonical context JSON and
-/// returns the raw `views` and `desc` values. `None` = malformed object.
-/// Quotes inside JSON strings are always escaped, so the key needle can only match structurally.
-#[allow(clippy::type_complexity)]
-fn extracted(ctx: &[u8]) -> Option<(Option<&[u8]>, Option<&[u8]>)> {
-    const KEY: &[u8] = b"\"extractedParameters\":{";
-    let mut i = find(ctx, KEY)? + KEY.len();
-    let (mut views, mut desc) = (None, None);
-    if ctx.get(i) == Some(&b'}') {
-        return Some((views, desc));
+/// Index just past the JSON value starting at `b[i]` (compact JSON, as produced by JCS).
+/// Strings are skipped with escape handling, so brackets/quotes inside strings never count.
+fn skip_value(b: &[u8], i: usize) -> Option<usize> {
+    match *b.get(i)? {
+        b'"' => json_str(b, i).map(|(_, j)| j),
+        b'{' | b'[' => {
+            let (mut depth, mut j) = (0usize, i);
+            loop {
+                match *b.get(j)? {
+                    b'"' => j = json_str(b, j)?.1,
+                    b'{' | b'[' => (depth, j) = (depth + 1, j + 1),
+                    b'}' | b']' => {
+                        depth -= 1;
+                        j += 1;
+                        if depth == 0 {
+                            return Some(j);
+                        }
+                    }
+                    _ => j += 1,
+                }
+            }
+        }
+        _ => {
+            let n = b[i..].iter().position(|c| matches!(c, b',' | b'}' | b']')).unwrap_or(b.len() - i);
+            (n > 0).then_some(i + n)
+        }
+    }
+}
+
+/// Raw span of the value of `key` among the direct members of the object `obj` (which must be
+/// exactly one compact JSON object). `Err` = malformed object or duplicate `key`.
+fn field<'a>(obj: &'a [u8], key: &[u8]) -> Result<Option<&'a [u8]>, ()> {
+    if obj.first() != Some(&b'{') {
+        return Err(());
+    }
+    let mut found = None;
+    let mut i = 1;
+    if obj.get(i) == Some(&b'}') {
+        return if i + 1 == obj.len() { Ok(None) } else { Err(()) };
     }
     loop {
-        let (k, j) = json_str(ctx, i)?;
-        if ctx.get(j) != Some(&b':') {
-            return None;
+        let (k, j) = json_str(obj, i).ok_or(())?;
+        if obj.get(j) != Some(&b':') {
+            return Err(());
         }
-        let (v, j) = json_str(ctx, j + 1)?;
-        match k {
-            b"views" => views = Some(v),
-            b"desc" => desc = Some(v),
-            _ => {}
+        let end = skip_value(obj, j + 1).ok_or(())?;
+        if k == key {
+            if found.is_some() {
+                return Err(());
+            }
+            found = Some(&obj[j + 1..end]);
         }
-        match *ctx.get(j)? {
-            b',' => i = j + 1,
-            b'}' => return Some((views, desc)),
-            _ => return None,
+        match obj.get(end) {
+            Some(b',') => i = end + 1,
+            Some(b'}') if end + 1 == obj.len() => return Ok(found),
+            _ => return Err(()),
         }
+    }
+}
+
+/// Contents of a JSON string value span (`"…"`), still escaped.
+fn str_contents(v: &[u8]) -> Option<&[u8]> {
+    match json_str(v, 0)? {
+        (s, end) if end == v.len() => Some(s),
+        _ => None,
     }
 }
 
