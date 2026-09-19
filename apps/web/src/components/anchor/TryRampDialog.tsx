@@ -37,12 +37,13 @@ const COPY: Record<RampKind, { title: string; desc: string; amountLabel: string;
   },
 };
 
-const AMOUNT_RE = /^\d+([.,]\d{1,7})?$/;
+/** TL 2, USDC 7 ondalık (client `checkAmount` ile aynı sınır) */
+const DECIMALS: Record<RampKind, number> = { deposit: 2, withdraw: 7 };
 const IBAN_RE = /^TR\d{24}$/;
 
-function normalizeAmount(v: string): string | null {
+function normalizeAmount(v: string, decimals: number): string | null {
   const t = v.trim().replace(",", ".");
-  return AMOUNT_RE.test(t) && Number(t) > 0 ? t : null;
+  return new RegExp(`^\\d+(\\.\\d{1,${decimals}})?$`).test(t) && Number(t) > 0 ? t : null;
 }
 
 /** Yazmayı bitirince (400 ms) değeri verir; canlı kur sorgusu her tuşta gitmesin */
@@ -76,7 +77,7 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
   }, []);
 
   const running = step !== null && step !== "done" && !error;
-  const parsed = normalizeAmount(amount);
+  const parsed = normalizeAmount(amount, DECIMALS[kind]);
   const ibanClean = iban.replace(/\s+/g, "").toUpperCase();
   const ibanBad = kind === "withdraw" && ibanClean !== "" && !IBAN_RE.test(ibanClean);
   const debounced = useDebounced(parsed);
@@ -95,7 +96,9 @@ export function TryRampDialog({ kind, onClose, onDone }: { kind: RampKind; onClo
   const disabledReason = needWallet
     ? "Önce cüzdan bağla"
     : !parsed
-      ? "Tutar gir"
+      ? amount.trim()
+        ? `Geçersiz tutar (en fazla ${DECIMALS[kind]} ondalık)`
+        : "Tutar gir"
       : ibanBad
         ? "IBAN TR ile başlayan 26 karakter olmalı"
         : !account
