@@ -60,14 +60,15 @@ else
   for w in humanity cliprail; do [ -f "$WASM_DIR/$w.wasm" ] || die "$WASM_DIR/$w.wasm yok"; done
 
   log "humanity deploy"
-  HUMANITY_ID=$(stellar contract deploy --wasm "$WASM_DIR/humanity.wasm" --source-account admin --network "$NET" --alias humanity)
+  # constructor args are passed at deploy (no separate, front-runnable init call)
+  HUMANITY_ID=$(stellar contract deploy --wasm "$WASM_DIR/humanity.wasm" --source-account admin --network "$NET" --alias humanity \
+    -- --admin "$ADMIN" --relayer "$RELAYER")
   log "humanity=$HUMANITY_ID"
-  invoke "$HUMANITY_ID" init --admin "$ADMIN" --relayer "$RELAYER"
 
   log "cliprail deploy"
-  CLIPRAIL_ID=$(stellar contract deploy --wasm "$WASM_DIR/cliprail.wasm" --source-account admin --network "$NET" --alias cliprail)
+  CLIPRAIL_ID=$(stellar contract deploy --wasm "$WASM_DIR/cliprail.wasm" --source-account admin --network "$NET" --alias cliprail \
+    -- --admin "$ADMIN" --humanity "$HUMANITY_ID")
   log "cliprail=$CLIPRAIL_ID"
-  invoke "$CLIPRAIL_ID" init --admin "$ADMIN" --humanity "$HUMANITY_ID"
 
   # ID'leri config çağrılarından önce yaz: sonraki adım patlarsa SKIP_DEPLOY=1 ile devam edilebilir
   USDC_SAC=$(envfile_get USDC_SAC "$OUT_DIR/accounts.env")

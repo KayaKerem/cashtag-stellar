@@ -48,16 +48,36 @@ fn bump_instance(env: &Env) {
         .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
 }
 
+fn admin(env: &Env) -> Address {
+    env.storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .expect("not initialized")
+}
+
 #[contractimpl]
 impl Humanity {
-    pub fn init(env: Env, admin: Address, relayer: Address) -> Result<(), Error> {
-        if env.storage().instance().has(&DataKey::Admin) {
-            return Err(Error::AlreadyInitialized);
-        }
+    /// Runs once at deploy (no front-runnable `init`). `AlreadyInitialized` (1) stays reserved.
+    pub fn __constructor(env: Env, admin: Address, relayer: Address) {
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Relayer, &relayer);
         bump_instance(&env);
-        Ok(())
+    }
+
+    pub fn set_relayer(env: Env, relayer: Address) {
+        admin(&env).require_auth();
+        env.storage().instance().set(&DataKey::Relayer, &relayer);
+        bump_instance(&env);
+    }
+
+    /// Admin removes a wallet's registration for a campaign. The nullifier stays marked as used,
+    /// so the same person cannot re-register with another wallet.
+    pub fn revoke(env: Env, campaign_id: u64, wallet: Address) {
+        admin(&env).require_auth();
+        bump_instance(&env);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::Wallet(campaign_id, wallet));
     }
 
     pub fn register(
@@ -97,9 +117,14 @@ impl Humanity {
     }
 
     pub fn is_verified(env: Env, campaign_id: u64, wallet: Address) -> bool {
-        env.storage()
-            .persistent()
-            .has(&DataKey::Wallet(campaign_id, wallet))
+        let st = env.storage().persistent();
+        let wk = DataKey::Wallet(campaign_id, wallet);
+        if st.has(&wk) {
+            st.extend_ttl(&wk, TTL_THRESHOLD, TTL_EXTEND);
+            true
+        } else {
+            false
+        }
     }
 }
 

@@ -7,6 +7,11 @@ use crate::storage::{self, DataKey};
 use crate::types::*;
 
 pub const MAX_TITLE: u32 = 64;
+// Upper bounds that keep every i128/u64 product in the payout math far from overflow.
+pub const MAX_EPOCHS: u32 = 52;
+pub const MAX_CAP_VIEWS: u64 = 1_000_000_000_000;
+pub const MAX_RATE: i128 = 1_000_000_000_000; // 100k USDC per 1k views
+pub const MAX_BUDGET: i128 = 1_000_000_000_000_000;
 pub const MAX_URL: u32 = 200;
 
 pub fn content_end(p: &CampaignParams, e: u32) -> u64 {
@@ -67,12 +72,20 @@ pub fn validate_params(env: &Env, brand: &Address, p: &CampaignParams) -> Result
         .and_then(|x| x.checked_add(p.arbiter_window))
         .ok_or(Error::InvalidParams)?;
     let ok = p.budget > 0
+        && p.budget <= MAX_BUDGET
         && p.rate_max_per_1k > 0
+        && p.rate_max_per_1k <= MAX_RATE
+        && p.cap_views_clip <= MAX_CAP_VIEWS
+        && p.cap_views_human <= MAX_CAP_VIEWS
         && p.epochs >= 1
+        && p.epochs <= MAX_EPOCHS
+        // clippers must get a real claim window after the last settlement before refund
+        && p.claim_grace >= p.epoch_len
         && p.epoch_len > 0
         && p.epoch_len >= windows
         && p.holdback_bps <= 10_000
-        && p.bond >= 0
+        // a free challenge would let anyone exclude clips at no cost
+        && p.bond > 0
         && p.arbiter != *brand
         && !p.platforms.is_empty()
         && p.start >= env.ledger().timestamp()
@@ -150,8 +163,9 @@ pub fn clip_pay(rate: i128, pe: &ParticipantEpoch, w_clip: u64) -> i128 {
     rate * (pe.weight as i128) * (w_clip as i128) / ((pe.raw as i128) * 1000)
 }
 
+/// Held part of a clip's pay, rounded UP so that Σ immediate + Σ survivor shares ≤ spent_e.
 pub fn held_of(p: &CampaignParams, e: u32, pay: i128) -> i128 {
-    pay * holdback_bps(p, e) / 10_000
+    (pay * holdback_bps(p, e) + 9_999) / 10_000
 }
 
 /// Clip weight for one epoch: growth over the epoch baseline, capped per clip, zeroed below `min_views`.

@@ -278,6 +278,13 @@ fn submit_proof_windows() {
         t.c.try_submit_proof(&id, &c, &2, &p),
         Err(Ok(Error::EpochOutOfRange))
     );
+    // half-open window: proof_end itself is already closed
+    t.set_time(t.proof_end(id, 0));
+    let p = t.yt_proof(&v, &ca, 500);
+    assert_eq!(
+        t.c.try_submit_proof(&id, &c, &0, &p),
+        Err(Ok(Error::WrongPhase))
+    );
     t.set_time(t.proof_end(id, 0) + 1);
     let p = t.yt_proof(&v, &ca, 500);
     assert_eq!(
@@ -342,6 +349,26 @@ fn validate_params_rules() {
         Err(Ok(Error::InvalidParams))
     );
     assert_eq!(bad(&|p| p.bond = -1), Err(Ok(Error::InvalidParams)));
+    assert_eq!(bad(&|p| p.bond = 0), Err(Ok(Error::InvalidParams)));
+    assert_eq!(bad(&|p| p.claim_grace = 299), Err(Ok(Error::InvalidParams)));
+    assert_eq!(bad(&|p| p.epochs = 53), Err(Ok(Error::InvalidParams)));
+    assert_eq!(
+        bad(&|p| p.cap_views_clip = 1_000_000_000_001),
+        Err(Ok(Error::InvalidParams))
+    );
+    assert_eq!(
+        bad(&|p| p.cap_views_human = u64::MAX),
+        Err(Ok(Error::InvalidParams))
+    );
+    assert_eq!(
+        bad(&|p| p.rate_max_per_1k = 1_000_000_000_001),
+        Err(Ok(Error::InvalidParams))
+    );
+    assert_eq!(
+        bad(&|p| p.budget = 1_000_000_000_000_001),
+        Err(Ok(Error::InvalidParams))
+    );
+    assert!(bad(&|p| p.epochs = 52).is_ok());
     assert_eq!(bad(&|p| p.start = T0 - 1), Err(Ok(Error::InvalidParams)));
     assert_eq!(
         bad(&|p| p.platforms = soroban_sdk::Vec::new(&t.env)),
@@ -364,11 +391,7 @@ fn validate_params_rules() {
     );
     // epoch_len == sum of windows is fine
     assert!(bad(&|p| p.epoch_len = 240).is_ok());
-    assert_eq!(t.c.campaign_count(), 1);
-    assert_eq!(
-        t.c.try_init(&t.admin, &t.admin),
-        Err(Ok(Error::AlreadyInitialized))
-    );
+    assert_eq!(t.c.campaign_count(), 2);
 }
 
 #[test]
@@ -492,4 +515,162 @@ fn reads_get_clips_and_events() {
 
 fn sdk_err(e: Error) -> soroban_sdk::Error {
     soroban_sdk::Error::from_contract_error(e as u32)
+}
+
+#[test]
+fn submit_proof_wrong_campaign_and_before_first_epoch() {
+    let t = T::new();
+    let id = t.create(&t.params());
+    let id2 = t.create(&t.params());
+    let (a, ca) = t.join(id);
+    let v = yt("wc");
+    let c = t.register(id, &a, &v, &ca, 0);
+    t.set_time(t.content_end(id, 0));
+    let p = t.yt_proof(&v, &ca, 900);
+    assert_eq!(
+        t.c.try_submit_proof(&id2, &c, &0, &p),
+        Err(Ok(Error::ClipNotFound))
+    );
+    // registered during epoch 1 content ⇒ first_epoch = 1; epoch 0 proofs are rejected
+    let v2 = yt("late");
+    let c2 = t.register(id, &a, &v2, &ca, 0);
+    assert_eq!(t.c.get_clip(&c2).first_epoch, 1);
+    let p = t.yt_proof(&v2, &ca, 900);
+    assert_eq!(
+        t.c.try_submit_proof(&id, &c2, &0, &p),
+        Err(Ok(Error::EpochOutOfRange))
+    );
+}
+
+#[test]
+fn excluded_clip_can_still_earn_next_epoch() {
+    // documented behaviour: exclusion is per clip-epoch
+    let t = T::new();
+    let id = t.create(&t.params());
+    let (a, ca) = t.join(id);
+    let v = yt("ex");
+    let c = t.register(id, &a, &v, &ca, 0);
+    t.set_time(t.content_end(id, 0));
+    t.close(id, c, 0, &v, &ca, 10_000);
+    t.set_time(t.proof_end(id, 0));
+    let ch = soroban_sdk::Address::generate(&t.env);
+    t.mint(&ch, 5 * USDC);
+    let d = t.c.challenge(&id, &c, &0, &ch, &t.s("bot"));
+    t.set_time(t.dispute_end(id, 0));
+    t.c.finalize_dispute(&d);
+    t.set_time(t.content_end(id, 1));
+    t.close(id, c, 1, &v, &ca, 12_000); // baseline = hwm 10_000
+    let prev = t.c.get_clip_epoch(&c, &0).unwrap();
+    assert_eq!(prev.status, ClipEpochStatus::Excluded);
+    assert!(!prev.alive);
+    assert_eq!(t.c.get_clip_epoch(&c, &1).unwrap().weight, 2_000);
+    assert_eq!(t.c.try_claim(&id, &c, &0), Err(Ok(Error::Excluded)));
+    t.set_time(t.proof_end(id, 1));
+    assert_eq!(
+        t.c.try_claim_holdback(&id, &c, &0),
+        Err(Ok(Error::Excluded))
+    );
+    t.set_time(t.settle_at(id, 1));
+    t.c.settle_epoch(&id, &1);
+    assert_eq!(t.c.claim(&id, &c, &1), 2 * USDC);
+    t.check_invariant();
+}
+
+#[test]
+fn refund_with_last_epoch_unsettled() {
+    let t = T::new();
+    let id = t.create(&t.params());
+    let (a, ca) = t.join(id);
+    let v = yt("ru");
+    let c = t.register(id, &a, &v, &ca, 0);
+    t.set_time(t.content_end(id, 0));
+    t.close(id, c, 0, &v, &ca, 10_000);
+    t.set_time(t.content_end(id, 1));
+    t.close(id, c, 1, &v, &ca, 20_000); // settles epoch 0
+    let paid = t.c.claim(&id, &c, &0);
+    assert_eq!(paid, 8 * USDC);
+    // nobody settles epoch 1; after refund_at the brand gets everything left
+    t.set_time(t.refund_at(id));
+    assert!(!t.c.get_epoch(&id, &1).settled);
+    assert_eq!(t.c.refund(&id), 1000 * USDC - paid);
+    assert_eq!(t.c.try_claim(&id, &c, &1), Err(Ok(Error::EpochNotReady)));
+    assert_eq!(
+        t.c.try_claim_holdback(&id, &c, &0),
+        Err(Ok(Error::WrongPhase))
+    );
+    t.check_invariant();
+}
+
+#[test]
+fn holdback_rounding_never_overpays() {
+    let t = T::new();
+    let mut p = t.params();
+    p.budget = 777_777_777;
+    p.rate_max_per_1k = 3_333_333;
+    p.holdback_bps = 3_333;
+    p.cap_views_clip = 50_000;
+    p.cap_views_human = 70_000;
+    p.min_views = 1;
+    let id = t.create(&p);
+    let mut seed: u64 = 12_345;
+    let mut rnd = || {
+        seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        (seed >> 33) % 90_000 + 1
+    };
+    let mut clips = std::vec::Vec::new();
+    for pi in 0..4 {
+        let (a, ca) = t.join(id);
+        for k in 0..3 {
+            let v = yt(&std::format!("r{pi}x{k}"));
+            let base = rnd();
+            let c = t.register(id, &a, &v, &ca, base);
+            clips.push((c, v, ca.clone(), base));
+        }
+    }
+    t.set_time(t.content_end(id, 0));
+    let mut v0 = std::vec::Vec::new();
+    for (c, v, ca, base) in clips.iter() {
+        let views = base + rnd();
+        t.close(id, *c, 0, v, ca, views);
+        v0.push(views);
+    }
+    t.set_time(t.content_end(id, 1));
+    for (i, (c, v, ca, _)) in clips.iter().enumerate() {
+        if i % 3 != 0 {
+            t.close(id, *c, 1, v, ca, v0[i] + rnd());
+        }
+    }
+    let e0 = t.c.get_epoch(&id, &0);
+    assert!(e0.spent > 0 && e0.held_total > 0);
+    let mut paid0: i128 = 0;
+    for (c, _, _, _) in clips.iter() {
+        if let Ok(Ok(x)) = t.c.try_claim(&id, c, &0) {
+            paid0 += x;
+        }
+    }
+    t.set_time(t.proof_end(id, 1));
+    for (c, _, _, _) in clips.iter() {
+        if let Ok(Ok(x)) = t.c.try_claim_holdback(&id, c, &0) {
+            paid0 += x;
+        }
+    }
+    assert!(paid0 <= e0.spent, "paid {paid0} > spent {}", e0.spent);
+    assert!(
+        e0.spent - paid0 < 1_000_000,
+        "forfeited share should be small here"
+    );
+    t.set_time(t.settle_at(id, 1));
+    t.c.settle_epoch(&id, &1);
+    let e1 = t.c.get_epoch(&id, &1);
+    let mut paid1: i128 = 0;
+    for (c, _, _, _) in clips.iter() {
+        if let Ok(Ok(x)) = t.c.try_claim(&id, c, &1) {
+            paid1 += x;
+        }
+    }
+    assert!(paid1 <= e1.spent);
+    assert!(paid0 + paid1 <= p.budget);
+    t.check_invariant();
 }

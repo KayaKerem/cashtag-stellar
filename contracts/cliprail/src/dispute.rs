@@ -37,6 +37,10 @@ pub fn challenge(
         return Err(Error::WrongPhase);
     }
     let mut ce = storage::clip_epoch(env, clip_id, e).ok_or(Error::NothingToClaim)?;
+    if ce.weight == 0 {
+        // nothing would be excluded
+        return Err(Error::NothingToClaim);
+    }
     let active_key = DataKey::ActiveDispute(clip_id, e);
     if storage::has(env, &active_key) || ce.status != ClipEpochStatus::Active {
         return Err(Error::AlreadyDisputed);

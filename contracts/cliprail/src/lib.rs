@@ -14,7 +14,10 @@
 //!   share an identifier, so the attestor timestamp disambiguates them.
 //! - `resolve` has no caller argument: a non-arbiter caller fails `require_auth` with a host auth
 //!   error, so the `NotArbiter` (29) and `NotClipOwner` (30) codes are never returned.
-//! - `challenge` on a clip-epoch without any close proof returns `NothingToClaim` (26).
+//! - `challenge` on a clip-epoch without a close proof, or with weight 0, returns `NothingToClaim`.
+//! - Exclusion is per clip-epoch: a clip excluded in epoch `e` can still submit (and earn) in
+//!   `e+1`, but its epoch-`e` share (immediate and held) is forfeited.
+//! - `init` is replaced by `__constructor(admin, humanity)` (deploy-time args); code 1 is reserved.
 //! - Participant code = "CR-" + base36(u32_be(sha256(campaign_id_be ‖ xdr(address))[0..4]) mod 36^6).
 
 use soroban_sdk::{
@@ -125,14 +128,12 @@ fn clip_pay(env: &Env, c: &Campaign, clip: &Clip, e: u32, ce: &ClipEpoch, rate: 
 impl Cliprail {
     // ------------------------------------------------------------------ admin
 
-    pub fn init(env: Env, admin: Address, humanity: Address) -> Result<(), Error> {
-        if env.storage().instance().has(&DataKey::Admin) {
-            return Err(Error::AlreadyInitialized);
-        }
+    /// Runs once at deploy, so configuration cannot be front-run.
+    /// (`AlreadyInitialized` (1) stays reserved.)
+    pub fn __constructor(env: Env, admin: Address, humanity: Address) {
         storage::inst_set(&env, &DataKey::Admin, &admin);
         storage::inst_set(&env, &DataKey::Humanity, &humanity);
         storage::bump_instance(&env);
-        Ok(())
     }
 
     pub fn set_attestors(env: Env, attestors: Vec<BytesN<20>>) -> Result<(), Error> {
@@ -320,7 +321,8 @@ impl Cliprail {
         if t < epoch::content_end(&p, e) {
             return Err(Error::EpochNotReady);
         }
-        if t > epoch::proof_end(&p, e) {
+        // half-open [content_end, proof_end): never overlaps with `challenge` at proof_end
+        if t >= epoch::proof_end(&p, e) {
             return Err(Error::WrongPhase);
         }
         if proof.timestamp_s.saturating_add(proof::CLOSE_SLACK) < epoch::content_end(&p, e)
@@ -459,7 +461,7 @@ impl Cliprail {
             return Err(Error::EpochNotReady);
         }
         let t = now(&env);
-        if t <= epoch::holdback_release_end(&c.params, e) {
+        if t < epoch::holdback_release_end(&c.params, e) {
             return Err(Error::EpochNotReady);
         }
         if t >= epoch::refund_at(&c.params) || c.refunded {
@@ -558,30 +560,34 @@ impl Cliprail {
         if e >= c.params.epochs {
             panic_with_error!(&env, Error::EpochOutOfRange);
         }
-        storage::epoch(&env, id, e)
+        storage::get(&env, &DataKey::Epoch(id, e)).unwrap_or_default()
     }
 
     pub fn get_participant(env: Env, id: u64, addr: Address) -> Option<Participant> {
-        storage::participant(&env, id, &addr)
+        storage::get(&env, &DataKey::Participant(id, addr))
     }
 
     pub fn get_clip(env: Env, clip_id: u64) -> Clip {
-        storage::clip(&env, clip_id).unwrap_or_else(|e| panic_with_error!(&env, e))
+        storage::get(&env, &DataKey::Clip(clip_id))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ClipNotFound))
     }
 
     pub fn get_clip_epoch(env: Env, clip_id: u64, e: u32) -> Option<ClipEpoch> {
-        storage::clip_epoch(&env, clip_id, e)
+        storage::get(&env, &DataKey::ClipEpoch(clip_id, e))
     }
 
     /// All clips of a campaign (registration order) with their per-epoch state.
+    /// Unpaginated: reads clips × epochs entries, so the practical limit is a few hundred clips
+    /// per campaign before simulation hits the read budget (fine at hackathon scale).
     pub fn get_clips(env: Env, campaign_id: u64) -> Vec<ClipView> {
         let c = storage::campaign_or_panic(&env, campaign_id);
         let mut out = Vec::new(&env);
         for clip_id in storage::id_list(&env, &DataKey::CampaignClips(campaign_id)).iter() {
-            let clip = storage::clip(&env, clip_id).unwrap_or_else(|e| panic_with_error!(&env, e));
+            let clip: Clip = storage::get(&env, &DataKey::Clip(clip_id))
+                .unwrap_or_else(|| panic_with_error!(&env, Error::ClipNotFound));
             let mut epochs = Vec::new(&env);
             for e in 0..c.params.epochs {
-                epochs.push_back(storage::clip_epoch(&env, clip_id, e));
+                epochs.push_back(storage::get(&env, &DataKey::ClipEpoch(clip_id, e)));
             }
             out.push_back(ClipView { clip, epochs });
         }

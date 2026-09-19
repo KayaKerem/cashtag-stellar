@@ -27,7 +27,6 @@ pub struct T {
     pub hum: humanity::HumanityClient<'static>,
     pub token: TokenClient<'static>,
     pub sac: StellarAssetClient<'static>,
-    pub admin: Address,
     pub brand: Address,
     pub arbiter: Address,
     nonce: Cell<u8>,
@@ -48,13 +47,11 @@ impl T {
         let brand = Address::generate(&env);
         let arbiter = Address::generate(&env);
 
-        let hid = env.register(humanity::Humanity, ());
+        let hid = env.register(humanity::Humanity, (admin.clone(), relayer));
         let hum = humanity::HumanityClient::new(&env, &hid);
-        hum.init(&admin, &relayer);
 
-        let cid = env.register(Cliprail, ());
+        let cid = env.register(Cliprail, (admin.clone(), hid.clone()));
         let c = CliprailClient::new(&env, &cid);
-        c.init(&admin, &hid);
         c.set_attestors(&vec![&env, attestor_address(&env, &ATTESTOR_SK)]);
         c.set_owners(&vec![&env, Bytes::from_slice(&env, OWNER.as_bytes())]);
         let req = vec![
@@ -85,7 +82,6 @@ impl T {
             hum,
             token,
             sac,
-            admin,
             brand,
             arbiter,
             nonce: Cell::new(0),

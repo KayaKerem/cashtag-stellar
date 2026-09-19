@@ -204,3 +204,24 @@ fn challenge_rules() {
     t.c.finalize_dispute(&dis);
     t.check_invariant();
 }
+
+#[test]
+fn challenge_zero_weight_rejected() {
+    let t = T::new();
+    let mut p = t.params();
+    p.epochs = 1;
+    let id = t.create(&p);
+    let (a, ca) = t.join(id);
+    let v = yt("zero");
+    let c = t.register(id, &a, &v, &ca, 1_000);
+    t.set_time(t.content_end(id, 0));
+    t.close(id, c, 0, &v, &ca, 1_050); // growth 50 < min_views ⇒ weight 0
+    t.set_time(t.proof_end(id, 0));
+    let ch = Address::generate(&t.env);
+    t.mint(&ch, 5 * USDC);
+    assert_eq!(
+        t.c.try_challenge(&id, &c, &0, &ch, &t.s("x")),
+        Err(Ok(Error::NothingToClaim))
+    );
+    assert_eq!(t.token.balance(&ch), 5 * USDC);
+}

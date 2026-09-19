@@ -53,6 +53,19 @@ pub fn get<V: soroban_sdk::TryFromVal<Env, soroban_sdk::Val>>(
     env.storage().persistent().get(key)
 }
 
+/// Read and, if present, extend the entry's TTL (used on state-changing paths).
+pub fn get_live<V: soroban_sdk::TryFromVal<Env, soroban_sdk::Val>>(
+    env: &Env,
+    key: &DataKey,
+) -> Option<V> {
+    let st = env.storage().persistent();
+    let v = st.get(key);
+    if v.is_some() {
+        st.extend_ttl(key, TTL_THRESHOLD, TTL_EXTEND);
+    }
+    v
+}
+
 pub fn has(env: &Env, key: &DataKey) -> bool {
     env.storage().persistent().has(key)
 }
@@ -83,11 +96,13 @@ pub fn next_id(env: &Env, key: &DataKey) -> u64 {
 // ---- typed accessors ----
 
 pub fn campaign(env: &Env, id: u64) -> Result<Campaign, Error> {
-    get(env, &DataKey::Campaign(id)).ok_or(Error::CampaignNotFound)
+    get_live(env, &DataKey::Campaign(id)).ok_or(Error::CampaignNotFound)
 }
 
+/// Read-only variant (no TTL bump) for view functions.
 pub fn campaign_or_panic(env: &Env, id: u64) -> Campaign {
-    campaign(env, id).unwrap_or_else(|e| panic_with_error!(env, e))
+    get(env, &DataKey::Campaign(id))
+        .unwrap_or_else(|| panic_with_error!(env, Error::CampaignNotFound))
 }
 
 pub fn set_campaign(env: &Env, c: &Campaign) {
@@ -95,7 +110,7 @@ pub fn set_campaign(env: &Env, c: &Campaign) {
 }
 
 pub fn epoch(env: &Env, id: u64, e: u32) -> EpochState {
-    get(env, &DataKey::Epoch(id, e)).unwrap_or_default()
+    get_live(env, &DataKey::Epoch(id, e)).unwrap_or_default()
 }
 
 pub fn set_epoch(env: &Env, id: u64, e: u32, s: &EpochState) {
@@ -103,7 +118,7 @@ pub fn set_epoch(env: &Env, id: u64, e: u32, s: &EpochState) {
 }
 
 pub fn clip(env: &Env, clip_id: u64) -> Result<Clip, Error> {
-    get(env, &DataKey::Clip(clip_id)).ok_or(Error::ClipNotFound)
+    get_live(env, &DataKey::Clip(clip_id)).ok_or(Error::ClipNotFound)
 }
 
 pub fn clip_of(env: &Env, campaign_id: u64, clip_id: u64) -> Result<Clip, Error> {
@@ -115,7 +130,7 @@ pub fn clip_of(env: &Env, campaign_id: u64, clip_id: u64) -> Result<Clip, Error>
 }
 
 pub fn clip_epoch(env: &Env, clip_id: u64, e: u32) -> Option<ClipEpoch> {
-    get(env, &DataKey::ClipEpoch(clip_id, e))
+    get_live(env, &DataKey::ClipEpoch(clip_id, e))
 }
 
 pub fn set_clip_epoch(env: &Env, clip_id: u64, e: u32, ce: &ClipEpoch) {
@@ -123,7 +138,7 @@ pub fn set_clip_epoch(env: &Env, clip_id: u64, e: u32, ce: &ClipEpoch) {
 }
 
 pub fn part_epoch(env: &Env, id: u64, who: &Address, e: u32) -> ParticipantEpoch {
-    get(env, &DataKey::ParticipantEpoch(id, who.clone(), e)).unwrap_or_default()
+    get_live(env, &DataKey::ParticipantEpoch(id, who.clone(), e)).unwrap_or_default()
 }
 
 pub fn set_part_epoch(env: &Env, id: u64, who: &Address, e: u32, pe: &ParticipantEpoch) {
@@ -131,7 +146,7 @@ pub fn set_part_epoch(env: &Env, id: u64, who: &Address, e: u32, pe: &Participan
 }
 
 pub fn participant(env: &Env, id: u64, who: &Address) -> Option<Participant> {
-    get(env, &DataKey::Participant(id, who.clone()))
+    get_live(env, &DataKey::Participant(id, who.clone()))
 }
 
 pub fn id_list(env: &Env, key: &DataKey) -> Vec<u64> {
