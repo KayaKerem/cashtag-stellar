@@ -126,3 +126,15 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
+
+/* Canlı gösterge: lime halka dışa doğru yayılıp söner */
+@keyframes pulse-lime {
+  0% { box-shadow: 0 0 0 0 rgba(219, 255, 0, 0.55); }
+  70% { box-shadow: 0 0 0 0.45rem rgba(219, 255, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(219, 255, 0, 0); }
+}
+.pulse-lime { animation: pulse-lime 1.8s ease-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-lime { animation: none; }
+}
