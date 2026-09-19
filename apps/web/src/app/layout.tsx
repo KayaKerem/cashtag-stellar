@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin", "latin-ext"], variable: "--font-geist" });
@@ -29,10 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="flex min-h-dvh flex-col">
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+      {/* suppressHydrationWarning: eklentilerin (ör. ColorZilla) body'ye eklediği attribute'lar için */}
+      <body className="flex min-h-dvh flex-col" suppressHydrationWarning>
+        <Providers>
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+          <SiteFooter />
+        </Providers>
       </body>
     </html>
   );
