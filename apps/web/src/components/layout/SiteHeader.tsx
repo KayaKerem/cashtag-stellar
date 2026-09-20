@@ -17,7 +17,7 @@ export function Logo() {
           <path d="M4 8h16M4 16h16M8 4v16M16 4v16" />
         </svg>
       </span>
-      ClipRail
+      Cashtag
     </Link>
   );
 }

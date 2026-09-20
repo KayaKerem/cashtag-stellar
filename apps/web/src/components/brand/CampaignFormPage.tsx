@@ -190,7 +190,7 @@ export function CampaignFormPage() {
               <input {...text("budget")} inputMode="decimal" placeholder="500" />
             </Field>
             <FundingChoice value={fundWith} onChange={setFundWith} budget={budgetValue} />
-            <Field label="Rate cap" help="A ceiling, not a fixed price: if an epoch's eligible views would cost more than its budget, that budget is shared pro-rata and the rate drops — r = min(cap, 1000 × epoch budget ÷ W)." error={shown.rate_max_per_1k} suffix="USDC / 1k">
+            <Field label="Rate cap" help="A ceiling, not a fixed price: if an epoch's eligible views would cost more than its budget, that budget is shared pro-rata and the rate drops (r = min(cap, 1000 × epoch budget ÷ W))." error={shown.rate_max_per_1k} suffix="USDC / 1k">
               <input {...text("rate_max_per_1k")} inputMode="decimal" placeholder="1" />
             </Field>
           </Group>

@@ -255,7 +255,7 @@ export function MePanel() {
       <div className="mb-8 grid gap-3 sm:grid-cols-3">
         {[
           { k: "Earned", v: totals.earned, hint: "Claimed payouts and holdback" },
-          { k: "Pending", v: totals.pending, hint: "Unclaimed, or not settled yet — estimates move with the epoch's total weight until settle" },
+          { k: "Pending", v: totals.pending, hint: "Unclaimed, or not settled yet. Estimates move with the epoch's total weight until settle" },
           { k: "Holdback", v: totals.holdback, hint: "Held back from each payout; released when the video is still live in the next epoch" },
         ].map((t) => (
           <div key={t.k} className="rounded-[20px] border border-border bg-surface p-5 shadow-card" title={t.hint}>

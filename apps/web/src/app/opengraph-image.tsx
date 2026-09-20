@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "ClipRail · Provable pay-per-view";
+export const alt = "Cashtag · Provable pay-per-view";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -37,7 +37,7 @@ export default function OgImage() {
           >
             #
           </div>
-          <div style={{ fontSize: 40, fontWeight: 600 }}>ClipRail</div>
+          <div style={{ fontSize: 40, fontWeight: 600 }}>Cashtag</div>
           <div style={{ marginLeft: "auto", fontSize: 24, color: "#9a9ca1", border: "2px solid #333", borderRadius: 999, padding: "8px 20px" }}>
             Stellar testnet
           </div>

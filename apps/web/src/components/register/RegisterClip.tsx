@@ -195,7 +195,7 @@ export function RegisterClip({ id }: { id: bigint }) {
             </div>
           </dl>
           <p className="mt-4 text-sm text-muted">
-            Earnings are calculated from the views proven at the end of each epoch above this baseline, paid at the epoch&apos;s rate — up
+            Earnings are calculated from the views proven at the end of each epoch above this baseline, paid at the epoch&apos;s rate, up
             to the campaign&apos;s rate cap.
           </p>
           <div className="mt-6 flex flex-wrap gap-2">

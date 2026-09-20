@@ -91,7 +91,7 @@ export function JoinFlow({ id }: { id: bigint }) {
   const s3: StepState = joined ? "done" : walletOk && isHuman ? "current" : "locked";
 
   const sampleDesc = joined
-    ? `#ad A clip made for ${p.title}. ClipRail code: ${joined.code}`
+    ? `#ad A clip made for ${p.title}. Cashtag code: ${joined.code}`
     : "";
 
   return (

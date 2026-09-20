@@ -134,7 +134,7 @@ export function buildCell(
         reason:
           now < proofEnd(p, e)
             ? "The proof window is still open"
-            : "The epoch is not settled yet — the amount shown is an estimate at the current total weight",
+            : "The epoch is not settled yet: the amount shown is an estimate at the current total weight",
       },
     };
   }

@@ -6,7 +6,7 @@ export function SiteFooter() {
         <p>
           Hackathon build on Stellar testnet ·{" "}
           <a
-            href="https://github.com/KayaKerem/cliprail-stellar"
+            href="https://github.com/KayaKerem/cashtag-stellar"
             className="underline-offset-4 hover:text-fg hover:underline"
             target="_blank"
             rel="noreferrer"

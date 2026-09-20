@@ -32,7 +32,7 @@ export async function bumpDemoVideo(id: string, body: { views?: number; delta?: 
 }
 
 /** Demo description: the code + the ad tag (the proof looks for the code in the description). */
-export const demoDescription = (code: string, title: string) => `${code} #ad Demo clip for the ${title || "ClipRail"} campaign`;
+export const demoDescription = (code: string, title: string) => `${code} #ad Demo clip for the ${title || "Cashtag"} campaign`;
 
 /** Suggested demo video ID: lowercase letters, digits and dashes (<= 32). */
 export function suggestDemoId(code: string): string {
