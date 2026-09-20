@@ -39,7 +39,7 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 | What | Where |
 |---|---|
 | Live dashboard (Next.js) | **[LIVE_DEMO_URL]** |
-| Verifier service (`/health`, `/demo/videos/:id`) | **[VERIFIER_URL]** |
+| Verifier service (`/health`, `/demo/videos/:id`) | **https://cashtag-stellar.loca.lt** |
 | Contracts | [Demo deployment (testnet)](#demo-deployment-testnet), each linked to stellar.expert |
 | Live Reclaim zkTLS proof verified on-chain | [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69), replayed offline by `pnpm --filter verifier test` |
 | X (Twitter) live on-chain | [`set_platform("x", …)`](https://stellar.expert/explorer/testnet/tx/2707530e880bd48a5619a32d99850e040d0debc9133206d31aa3e9d5cbecadde) · [campaign 9 with `platforms: ["x"]`](https://stellar.expert/explorer/testnet/tx/a53eaa67fefae5e01fd0212823640fbc8dc01b5d0fec207660cbdbdbc31bc148) · [join → `CR-7ZYWBA`](https://stellar.expert/explorer/testnet/tx/5f0fc0c5815846e3fb5714143f5c34d4c069270d65ae378c7a3163dad62c81f8), and [a live X proof replayed against every contract check](#a-live-x-proof-replayed-on-chain) |
@@ -529,7 +529,7 @@ The canonical deployment used by the dashboard, the verifier and every run in th
 | TRY anchor | [`tr-mock-anchor.fly.dev`](https://tr-mock-anchor.fly.dev/.well-known/stellar.toml): SEP-1 / SEP-6 / SEP-10 / SEP-12 / SEP-38 (testnet sandbox, no real money) |
 | zkTLS attestor | **live Reclaim** (`0x244897572368eadf65bfbc5aec98d8e5443a9072`, `attestor.reclaimprotocol.org`, epoch 1), proof owner = our Reclaim app address. The **simulated** attestor (a clearly labeled test key, used for rehearsals) stays available as a fallback; both are allowlisted on-chain via [`set_attestors`](https://stellar.expert/explorer/testnet/tx/89d0a29fd65f480329cfd3987bd0acb502a4d6b6ace17e7699d7ff5341be4666) and [`set_owners`](https://stellar.expert/explorer/testnet/tx/75df3f0a3f11893346a7f178ec87e53e6c96b57639a1ad26421209f59312f26b) |
 
-Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Verifier URL: **[VERIFIER_URL]**
+Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Verifier URL: **https://cashtag-stellar.loca.lt**
 
 <details>
 <summary>Legacy deployment (pre-ZK, own test USDC)</summary>
