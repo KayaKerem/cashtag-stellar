@@ -21,7 +21,7 @@ What is and is not proven today:
 - **Funding and cash-out are live on testnet.** A brand can fund a campaign with XLM in one transaction (`create_campaign_with_swap` through the Soroswap router, tested: 47.37 XLM → 5 USDC escrow), and a clipper can cash out USDC to TRY through a SEP-6 anchor (tested: 5 USDC → 242.70 TL; 5000 TL → 101.98 USDC on the way in).
 - **A brand does not need USDC on Stellar at all.** With **Circle CCTP V2**, native USDC burned on another chain is attested by Circle and minted on Stellar straight into the escrow asset: [burn of 5 USDC on Arc Testnet](https://testnet.arcscan.app/tx/0xfe502def03331ffe33d17f7496edf6f932c1966e99f030806e4e7b40e2525bea) → [`mint_and_forward` on Stellar](https://stellar.expert/explorer/testnet/tx/ea727dcc6e648f0da4722fa4d2b2b40f59bac808a79b90ed43a33b8df8293a30), 24 s, 0 bps fee, and no contract change was needed. See [Funding a campaign from another chain](#funding-a-campaign-from-another-chain-circle-cctp-v2).
 
-Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **Scale track**. Live demo: **[LIVE_DEMO_URL]** · Demo video: **[TBD: demo video link]**
+Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **Scale track**. Live demo: **https://cashtag-stellar-web.vercel.app** · Demo video: **[TBD: demo video link]**
 
 ### Scale track requirements
 
@@ -38,7 +38,7 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 
 | What | Where |
 |---|---|
-| Live dashboard (Next.js) | **[LIVE_DEMO_URL]** |
+| Live dashboard (Next.js) | **https://cashtag-stellar-web.vercel.app** |
 | Verifier service (`/health`, `/demo/videos/:id`) | **https://cashtag-stellar.loca.lt** |
 | Contracts | [Demo deployment (testnet)](#demo-deployment-testnet), each linked to stellar.expert |
 | Live Reclaim zkTLS proof verified on-chain | [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69), replayed offline by `pnpm --filter verifier test` |
