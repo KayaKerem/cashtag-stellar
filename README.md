@@ -32,7 +32,7 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 - [x] **SCF roadmap:** [Roadmap → SCF / InstAward](#roadmap--scf--instaward).
 - [x] **Stellar skills cited:** [Stellar skills used](#stellar-skills-used).
 
-**Jump to:** [How to evaluate](#how-to-evaluate) · [Platforms](#platforms) · [Architecture](#architecture) · [Stellar integrations](#stellar-integrations) · [Stellar skills used](#stellar-skills-used) · [Design decisions & trade-offs](#design-decisions--trade-offs) · [Challenges](#challenges) · [Honest limits](#honest-limits) · [Roadmap → SCF / InstAward](#roadmap--scf--instaward)
+**Jump to:** [How to evaluate](#how-to-evaluate) · [Platforms](#platforms) · [Architecture](#architecture) · [Stellar integrations](#stellar-integrations) · [Stellar skills used](#stellar-skills-used) · [Business model](#business-model) · [Design decisions & trade-offs](#design-decisions--trade-offs) · [Challenges](#challenges) · [Honest limits](#honest-limits) · [Roadmap → SCF / InstAward](#roadmap--scf--instaward)
 
 ## How to evaluate
 
@@ -663,6 +663,29 @@ Measured on testnet in the lifecycle run: average CPU instructions from simulati
 | `humanity.register_zk` (Groth16, 9 public inputs) | ~30.8M | ~0.034 XLM |
 
 Reclaim proof verification alone costs 3.2M instructions (142 B context) to 10.2M (7.9 KB), measured on the real wasm including VM setup. Every call stays far inside Soroban's 400M-instruction per-transaction budget. The most expensive call is `create_campaign` at ~0.11 XLM; the recurring payout calls (`settle_epoch`, `claim`) cost a small fraction of a cent.
+
+## Business model
+
+**The clipper pays nothing. The brand pays 5% of what the campaign actually spends.**
+
+The fee is charged per epoch out of the epoch budget `B_e`, not on deposit, so it is taken only from budget that was really earned by verified reach. If an epoch is under-subscribed, the unspent part carries over and is eventually refunded to the brand, and no fee is charged on it. Because the fee comes out of `B_e` before the pro-rata split, the advertised "up to X per 1k" ceiling stays true: the brand knows its maximum, and the split between clippers is unchanged.
+
+Why the clipper side is free: the two things creators complain about on existing clipping platforms are withdrawal fees and holds. Escrow removes both. Funds are locked before the campaign starts, `claim` costs ~0.0023 XLM, and a clipper can cash out to local currency through an anchor. There is no reason to charge someone for money that was already committed to them on-chain.
+
+Why 5% is defensible where others charge more: we never take custody, we run no payment operations, we carry no chargeback risk, and KYC sits with the anchor. Competing platforms charge brands roughly 3-20% and creators 0-6% plus fixed per-withdrawal fees precisely because they are also acting as the payment processor and the escrow agent. Our contract does that part.
+
+| Unit economics of one $2,000 campaign, 120 proofs | |
+|---|---|
+| Gross revenue at 5% of spent budget | $100 |
+| Soroban fees we pay (campaign, proofs, settlement, payouts) | ~$3.3 |
+| Reclaim zkFetch cost | $6-12 |
+| Contribution margin | ~85-90% |
+
+The dominant variable cost is not the blockchain, it is zkTLS proving. Reclaim's free tier is about 100 proofs per month, which one real campaign already exceeds, so a paid tier is the first line item in the M1 budget.
+
+**Expansion.** The same verification engine can be licensed to existing clipping and UGC platforms that have the brands and the creators but no way to prove reach. They keep their marketplace, they get an escrow and a proof layer.
+
+**Not implemented yet, on purpose.** There is no `fee_bps` or `treasury` in the contract today. We wanted to prove that the verification and payout mechanism works before adding a party that takes a cut of it. The change is roughly fifty lines in `settle_epoch`, and it belongs after the external security review in M1, not before it.
 
 ## Why Stellar
 
