@@ -13,7 +13,7 @@ describe("Health", () => {
       version: "abc123",
       now: c.now,
       latestLedger: async () => 42,
-      keeper: () => ({ intervalMs: 5000, lastTickAt: c.now(), lastTickOk: true, lastTickError: null }),
+      keeper: () => ({ intervalMs: 5000, lastTickAt: c.now(), lastTickOk: true }),
       aadhaarAvailable: () => true,
     });
     c.advance(3000);
@@ -24,7 +24,8 @@ describe("Health", () => {
   it("not ok when rpc fails", async () => {
     const s = await new Health({ version: "x", latestLedger: async () => { throw new Error("boom"); } }).snapshot();
     expect(s.ok).toBe(false);
-    expect(s.rpc).toMatchObject({ ok: false, error: "boom" });
+    expect(s.rpc).toMatchObject({ ok: false, error: "rpc_unreachable" });
+    expect(JSON.stringify(s)).not.toContain("boom");
     expect(s.keeper).toEqual({ enabled: false });
   });
 
@@ -48,7 +49,7 @@ describe("Health", () => {
       version: "x",
       now: c.now,
       latestLedger: async () => 1,
-      keeper: () => ({ intervalMs: 5000, lastTickAt: last, lastTickOk: last ? true : null, lastTickError: null }),
+      keeper: () => ({ intervalMs: 5000, lastTickAt: last, lastTickOk: last ? true : null }),
     });
     c.advance(119_000);
     expect((await h.snapshot()).ok).toBe(true); // before first tick, within grace

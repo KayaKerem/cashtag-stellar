@@ -12,7 +12,6 @@ export class Keeper {
   private lastErr = new Map<string, string>();
   lastTickAt: number | null = null;
   lastTickOk: boolean | null = null;
-  lastTickError: string | null = null;
 
   constructor(
     private ops: Ops,
@@ -25,7 +24,7 @@ export class Keeper {
     this.timer = setInterval(() => void this.tick(), this.intervalMs);
   }
   status() {
-    return { intervalMs: this.intervalMs, lastTickAt: this.lastTickAt, lastTickOk: this.lastTickOk, lastTickError: this.lastTickError };
+    return { intervalMs: this.intervalMs, lastTickAt: this.lastTickAt, lastTickOk: this.lastTickOk };
   }
   stop() {
     if (this.timer) clearInterval(this.timer);
@@ -68,11 +67,9 @@ export class Keeper {
       this.ops.prune();
       if (this.lastErr.size > 1000) this.lastErr.clear();
       this.lastTickOk = true;
-      this.lastTickError = null;
-    } catch (e: any) {
-      this.fail("tick", e);
+    } catch (e) {
+      this.fail("tick", e); // details are logged, never served by /health
       this.lastTickOk = false;
-      this.lastTickError = String(e?.message ?? e).slice(0, 200);
     } finally {
       this.lastTickAt = Date.now();
       this.running = false;

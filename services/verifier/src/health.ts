@@ -5,7 +5,6 @@ export interface KeeperStatus {
   intervalMs: number;
   lastTickAt: number | null; // ms epoch of the last finished tick
   lastTickOk: boolean | null;
-  lastTickError: string | null;
 }
 
 export interface HealthSnapshot {
@@ -51,7 +50,9 @@ export class Health {
       const seq = await this.d.latestLedger();
       this.rpc = { ok: true, latestLedger: seq, error: null, checkedAt: this.now() };
     } catch (e: any) {
-      this.rpc = { ok: false, latestLedger: null, error: String(e?.message ?? e).slice(0, 200), checkedAt: this.now() };
+      // Public endpoint: expose a fixed code only; the details go to the server log.
+      console.error(`[health] rpc probe failed: ${e?.message ?? e}`);
+      this.rpc = { ok: false, latestLedger: null, error: "rpc_unreachable", checkedAt: this.now() };
     }
   }
 
