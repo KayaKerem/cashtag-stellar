@@ -1,4 +1,5 @@
 import { Hono, type Context, type MiddlewareHandler } from "hono";
+import type { Health } from "./health.js";
 import { cors } from "hono/cors";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { timingSafeEqual } from "node:crypto";
@@ -17,6 +18,7 @@ export interface Deps {
   proofs: Pick<ProofService, "get">;
   ops: Pick<Ops, "submitClose" | "demoRegister">;
   aadhaar?: Pick<AadhaarProver, "prove" | "available">;
+  health?: Pick<Health, "snapshot">;
 }
 
 // ---- request validation (exported for tests) ----
@@ -95,7 +97,7 @@ function requireToken(token: string): MiddlewareHandler {
   };
 }
 
-export function createApp({ cfg, demo, proofs, ops, aadhaar }: Deps) {
+export function createApp({ cfg, demo, proofs, ops, aadhaar, health }: Deps) {
   const app = new Hono();
   // CORS_ORIGIN: "*" (default) or comma-separated origins, e.g. "https://cliprail.app,http://localhost:3000"
   app.use("*", cors({ origin: cfg.corsOrigin === "*" ? "*" : cfg.corsOrigin.split(",").map((s) => s.trim()) }));
@@ -110,17 +112,19 @@ export function createApp({ cfg, demo, proofs, ops, aadhaar }: Deps) {
   app.notFound((c) => c.json({ error: "not found" }, 404));
 
   const attestor = attestorAddress(cfg);
-  app.get("/health", (c) =>
-    c.json({
-      ok: true,
+  app.get("/health", async (c) => {
+    const base = {
       network: "testnet",
       cliprailId: cfg.cliprailId || null,
       humanityId: cfg.humanityId || null,
       // "simulated": proofs are signed by a local test attestor, not Reclaim
       attestorMode: cfg.attestorMode,
       attestor,
-    }),
-  );
+    };
+    if (!health) return c.json({ ok: true, ...base });
+    const snap = await health.snapshot();
+    return c.json({ ...base, ...snap }, snap.ok ? 200 : 503);
+  });
 
   app.post("/proof", async (c) => {
     const { platform, videoId } = parseProofReq(await body(c));

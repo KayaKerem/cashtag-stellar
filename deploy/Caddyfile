@@ -1,0 +1,5 @@
+{$PUBLIC_HOST} {
+	encode gzip
+	reverse_proxy verifier:8787
+	header -Server
+}

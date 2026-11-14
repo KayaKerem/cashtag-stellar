@@ -31,7 +31,7 @@ const baseCfg = {
   attestorMode: "reclaim" as "reclaim" | "simulated",
 };
 
-function mk(cfgOver: Partial<typeof baseCfg> = {}) {
+function mk(cfgOver: Partial<typeof baseCfg> = {}, extra: { health?: any } = {}) {
   const cfg = { ...baseCfg, ...cfgOver };
   const demo = new DemoStore(join(tmp, `demo-${Math.random()}.json`));
   const proofs = new ProofService(cfg, () => {}, demo);
@@ -39,7 +39,7 @@ function mk(cfgOver: Partial<typeof baseCfg> = {}) {
     submitClose: vi.fn(async () => ({ txHash: "ab".repeat(32), views: "10" })),
     demoRegister: vi.fn(async () => ({ txHash: "cd".repeat(32) })),
   };
-  return { app: createApp({ cfg, demo, proofs, ops }), ops, demo };
+  return { app: createApp({ cfg, demo, proofs, ops, ...extra }), ops, demo };
 }
 const post = (app: any, path: string, body: unknown) =>
   app.request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -59,6 +59,12 @@ describe("health", () => {
   it("reports the simulated attestor", async () => {
     const j = await (await mk({ attestorMode: "simulated" }).app.request("/health")).json();
     expect(j).toMatchObject({ attestorMode: "simulated", attestor: SIM_ATTESTOR });
+  });
+  it("merges the live snapshot and returns 503 when not ok", async () => {
+    const snapshot = vi.fn(async () => ({ ok: false, version: "v1", rpc: { ok: false } }) as any);
+    const r = await mk({}, { health: { snapshot } }).app.request("/health");
+    expect(r.status).toBe(503);
+    expect(await r.json()).toMatchObject({ ok: false, version: "v1", network: "testnet", cliprailId: "CCLIPRAIL" });
   });
 });
 

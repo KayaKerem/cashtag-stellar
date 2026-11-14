@@ -8,13 +8,22 @@ import { Keeper } from "./keeper.js";
 import { Ops } from "./ops.js";
 import { ProofService } from "./zkfetch.js";
 import { AadhaarProver } from "./aadhaar.js";
+import { Health } from "./health.js";
 
 const demo = new DemoStore(join(config.dataDir, "demo-state.json"), join(SERVICE_DIR, "fixtures/demo-state.json"));
 const proofs = new ProofService(config, undefined, demo);
 const chain = new Chain(config);
 const ops = new Ops(config, proofs, chain);
 const aadhaar = new AadhaarProver({ artifactsDir: config.aadhaarArtifactsDir, testDataDir: config.aadhaarTestDataDir });
-const app = createApp({ cfg: config, demo, proofs, ops, aadhaar });
+const keeper =
+  config.keeper && config.cliprailId && chain.relayer ? new Keeper(ops, config.keeperIntervalMs) : null;
+const health = new Health({
+  version: process.env.GIT_SHA || "dev",
+  latestLedger: async () => (await chain.server.getLatestLedger()).sequence,
+  keeper: keeper ? () => keeper.status() : undefined,
+  aadhaarAvailable: () => aadhaar.available,
+});
+const app = createApp({ cfg: config, demo, proofs, ops, aadhaar, health });
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`verifier listening on :${info.port}`);
@@ -30,5 +39,5 @@ serve({ fetch: app.fetch, port: config.port }, (info) => {
 
 if (config.keeper) {
   if (!config.cliprailId || !chain.relayer) console.warn("[keeper] disabled: CLIPRAIL_ID / RELAYER_SECRET missing");
-  else new Keeper(ops, config.keeperIntervalMs).start();
+  else keeper!.start();
 }

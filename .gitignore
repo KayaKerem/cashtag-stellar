@@ -16,3 +16,4 @@ fixtures/cache/
 services/verifier/.data/
 !packages/*-client/dist/
 *.zkey
+deploy/verifier.env

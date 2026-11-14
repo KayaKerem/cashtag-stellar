@@ -10,6 +10,9 @@ export class Keeper {
   private running = false;
   private busy = new Set<string>();
   private lastErr = new Map<string, string>();
+  lastTickAt: number | null = null;
+  lastTickOk: boolean | null = null;
+  lastTickError: string | null = null;
 
   constructor(
     private ops: Ops,
@@ -20,6 +23,9 @@ export class Keeper {
   start() {
     this.log(`started (every ${this.intervalMs} ms)`);
     this.timer = setInterval(() => void this.tick(), this.intervalMs);
+  }
+  status() {
+    return { intervalMs: this.intervalMs, lastTickAt: this.lastTickAt, lastTickOk: this.lastTickOk, lastTickError: this.lastTickError };
   }
   stop() {
     if (this.timer) clearInterval(this.timer);
@@ -61,9 +67,14 @@ export class Keeper {
       }
       this.ops.prune();
       if (this.lastErr.size > 1000) this.lastErr.clear();
-    } catch (e) {
+      this.lastTickOk = true;
+      this.lastTickError = null;
+    } catch (e: any) {
       this.fail("tick", e);
+      this.lastTickOk = false;
+      this.lastTickError = String(e?.message ?? e).slice(0, 200);
     } finally {
+      this.lastTickAt = Date.now();
       this.running = false;
     }
   }

@@ -13,7 +13,8 @@ COPY fixtures ./fixtures
 COPY services/verifier ./services/verifier
 
 WORKDIR /app/services/verifier
-ENV NODE_ENV=production PORT=8787 DATA_DIR=/data
+ARG GIT_SHA=dev
+ENV NODE_ENV=production PORT=8787 DATA_DIR=/data GIT_SHA=$GIT_SHA
 VOLUME /data
 EXPOSE 8787
 CMD ["pnpm", "start"]
