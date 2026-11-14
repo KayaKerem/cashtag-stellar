@@ -213,6 +213,7 @@ export function resultFromSignals(proof: SnarkProof, publicSignals: string[], id
  */
 export class AadhaarProver {
   private queue: Promise<unknown> = Promise.resolve();
+  private pending = 0;
   private cache = new Map<string, { at: number; p: Promise<ProveResult> }>();
   private td?: TestData;
   private vk?: unknown;
@@ -227,6 +228,8 @@ export class AadhaarProver {
       timeoutMs?: number;
       /** verify each fresh proof against vkey.json before returning it (default true) */
       selfVerify?: boolean;
+      /** jobs running + waiting before new ones get 503 (default 3) */
+      maxQueue?: number;
     },
   ) {}
 
@@ -263,7 +266,10 @@ export class AadhaarProver {
 
   /** Serialize jobs: each waits for the previous one to settle. */
   private enqueue<T>(fn: () => Promise<T>): Promise<T> {
-    const job = this.queue.then(fn, fn);
+    const max = this.opts.maxQueue ?? 3;
+    if (this.pending >= max) throw new HttpError(503, "prover busy, try again in a minute", "prover_busy");
+    this.pending++;
+    const job = this.queue.then(fn, fn).finally(() => this.pending--);
     this.queue = job.catch(() => undefined);
     return job;
   }

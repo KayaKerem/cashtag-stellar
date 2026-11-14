@@ -162,6 +162,18 @@ describe("AadhaarProver", () => {
     await expect(bad.prove({ campaignId: 1n, wallet: W1, identity: "alice" })).rejects.toThrow("boom");
   });
 
+  it("rejects new jobs with 503 when the queue is full", async () => {
+    const { fn, stats } = fakeProve(30);
+    const p = new AadhaarProver({ artifactsDir: "", testDataDir: FX, fullProve: fn, maxQueue: 2 });
+    const run = (id: string) => p.prove({ campaignId: 1n, wallet: W1, identity: id });
+    const [a, b, c] = await Promise.allSettled([run("q1"), run("q2"), run("q3")]);
+    expect(a.status).toBe("fulfilled");
+    expect(b.status).toBe("fulfilled");
+    expect(c).toMatchObject({ status: "rejected", reason: { status: 503, code: "prover_busy" } });
+    expect(stats.calls).toBe(2);
+    expect((await run("q3")).cached).toBe(false); // capacity is back once the queue drains
+  });
+
   it("validates wallet and identity", async () => {
     const p = new AadhaarProver({ artifactsDir: "", testDataDir: FX, fullProve: fakeProve().fn });
     await expect(p.prove({ campaignId: 1n, wallet: "GBAD", identity: "alice" })).rejects.toMatchObject({ status: 400 });

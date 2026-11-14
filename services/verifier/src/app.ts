@@ -74,10 +74,17 @@ async function body(c: Context): Promise<unknown> {
 export const PROOF_REUSE_S = 120; // /proof reuses a cached proof at most this old
 export const PROOF_RATE = { perMin: 5 }; // /proof per client IP
 
-/** Client IP: first X-Forwarded-For hop (Caddy in front), else the socket address. */
-function clientIp(c: Context): string {
-  const xff = c.req.header("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
+/**
+ * Client IP. Behind our proxy (TRUST_PROXY=1) it is the LAST X-Forwarded-For hop: the proxy
+ * appends the address it saw, while earlier hops are client-supplied and spoofable. Otherwise the
+ * socket address; X-Forwarded-For is ignored.
+ */
+export function clientIp(c: Context, trustProxy: boolean): string {
+  const xff = trustProxy ? c.req.header("x-forwarded-for") : undefined;
+  if (xff) {
+    const last = xff.split(",").pop()?.trim();
+    if (last) return last;
+  }
   try {
     return getConnInfo(c).remote.address ?? "unknown";
   } catch {
@@ -106,8 +113,8 @@ export function createApp({ cfg, demo, proofs, ops, aadhaar, health }: Deps) {
 
   app.onError((err, c) => {
     if (err instanceof HttpError) return c.json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, err.status as any);
-    console.error(err);
-    return c.json({ error: String((err as any)?.message ?? err), code: "internal" }, 500);
+    console.error(err); // details stay in the server log
+    return c.json({ error: "internal error", code: "internal" }, 500);
   });
   app.notFound((c) => c.json({ error: "not found" }, 404));
 
@@ -128,7 +135,7 @@ export function createApp({ cfg, demo, proofs, ops, aadhaar, health }: Deps) {
 
   app.post("/proof", async (c) => {
     const { platform, videoId } = parseProofReq(await body(c));
-    if (!bucket.take(clientIp(c))) throw new HttpError(429, "too many proof requests, try again in a minute", "rate_limited");
+    if (!bucket.take(clientIp(c, cfg.trustProxy))) throw new HttpError(429, "too many proof requests, try again in a minute", "rate_limited");
     const maxAgeS = c.req.query("cached") === "1" ? Infinity : PROOF_REUSE_S;
     const r = await proofs.get(platform, videoId, { maxAgeS, purpose: "open" });
     return c.json({ proof: r.proof, extracted: r.extracted, cached: r.cached });

@@ -21,6 +21,7 @@ export class TokenBucket {
   constructor(
     private capacity: number,
     private windowMs: number,
+    private maxKeys = 10_000,
   ) {}
 
   take(key: string, now = Date.now()): boolean {
@@ -29,8 +30,11 @@ export class TokenBucket {
     b.at = now;
     const ok = b.tokens >= 1;
     if (ok) b.tokens -= 1;
+    // Re-insert so Map order is least-recently-used first; evict the oldest keys over the cap
+    // (a wholesale clear would let an attacker reset everyone's limit by rotating keys).
+    this.buckets.delete(key);
     this.buckets.set(key, b);
-    if (this.buckets.size > 10_000) this.buckets.clear(); // crude memory cap
+    while (this.buckets.size > this.maxKeys) this.buckets.delete(this.buckets.keys().next().value!);
     return ok;
   }
 }

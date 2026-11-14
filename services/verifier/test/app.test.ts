@@ -258,7 +258,7 @@ describe("abuse protection", () => {
   });
 
   it("/proof is rate limited per IP (5/min)", async () => {
-    const { app } = mk();
+    const { app } = mk({ trustProxy: true });
     const req = (ip: string) =>
       app.request("/proof", {
         method: "POST",
@@ -268,6 +268,28 @@ describe("abuse protection", () => {
     for (let i = 0; i < 5; i++) expect((await req("1.1.1.1")).status).toBe(503);
     expect((await req("1.1.1.1")).status).toBe(429);
     expect((await req("2.2.2.2")).status).toBe(503);
+    // a client-supplied first hop does not reset the limit: the proxy-appended last hop counts
+    expect((await req("9.9.9.9, 1.1.1.1")).status).toBe(429);
+  });
+
+  it("ignores X-Forwarded-For unless TRUST_PROXY", async () => {
+    const { app } = mk({ trustProxy: false });
+    const req = (ip: string) =>
+      app.request("/proof", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": ip },
+        body: JSON.stringify({ platform: "demo", videoId: "v" }),
+      });
+    for (let i = 0; i < 5; i++) await req(`10.0.0.${i}`);
+    expect((await req("10.0.0.99")).status).toBe(429); // rotating the header does not help
+  });
+
+  it("500s do not leak error details", async () => {
+    const { app, ops } = mk();
+    ops.submitClose.mockRejectedValueOnce(new Error("secret internal detail"));
+    const r = await post(app, "/proof/submit", { campaignId: "1", clipId: "1", epoch: 0 });
+    expect(r.status).toBe(500);
+    expect(await r.json()).toEqual({ error: "internal error", code: "internal" });
   });
 
   it("demo caps", async () => {

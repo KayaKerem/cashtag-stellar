@@ -55,6 +55,10 @@ export const config = {
   corsOrigin: str("CORS_ORIGIN", "*"),
   dataDir: resolve(SERVICE_DIR, str("DATA_DIR", ".data")),
   writeToken: str("WRITE_TOKEN"),
+  /** NODE_ENV=production: refuse unsafe settings at startup (see `unsafeConfig`) */
+  production: process.env.NODE_ENV === "production",
+  /** 1 = behind our reverse proxy (Caddy): client IP is the last X-Forwarded-For hop, which the proxy appends */
+  trustProxy: str("TRUST_PROXY") === "1",
   attestors: str("RECLAIM_ATTESTORS", "0x244897572368eadf65bfbc5aec98d8e5443a9072")
     .split(",")
     .map((a) => a.trim().toLowerCase())
@@ -72,6 +76,8 @@ export const config = {
   reclaimAttestorUrl: str("RECLAIM_ATTESTOR_URL"),
   simAttestorSecret: str("SIM_ATTESTOR_SECRET") || DEFAULT_SIM_ATTESTOR_SECRET,
   simOwnerSecret: str("SIM_OWNER_SECRET") || DEFAULT_SIM_OWNER_SECRET,
+  /** max Aadhaar proving jobs running + waiting; more get 503 (each job is ~3.7 GB RAM, ~30 s) */
+  aadhaarMaxQueue: Number(str("AADHAAR_MAX_QUEUE", "3")),
   proofFixtureDir: str("PROOF_FIXTURE_DIR") ? resolve(SERVICE_DIR, str("PROOF_FIXTURE_DIR")) : "",
   /** Anon Aadhaar v2 artifacts (aadhaar-verifier.wasm, circuit_final.zkey, vkey.json); empty → /humanity/aadhaar/prove 503 */
   aadhaarArtifactsDir: str("AADHAAR_ARTIFACTS_DIR") ? resolve(SERVICE_DIR, str("AADHAAR_ARTIFACTS_DIR")) : "",
@@ -89,3 +95,18 @@ export const hasReclaim = (c: Config = config) => Boolean(c.reclaimAppId && c.re
 export const isSimulated = (c: Config = config) => c.attestorMode === "simulated";
 /** Address whose signatures /proof returns: the simulated key, or the first configured Reclaim attestor. */
 export const attestorAddress = (c: Config = config) => (isSimulated(c) ? addressOfSecret(c.simAttestorSecret) : (c.attestors[0] ?? null));
+
+export const MIN_WRITE_TOKEN_LEN = 24;
+
+/**
+ * Settings that must never reach a public deployment. In production (NODE_ENV=production) the
+ * service refuses to start when this returns anything.
+ */
+export function unsafeConfig(c: Config = config): string[] {
+  const out: string[] = [];
+  if (c.writeToken.length < MIN_WRITE_TOKEN_LEN)
+    out.push(`WRITE_TOKEN must be set (>= ${MIN_WRITE_TOKEN_LEN} chars); without it every write endpoint is open`);
+  if (isSimulated(c) && (c.simAttestorSecret === DEFAULT_SIM_ATTESTOR_SECRET || c.simOwnerSecret === DEFAULT_SIM_OWNER_SECRET))
+    out.push("simulated mode needs explicit SIM_ATTESTOR_SECRET and SIM_OWNER_SECRET; the defaults are public test keys");
+  return out;
+}
