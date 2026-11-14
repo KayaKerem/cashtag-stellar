@@ -18,7 +18,8 @@
 //! - Exclusion is per clip-epoch: a clip excluded in epoch `e` can still submit (and earn) in
 //!   `e+1`, but its epoch-`e` share (immediate and held) is forfeited.
 //! - `init` is replaced by `__constructor(admin, humanity)` (deploy-time args); code 1 is reserved.
-//! - Participant code = "CR-" + base36(u32_be(sha256(campaign_id_be ‖ xdr(address))[0..4]) mod 36^6).
+//! - Participant code = "CR-" + base36(u64_be(sha256(campaign_id_be ‖ xdr(address))[0..8]) mod 36^10),
+//!   unique per campaign (`join` fails with `CodeTaken` on a collision).
 //! - `create_campaign_with_swap` funds a campaign with any asset: the brand's `token_in` is swapped
 //!   through the Soroswap router (`swap_tokens_for_exact_tokens`, `to = brand`) into exactly
 //!   `budget` of the campaign token, which is then escrowed as in `create_campaign`, atomically.
@@ -88,14 +89,19 @@ fn pay_out(env: &Env, c: &mut Campaign, to: &Address, amount: i128) -> i128 {
     amt
 }
 
+/// Base36 characters after "CR-". 36^10 is about 2^51.7, so grinding an address onto a given
+/// code is impractical; `join` additionally rejects a code already taken in the campaign.
+const CODE_LEN: usize = 10;
+const CODE_SPACE: u64 = 3_656_158_440_062_976; // 36^10
+
 fn participant_code(env: &Env, campaign_id: u64, who: &Address) -> String {
     const ALPHABET: &[u8; 36] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let mut pre = Bytes::from_array(env, &campaign_id.to_be_bytes());
     pre.append(&who.clone().to_xdr(env));
     let h = env.crypto().sha256(&pre).to_array();
-    let mut n = u32::from_be_bytes([h[0], h[1], h[2], h[3]]) % 2_176_782_336; // 36^6
-    let mut out = *b"CR-000000";
-    for i in (3..9).rev() {
+    let mut n = u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]]) % CODE_SPACE;
+    let mut out = *b"CR-0000000000";
+    for i in (3..3 + CODE_LEN).rev() {
         out[i] = ALPHABET[(n % 36) as usize];
         n /= 36;
     }
@@ -317,6 +323,11 @@ impl Cliprail {
             }
         }
         let code = participant_code(&env, campaign_id, &participant);
+        let code_key = DataKey::Code(campaign_id, code.clone());
+        if storage::has(&env, &code_key) {
+            return Err(Error::CodeTaken);
+        }
+        storage::put(&env, &code_key, &participant);
         let part = Participant {
             address: participant.clone(),
             code: code.clone(),
@@ -359,7 +370,7 @@ impl Cliprail {
         if storage::has(&env, &vkey) {
             return Err(Error::VideoAlreadyRegistered);
         }
-        if proof.timestamp_s > t + proof::MAX_FUTURE_SKEW
+        if proof.timestamp_s > t.saturating_add(proof::MAX_FUTURE_SKEW)
             || t.saturating_sub(proof.timestamp_s) > proof::MAX_PROOF_AGE
         {
             return Err(Error::ProofExpired);
@@ -421,7 +432,7 @@ impl Cliprail {
             return Err(Error::WrongPhase);
         }
         if proof.timestamp_s.saturating_add(proof::CLOSE_SLACK) < epoch::content_end(&p, e)
-            || proof.timestamp_s > t + proof::MAX_FUTURE_SKEW
+            || proof.timestamp_s > t.saturating_add(proof::MAX_FUTURE_SKEW)
         {
             return Err(Error::ProofExpired);
         }

@@ -45,4 +45,6 @@ pub enum Error {
     BadPath = 37,
     /// Router call failed (slippage over `amount_in_max`, deadline, liquidity) or delivered too little.
     SwapFailed = 38,
+    /// `join`: the derived participant code is already used by another participant of the campaign.
+    CodeTaken = 39,
 }

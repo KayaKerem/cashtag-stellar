@@ -402,7 +402,7 @@ fn join_code_and_phase() {
     let id = t.create(&p);
     let a = soroban_sdk::Address::generate(&t.env);
     let code = to_std(&t.c.join(&id, &a));
-    assert_eq!(code.len(), 9);
+    assert_eq!(code.len(), 13);
     assert!(code.starts_with("CR-"));
     assert!(code[3..]
         .bytes()

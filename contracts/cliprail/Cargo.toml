@@ -12,6 +12,8 @@ soroban-sdk = { workspace = true }
 reclaim-verify = { workspace = true }
 
 [dev-dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }
+soroban-sdk = { workspace = true, features = ["testutils", "hazmat-address"] }
 reclaim-verify = { workspace = true, features = ["testutils"] }
 humanity = { path = "../humanity" }
+proptest = { version = "1", default-features = false, features = ["std"] }
+sha2 = "0.10"

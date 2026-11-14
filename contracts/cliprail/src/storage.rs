@@ -33,6 +33,8 @@ pub enum DataKey {
     Dispute(u64),
     CampaignDisputes(u64),
     ActiveDispute(u64, u32),
+    /// Participant code -> participant, per campaign (codes are unique within a campaign).
+    Code(u64, String),
 }
 
 pub fn bump_instance(env: &Env) {
