@@ -1,4 +1,5 @@
 //! Bonded disputes (ARCHITECTURE §7, as amended): only the challenger posts a bond.
+//! Bond payouts are credited and pulled with `withdraw`.
 //! - challenger wins (unanswered by `dispute_end`, or arbiter) → bond refunded, clip-epoch excluded
 //! - clipper wins (arbiter, or responded and arbiter silent until `settle_at`) → bond to clipper
 //!
@@ -153,7 +154,19 @@ pub fn finalize(env: &Env, dispute_id: u64) -> Result<(), Error> {
     Ok(())
 }
 
-/// Pay out the bond, update clip-epoch / epoch state, emit `resolved`.
+/// Pay out what `close` credited to `who` in `token`.
+pub fn withdraw(env: &Env, who: Address, token_id: Address) -> Result<i128, Error> {
+    who.require_auth();
+    let amount = storage::owed(env, &who, &token_id);
+    if amount <= 0 {
+        return Err(Error::NothingToClaim);
+    }
+    env.storage().persistent().remove(&DataKey::Owed(who.clone(), token_id.clone()));
+    token::Client::new(env, &token_id).transfer(&env.current_contract_address(), &who, &amount);
+    Ok(amount)
+}
+
+/// Credit the bond, update clip-epoch / epoch state, emit `resolved`.
 fn close(env: &Env, c: &Campaign, mut d: Dispute, clipper_wins: bool) {
     let p = &c.params;
     let clip = storage::clip(env, d.clip_id).unwrap();
@@ -170,13 +183,12 @@ fn close(env: &Env, c: &Campaign, mut d: Dispute, clipper_wins: bool) {
         d.status = DisputeStatus::ChallengerWon;
         d.challenger.clone()
     };
+    // Credited, not pushed: a recipient that cannot receive the token (no trustline,
+    // deauthorized) must never be able to block the dispute and hence settlement.
     if p.bond > 0 {
-        let tk = token::Client::new(env, &p.token);
         let fee = dispute_fee(p.bond);
-        tk.transfer(&env.current_contract_address(), &p.arbiter, &fee);
-        if p.bond > fee {
-            tk.transfer(&env.current_contract_address(), &to, &(p.bond - fee));
-        }
+        storage::credit(env, &p.arbiter, &p.token, fee);
+        storage::credit(env, &to, &p.token, p.bond - fee);
     }
     storage::set_clip_epoch(env, d.clip_id, d.epoch, &ce);
     let mut st = storage::epoch(env, c.id, d.epoch);

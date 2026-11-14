@@ -52,7 +52,7 @@ fn open(d: &D) -> u64 {
     let dis =
         d.t.c
             .challenge(&d.id, &d.bot, &0, &d.ch, &d.t.s("ipfs://evidence"));
-    assert_eq!(d.t.token.balance(&d.ch), 0);
+    assert_eq!(d.t.paid(&d.ch), 0);
     assert_eq!(d.t.c.get_epoch(&d.id, &0).open_disputes, 1);
     assert_eq!(
         d.t.c.get_clip_epoch(&d.bot, &0).unwrap().status,
@@ -75,8 +75,8 @@ fn assert_excluded(d: &D) {
     assert_eq!(e0.rate, USDC);
     assert_eq!(t.c.claim(&d.id, &d.good, &0), 10 * USDC);
     assert_eq!(t.c.try_claim(&d.id, &d.bot, &0), Err(Ok(Error::Excluded)));
-    assert_eq!(t.token.balance(&d.good_owner), 10 * USDC);
-    assert_eq!(t.token.balance(&d.bot_owner), 0);
+    assert_eq!(t.paid(&d.good_owner), 10 * USDC);
+    assert_eq!(t.paid(&d.bot_owner), 0);
     t.check_invariant();
 }
 
@@ -93,8 +93,8 @@ fn assert_clipper_kept(d: &D) {
     assert_eq!(e0.rate, 20 * USDC * 1000 / 40_000);
     assert_eq!(t.c.claim(&d.id, &d.bot, &0), 15 * USDC);
     // bot owner also received the challenger's bond, minus the arbiter fee
-    assert_eq!(t.token.balance(&d.bot_owner), 20 * USDC - FEE);
-    assert_eq!(t.token.balance(&t.arbiter), FEE);
+    assert_eq!(t.paid(&d.bot_owner), 20 * USDC - FEE);
+    assert_eq!(t.paid(&t.arbiter), FEE);
     t.check_invariant();
 }
 
@@ -111,8 +111,8 @@ fn unanswered_challenge_excludes_after_dispute_end() {
         t.c.list_disputes(&d.id).get(0).unwrap().status,
         DisputeStatus::ChallengerWon
     );
-    assert_eq!(t.token.balance(&d.ch), 5 * USDC - FEE); // bond refunded minus the arbiter fee
-    assert_eq!(t.token.balance(&t.arbiter), FEE);
+    assert_eq!(t.paid(&d.ch), 5 * USDC - FEE); // bond refunded minus the arbiter fee
+    assert_eq!(t.paid(&t.arbiter), FEE);
     assert_eq!(t.c.try_finalize_dispute(&dis), Err(Ok(Error::WrongPhase)));
     assert_excluded(&d);
 }
@@ -136,8 +136,8 @@ fn responded_arbiter_rules_for_clipper() {
         t.c.list_disputes(&d.id).get(0).unwrap().status,
         DisputeStatus::ClipperWon
     );
-    assert_eq!(t.token.balance(&d.ch), 0);
-    assert_eq!(t.token.balance(&d.bot_owner), 5 * USDC - FEE);
+    assert_eq!(t.paid(&d.ch), 0);
+    assert_eq!(t.paid(&d.bot_owner), 5 * USDC - FEE);
     assert_clipper_kept(&d);
 }
 
@@ -149,8 +149,8 @@ fn responded_arbiter_rules_for_challenger() {
     t.c.respond(&dis);
     t.set_time(t.dispute_end(d.id, 0) + 10);
     t.c.resolve(&dis, &false);
-    assert_eq!(t.token.balance(&d.ch), 5 * USDC - FEE);
-    assert_eq!(t.token.balance(&t.arbiter), FEE);
+    assert_eq!(t.paid(&d.ch), 5 * USDC - FEE);
+    assert_eq!(t.paid(&t.arbiter), FEE);
     assert_eq!(t.c.try_resolve(&dis, &true), Err(Ok(Error::WrongPhase)));
     assert_excluded(&d);
 }
@@ -166,7 +166,7 @@ fn arbiter_timeout_clipper_wins() {
     t.set_time(t.settle_at(d.id, 0));
     assert_eq!(t.c.try_resolve(&dis, &false), Err(Ok(Error::WrongPhase))); // arbiter too late
     t.c.finalize_dispute(&dis);
-    assert_eq!(t.token.balance(&d.bot_owner), 5 * USDC - FEE);
+    assert_eq!(t.paid(&d.bot_owner), 5 * USDC - FEE);
     assert_clipper_kept(&d);
 }
 
@@ -229,5 +229,26 @@ fn challenge_zero_weight_rejected() {
         t.c.try_challenge(&id, &c, &0, &ch, &t.s("x")),
         Err(Ok(Error::NothingToClaim))
     );
-    assert_eq!(t.token.balance(&ch), 5 * USDC);
+    assert_eq!(t.paid(&ch), 5 * USDC);
+}
+
+/// A recipient that cannot receive the token (deauthorized here) must not block the dispute or
+/// settlement: payouts are credited and pulled with `withdraw`.
+#[test]
+fn unreceivable_arbiter_cannot_block_settlement() {
+    let d = setup();
+    let dis = open(&d);
+    let t = &d.t;
+    t.sac.set_authorized(&t.arbiter, &false);
+    t.sac.set_authorized(&d.ch, &false);
+    t.set_time(t.dispute_end(d.id, 0));
+    t.c.finalize_dispute(&dis);
+    t.set_time(t.settle_at(d.id, 0));
+    t.c.settle_epoch(&d.id, &0);
+    assert_eq!(t.c.owed(&t.arbiter, &t.token.address), FEE);
+    assert!(t.c.try_withdraw(&t.arbiter, &t.token.address).is_err());
+    t.sac.set_authorized(&t.arbiter, &true);
+    assert_eq!(t.c.withdraw(&t.arbiter, &t.token.address), FEE);
+    assert_eq!(t.token.balance(&t.arbiter), FEE);
+    t.check_invariant();
 }

@@ -79,6 +79,8 @@ impl T {
         );
 
         let sa = env.register_stellar_asset_contract_v2(admin.clone());
+        // lets tests deauthorize a holder (a recipient that cannot receive the token)
+        sa.issuer().set_flag(soroban_sdk::testutils::IssuerFlags::RevocableFlag);
         let token = TokenClient::new(&env, &sa.address());
         let sac = StellarAssetClient::new(&env, &sa.address());
         sac.mint(&brand, &(1_000_000 * USDC));
@@ -241,12 +243,22 @@ impl T {
     /// Contract token balance == Σ campaign.balance + open bonds.
     pub fn check_invariant(&self) {
         let mut expect: i128 = 0;
+        // dispute payouts credited but not yet withdrawn (pull payments)
+        let mut owed_seen: std::vec::Vec<Address> = std::vec::Vec::new();
         for id in 1..=self.c.campaign_count() {
             let camp = self.campaign(id);
             expect += camp.balance;
             for d in self.c.list_disputes(&id).iter() {
                 if matches!(d.status, DisputeStatus::Open | DisputeStatus::Responded) {
                     expect += camp.params.bond;
+                } else {
+                    let owner = self.c.get_clip(&d.clip_id).owner;
+                    for who in [camp.params.arbiter.clone(), d.challenger.clone(), owner] {
+                        if !owed_seen.contains(&who) {
+                            expect += self.c.owed(&who, &self.token.address);
+                            owed_seen.push(who);
+                        }
+                    }
                 }
             }
         }
@@ -255,6 +267,11 @@ impl T {
             expect,
             "balance invariant"
         );
+    }
+
+    /// Wallet balance plus dispute payouts credited to `who` but not yet withdrawn.
+    pub fn paid(&self, who: &Address) -> i128 {
+        self.token.balance(who) + self.c.owed(who, &self.token.address)
     }
 
     pub fn cpu(&self) -> u64 {

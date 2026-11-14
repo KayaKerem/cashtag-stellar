@@ -318,7 +318,7 @@ fn run_conservation(ec: &Econ, n_part: usize, plans: &[ClipPlan]) {
                 *bonds_to_owner.entry(plans[*i].owner).or_default() += p.bond - dispute_fee(p.bond);
             } else {
                 m[*i][e].excluded = true;
-                assert_eq!(t.token.balance(ch), p.bond - dispute_fee(p.bond), "bond back to challenger, minus fee");
+                assert_eq!(t.paid(ch), p.bond - dispute_fee(p.bond), "bond back to challenger, minus fee");
             }
         }
         t.check_invariant();
@@ -513,11 +513,24 @@ fn run_conservation(ec: &Econ, n_part: usize, plans: &[ClipPlan]) {
     assert_eq!(refunded, p.budget - paid);
     assert_eq!(paid + refunded, p.budget, "conservation");
     assert_eq!(t.campaign(id).balance, 0);
+    // dispute payouts are pull payments: every recipient withdraws what it is owed
+    for d in t.c.list_disputes(&id).iter() {
+        let owner = t.c.get_clip(&d.clip_id).owner;
+        for who in [p.arbiter.clone(), d.challenger.clone(), owner] {
+            let owed = t.c.owed(&who, &t.token.address);
+            if owed > 0 {
+                let before = t.token.balance(&who);
+                assert_eq!(t.c.withdraw(&who, &t.token.address), owed);
+                assert_eq!(t.token.balance(&who), before + owed);
+                assert_eq!(flat(t.c.try_withdraw(&who, &t.token.address)), Err(Some(Error::NothingToClaim)));
+            }
+        }
+    }
     assert_eq!(t.token.balance(&t.c.address), 0, "contract drained");
     assert_eq!(t.token.balance(&t.brand), brand_before - p.budget + refunded);
     for (k, (who, _)) in parts.iter().enumerate() {
         let exp = paid_to.get(&k).copied().unwrap_or(0) + bonds_to_owner.get(&k).copied().unwrap_or(0);
-        assert_eq!(t.token.balance(who), exp, "participant {k} balance");
+        assert_eq!(t.paid(who), exp, "participant {k} balance");
     }
     // nothing more can leave
     assert_eq!(flat(t.c.try_refund(&id)), Err(Some(Error::AlreadyRefunded)));

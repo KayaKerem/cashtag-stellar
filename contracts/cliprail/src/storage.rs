@@ -43,6 +43,8 @@ pub enum DataKey {
     Code(u64, String),
     /// Verification config snapshot of a campaign (`CampaignConfig`).
     CampaignConfig(u64),
+    /// Dispute payouts owed to (recipient, token), withdrawn with `withdraw` (pull payment).
+    Owed(Address, Address),
 }
 
 pub fn bump_instance(env: &Env) {
@@ -174,6 +176,17 @@ pub fn push_id(env: &Env, key: &DataKey, v: u64) {
     let mut l = id_list(env, key);
     l.push_back(v);
     put(env, key, &l);
+}
+
+pub fn owed(env: &Env, who: &Address, token: &Address) -> i128 {
+    get_live(env, &DataKey::Owed(who.clone(), token.clone())).unwrap_or(0)
+}
+
+pub fn credit(env: &Env, who: &Address, token: &Address, amount: i128) {
+    if amount > 0 {
+        let v = owed(env, who, token) + amount;
+        put(env, &DataKey::Owed(who.clone(), token.clone()), &v);
+    }
 }
 
 pub fn dispute(env: &Env, id: u64) -> Result<Dispute, Error> {

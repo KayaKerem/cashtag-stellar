@@ -712,7 +712,16 @@ impl Cliprail {
         dispute::finalize(&env, dispute_id)
     }
 
+    /// Withdraw dispute bond payouts and arbiter fees credited to `who` in `token`.
+    pub fn withdraw(env: Env, who: Address, token: Address) -> Result<i128, Error> {
+        dispute::withdraw(&env, who, token)
+    }
+
     // ------------------------------------------------------------------ reads
+
+    pub fn owed(env: Env, who: Address, token: Address) -> i128 {
+        storage::get(&env, &DataKey::Owed(who, token)).unwrap_or(0)
+    }
 
     pub fn get_campaign(env: Env, id: u64) -> Campaign {
         storage::campaign_or_panic(&env, id)
