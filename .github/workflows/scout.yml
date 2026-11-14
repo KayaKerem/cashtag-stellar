@@ -1,9 +1,8 @@
 name: scout-audit
+# Manual only for now: Scout's pinned dylint_driver (4.1.2) currently fails to build upstream
+# (`revparse_ext failed for master`), locally and in this action alike. Re-enable on push once fixed.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ["contracts/**", ".github/workflows/scout.yml"]
 
 jobs:
   scout:
