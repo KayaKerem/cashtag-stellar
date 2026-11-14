@@ -6,6 +6,8 @@
 #   RECLAIM_APP_ID      izinli owner (zkFetch APP_ID, "0x…"); virgülle birden fazla verilebilir
 #   DEMO_PUBLIC_BASE    demo platformunun public HTTPS tabanı (ör. https://verifier.example.com)
 #   RECLAIM_ATTESTORS   virgülle ayrılmış attestor adresleri (varsayılan Reclaim attestor'u)
+#   ARBITERS            virgülle ayrılmış küratörlü hakem adresleri (varsayılan: arbiter hesabı)
+#   MIN_RESPONSE_WINDOW itiraza cevap için asgari süre, saniye (testnet provası 10; mainnet için ≥ 86400)
 #   SKIP_BUILD=1        stellar contract build atla
 #   Varsayılan: scripts/.accounts/deploy.env'de ID'ler varsa deploy ATLANIR, sadece config çağrıları tekrarlanır
 #               (ör. DEMO_PUBLIC_BASE değişince set_platform demo'yu güncellemek için).
@@ -98,8 +100,9 @@ for o in "${_ids[@]}"; do o=$(echo "$o" | tr -d ' ' | tr 'A-F' 'a-f'); [ -n "$o"
 invoke "$CLIPRAIL_ID" set_owners --owners "$(hex_json_array "${OWNERS[@]}")"
 
 # set_platform(platform, url_prefix, url_suffix, required)
-# required = canonical parameters içinde aynen geçmesi gereken alt diziler.
-# Kaynak fixtures/required-substrings.json (kesin; docs/reclaim-notes.md §2.2); ilk gerçek zkFetch kanıtıyla teyit edilecek.
+# required = canonical parameters'taki responseMatches dizisinin girdileri, aynı sırayla ve eksiksiz
+# (reclaim-verify tüm diziyi birebir eşler; fixtures/reclaim/*-live-proof.json ile doğrulandı).
+# Not: config kampanya oluşturulurken kampanyaya dondurulur; buradaki değişiklikler sadece yeni kampanyaları etkiler.
 REQ_FILE="$ROOT/fixtures/required-substrings.json"
 [ -f "$REQ_FILE" ] || die "$REQ_FILE yok"
 required_hex() { python3 -c 'import json,sys; print(json.dumps([s.encode().hex() for s in json.load(open(sys.argv[1]))[sys.argv[2]]["required"]]))' "$REQ_FILE" "$1"; }
@@ -113,6 +116,12 @@ for p in youtube demo; do
   invoke "$CLIPRAIL_ID" set_platform --platform "$p" --url_prefix "$(hex "$prefix")" --url_suffix "$( [ -n "$suffix" ] && hex "$suffix" || echo '""' )" \
     --required "$(required_hex "$p")"
 done
+
+# küratörlü hakem listesi ve asgari cevap süresi (TM-6) — sadece yeni kampanyalarda kontrol edilir
+: "${ARBITERS:=$(stellar keys address arbiter)}"
+ARBITERS_JSON=$(python3 -c 'import json,sys; print(json.dumps([a.strip() for a in sys.argv[1].split(",") if a.strip()]))' "$ARBITERS")
+invoke "$CLIPRAIL_ID" set_arbiters --arbiters "$ARBITERS_JSON"
+invoke "$CLIPRAIL_ID" set_min_response_window --seconds "${MIN_RESPONSE_WINDOW:-10}"
 
 log "Tamam. scripts/.accounts/deploy.env:"
 cat "$OUT_DIR/deploy.env"

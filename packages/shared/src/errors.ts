@@ -42,6 +42,9 @@ export const CLIPRAIL_ERRORS: Record<number, { name: string; message: string }> 
   36: { name: "RouterNotSet", message: "Funding with a swap is not configured on this contract." },
   37: { name: "BadPath", message: "The swap path is invalid (it must start with the asset you pay and end with the campaign token)." },
   38: { name: "SwapFailed", message: "Swap failed (slippage limit, deadline or liquidity). Get a new quote and try again." },
+  39: { name: "CodeTaken", message: "Your participant code collides with another participant's. Join with a different wallet." },
+  40: { name: "ArbiterNotAllowed", message: "This arbiter is not on the approved arbiter list." },
+  41: { name: "NoPendingAdmin", message: "There is no pending admin transfer to accept." },
 };
 
 export const HUMANITY_ERRORS: Record<number, { name: string; message: string }> = {
@@ -54,6 +57,7 @@ export const HUMANITY_ERRORS: Record<number, { name: string; message: string }> 
   6: { name: "StaleProof", message: "The identity proof is too old, generate a new one." },
   7: { name: "InputNotInField", message: "The proof inputs are invalid (outside the field range)." },
   8: { name: "NotAnAccount", message: "Only account (G...) wallets can be verified." },
+  9: { name: "NoPendingAdmin", message: "There is no pending admin transfer to accept." },
 };
 
 /**

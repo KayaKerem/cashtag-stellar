@@ -23,6 +23,10 @@
 //! - `create_campaign_with_swap` funds a campaign with any asset: the brand's `token_in` is swapped
 //!   through the Soroswap router (`swap_tokens_for_exact_tokens`, `to = brand`) into exactly
 //!   `budget` of the campaign token, which is then escrowed as in `create_campaign`, atomically.
+//! - Attestors, owners and platform configs are frozen into each campaign at creation
+//!   (`get_campaign_config`); admin setters only affect campaigns created afterwards.
+//! - The arbiter must be on the admin-curated list (`set_arbiters`), and every dispute pays
+//!   `DISPUTE_FEE_BPS` of the bond to the arbiter whatever the outcome, so challenges are never free.
 
 use soroban_sdk::{
     contract, contractclient, contractimpl, panic_with_error, token, xdr::ToXdr, Address, Bytes,
@@ -150,6 +154,7 @@ fn clip_pay(env: &Env, c: &Campaign, clip: &Clip, e: u32, ce: &ClipEpoch, rate: 
 
 /// Pulls `params.budget` from the brand and stores the new campaign (params already validated).
 fn escrow(env: &Env, brand: Address, params: CampaignParams) -> Result<u64, Error> {
+    let snap = proof::snapshot(env, &params.platforms)?;
     token::Client::new(env, &params.token).transfer(
         &brand,
         env.current_contract_address(),
@@ -167,6 +172,7 @@ fn escrow(env: &Env, brand: Address, params: CampaignParams) -> Result<u64, Erro
         params,
     };
     storage::set_campaign(env, &c);
+    storage::put(env, &DataKey::CampaignConfig(id), &snap);
     events::CampaignCreated {
         id,
         brand,
@@ -187,6 +193,53 @@ impl Cliprail {
         storage::inst_set(&env, &DataKey::Admin, &admin);
         storage::inst_set(&env, &DataKey::Humanity, &humanity);
         storage::bump_instance(&env);
+    }
+
+    /// Step 1 of an admin transfer; the new admin must call `accept_admin` (no typo lock-out).
+    pub fn propose_admin(env: Env, new_admin: Address) -> Result<(), Error> {
+        storage::admin(&env)?.require_auth();
+        storage::inst_set(&env, &DataKey::PendingAdmin, &new_admin);
+        storage::bump_instance(&env);
+        Ok(())
+    }
+
+    pub fn accept_admin(env: Env) -> Result<(), Error> {
+        let new_admin: Address =
+            storage::inst_get(&env, &DataKey::PendingAdmin).ok_or(Error::NoPendingAdmin)?;
+        new_admin.require_auth();
+        storage::inst_set(&env, &DataKey::Admin, &new_admin);
+        env.storage().instance().remove(&DataKey::PendingAdmin);
+        storage::bump_instance(&env);
+        events::AdminChanged { admin: new_admin }.publish(&env);
+        Ok(())
+    }
+
+    pub fn admin(env: Env) -> Result<Address, Error> {
+        storage::admin(&env)
+    }
+
+    /// Curated neutral arbiters a new campaign may name (TM-6). Existing campaigns keep theirs.
+    pub fn set_arbiters(env: Env, arbiters: Vec<Address>) -> Result<(), Error> {
+        storage::admin(&env)?.require_auth();
+        storage::inst_set(&env, &DataKey::Arbiters, &arbiters);
+        storage::bump_instance(&env);
+        Ok(())
+    }
+
+    pub fn arbiters(env: Env) -> Vec<Address> {
+        storage::inst_get(&env, &DataKey::Arbiters).unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Lower bound (seconds) on the clipper's response time, checked at campaign creation.
+    pub fn set_min_response_window(env: Env, seconds: u64) -> Result<(), Error> {
+        storage::admin(&env)?.require_auth();
+        storage::inst_set(&env, &DataKey::MinResponseWindow, &seconds);
+        storage::bump_instance(&env);
+        Ok(())
+    }
+
+    pub fn min_response_window(env: Env) -> u64 {
+        storage::inst_get(&env, &DataKey::MinResponseWindow).unwrap_or(0)
     }
 
     pub fn set_attestors(env: Env, attestors: Vec<BytesN<20>>) -> Result<(), Error> {
@@ -311,6 +364,10 @@ impl Cliprail {
         if now(&env) >= epoch::content_end(p, epoch::last(p)) {
             return Err(Error::WrongPhase);
         }
+        // the arbiter must not rule on its own clips
+        if participant == p.arbiter {
+            return Err(Error::InvalidParams);
+        }
         let key = DataKey::Participant(campaign_id, participant.clone());
         if storage::has(&env, &key) {
             return Err(Error::AlreadyJoined);
@@ -375,7 +432,7 @@ impl Cliprail {
         {
             return Err(Error::ProofExpired);
         }
-        let views = proof::verify_and_consume(&env, &proof, &platform, &vid, &part.code)?;
+        let views = proof::verify_and_consume(&env, campaign_id, &proof, &platform, &vid, &part.code)?;
 
         let clip_id = storage::next_id(&env, &DataKey::ClipCount);
         let clip = Clip {
@@ -459,7 +516,7 @@ impl Cliprail {
         }
         let part = storage::participant(&env, campaign_id, &clip.owner).ok_or(Error::NotJoined)?;
         let vid = clip.video_id.to_bytes();
-        let views = proof::verify_and_consume(&env, &proof, &clip.platform, &vid, &part.code)?;
+        let views = proof::verify_and_consume(&env, campaign_id, &proof, &clip.platform, &vid, &part.code)?;
 
         // never decrease within the window
         if views > ce.views {
@@ -659,6 +716,12 @@ impl Cliprail {
 
     pub fn get_campaign(env: Env, id: u64) -> Campaign {
         storage::campaign_or_panic(&env, id)
+    }
+
+    /// Attestors, owners and platform configs frozen into the campaign at creation.
+    pub fn get_campaign_config(env: Env, id: u64) -> CampaignConfig {
+        storage::get(&env, &DataKey::CampaignConfig(id))
+            .unwrap_or_else(|| panic_with_error!(&env, Error::CampaignNotFound))
     }
 
     pub fn get_epoch(env: Env, id: u64, e: u32) -> EpochState {

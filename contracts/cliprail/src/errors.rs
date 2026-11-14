@@ -47,4 +47,8 @@ pub enum Error {
     SwapFailed = 38,
     /// `join`: the derived participant code is already used by another participant of the campaign.
     CodeTaken = 39,
+    /// `create_campaign`: `params.arbiter` is not on the admin-curated arbiter list.
+    ArbiterNotAllowed = 40,
+    /// `accept_admin` without a pending `propose_admin`.
+    NoPendingAdmin = 41,
 }

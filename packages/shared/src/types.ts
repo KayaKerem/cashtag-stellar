@@ -46,7 +46,7 @@ export type CampaignView = Campaign;
 
 export interface Participant {
   address: string;
-  /** "CR-XXXXXX" */
+  /** "CR-" + 10 base36 chars, e.g. "CR-0K7F3Q9ZXB" (unique per campaign) */
   code: string;
   joined_at: bigint;
 }

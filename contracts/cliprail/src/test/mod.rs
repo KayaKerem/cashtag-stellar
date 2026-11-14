@@ -4,3 +4,4 @@ mod flows;
 mod props;
 mod setup;
 mod swap;
+mod governance;

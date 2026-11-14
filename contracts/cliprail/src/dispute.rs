@@ -2,6 +2,9 @@
 //! - challenger wins (unanswered by `dispute_end`, or arbiter) → bond refunded, clip-epoch excluded
 //! - clipper wins (arbiter, or responded and arbiter silent until `settle_at`) → bond to clipper
 //!
+//! - every dispute, whatever the outcome, pays `DISPUTE_FEE_BPS` of the bond (rounded up) to the
+//!   arbiter, so challenges are never free and the fee does not depend on the ruling (TM-6)
+//!
 //! Bonds never touch `campaign.balance`.
 
 use soroban_sdk::{token, Address, Env, String};
@@ -13,6 +16,14 @@ use crate::storage::{self, DataKey};
 use crate::types::*;
 
 pub const MAX_EVIDENCE: u32 = 200;
+/// Share of the challenger's bond paid to the arbiter on every closed dispute.
+pub const DISPUTE_FEE_BPS: i128 = 1_000;
+
+/// Arbiter fee for `bond` (rounded up, so any positive bond pays at least 1 unit).
+/// Overflow-free for any non-negative bond.
+pub fn dispute_fee(bond: i128) -> i128 {
+    bond / 10_000 * DISPUTE_FEE_BPS + (bond % 10_000 * DISPUTE_FEE_BPS + 9_999) / 10_000
+}
 
 pub fn challenge(
     env: &Env,
@@ -25,6 +36,10 @@ pub fn challenge(
     challenger.require_auth();
     let c = storage::campaign(env, campaign_id)?;
     let p = &c.params;
+    // the arbiter must not rule on its own challenge
+    if challenger == p.arbiter {
+        return Err(Error::InvalidParams);
+    }
     storage::clip_of(env, campaign_id, clip_id)?;
     if e >= p.epochs {
         return Err(Error::EpochOutOfRange);
@@ -156,7 +171,12 @@ fn close(env: &Env, c: &Campaign, mut d: Dispute, clipper_wins: bool) {
         d.challenger.clone()
     };
     if p.bond > 0 {
-        token::Client::new(env, &p.token).transfer(&env.current_contract_address(), &to, &p.bond);
+        let tk = token::Client::new(env, &p.token);
+        let fee = dispute_fee(p.bond);
+        tk.transfer(&env.current_contract_address(), &p.arbiter, &fee);
+        if p.bond > fee {
+            tk.transfer(&env.current_contract_address(), &to, &(p.bond - fee));
+        }
     }
     storage::set_clip_epoch(env, d.clip_id, d.epoch, &ce);
     let mut st = storage::epoch(env, c.id, d.epoch);

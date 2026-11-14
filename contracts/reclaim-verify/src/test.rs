@@ -344,7 +344,7 @@ fn params_with(extra_before_rm: &str, tail_url: &str) -> String {
 }
 
 #[test]
-fn nested_url_in_headers_or_param_values_is_ignored() {
+fn nested_url_in_headers_or_param_values_is_rejected() {
     let t = Ctx::new();
     for extra in [
         format!(r#""headers":{{"url":"{REF_URL}"}},"#),
@@ -352,11 +352,79 @@ fn nested_url_in_headers_or_param_values_is_ignored() {
         format!(r#""headers":{{"x":["url",{{"url":"{REF_URL}"}}]}},"#),
     ] {
         let p = params_with(&extra, EVIL_URL);
-        assert_eq!(t.run(&t.proof(&p, REF_CONTEXT)), Err(VerifyError::UrlMismatch), "{p}");
+        assert!(t.run(&t.proof(&p, REF_CONTEXT)).is_err(), "{p}");
     }
-    // Sanity: same shape with the real top-level url passes.
-    let ok = params_with(r#""headers":{"url":"https://evil.example"},"#, &format!(r#""url":"{REF_URL}"}}"#));
-    assert!(t.run(&t.proof(&ok, REF_CONTEXT)).is_ok());
+    // Keys zkFetch never emits are rejected even with the real top-level url (TM-8).
+    let extra = params_with(r#""headers":{"url":"https://evil.example"},"#, &format!(r#""url":"{REF_URL}"}}"#));
+    assert_eq!(t.run(&t.proof(&extra, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+}
+
+// ------------------------------------------------------------------ pinned request shape (TM-8)
+
+#[test]
+fn extra_or_reordered_response_matches_are_rejected() {
+    let t = Ctx::new();
+    // A third match appended (e.g. a second views capture).
+    let extra = REF_PARAMETERS.replace(&format!("{REQ_DESC}]"), &format!("{REQ_DESC},{REQ_VIEWS}]"));
+    assert_ne!(extra, REF_PARAMETERS);
+    assert_eq!(t.run(&t.proof(&extra, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    // Same entries, swapped order.
+    let swapped = REF_PARAMETERS.replace(&format!("[{REQ_VIEWS},{REQ_DESC}]"), &format!("[{REQ_DESC},{REQ_VIEWS}]"));
+    assert_ne!(swapped, REF_PARAMETERS);
+    assert_eq!(t.run(&t.proof(&swapped, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    // One entry missing.
+    let missing = REF_PARAMETERS.replace(&format!("[{REQ_VIEWS},{REQ_DESC}]"), &format!("[{REQ_VIEWS}]"));
+    assert_eq!(t.run(&t.proof(&missing, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    // A match with an extra member.
+    let member = REF_PARAMETERS.replacen(r#"{"type":"regex","#, r#"{"invert":true,"type":"regex","#, 1);
+    assert_eq!(t.run(&t.proof(&member, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+}
+
+#[test]
+fn method_and_body_are_pinned() {
+    let t = Ctx::new();
+    let post = REF_PARAMETERS.replace(r#""method":"GET""#, r#""method":"POST""#);
+    assert_eq!(t.run(&t.proof(&post, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    let body = REF_PARAMETERS.replace(r#""body":"""#, r#""body":"x=1""#);
+    assert_eq!(t.run(&t.proof(&body, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    let no_method = REF_PARAMETERS.replace(r#""method":"GET","#, "");
+    assert_eq!(t.run(&t.proof(&no_method, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    // body may be absent
+    let no_body = REF_PARAMETERS.replace(r#""body":"","#, "");
+    assert!(t.run(&t.proof(&no_body, REF_CONTEXT)).is_ok());
+}
+
+/// zkFetch's real output: one redaction `{"regex":X}` per match (see fixtures/reclaim/*-live-proof.json).
+fn derived_redactions() -> String {
+    let r = |m: &str| format!(r#"{{"regex":{}}}"#, &m[r#"{"type":"regex","value":"#.len()..m.len() - 1]);
+    format!("[{},{}]", r(REQ_VIEWS), r(REQ_DESC))
+}
+
+#[test]
+fn redactions_empty_or_derived_from_matches() {
+    let t = Ctx::new();
+    let derived = REF_PARAMETERS.replace(r#""responseRedactions":[]"#, &format!(r#""responseRedactions":{}"#, derived_redactions()));
+    assert_ne!(derived, REF_PARAMETERS);
+    assert!(t.run(&t.proof(&derived, REF_CONTEXT)).is_ok());
+    // A redaction that hides something else, or one too many, is rejected.
+    let other = derived.replacen(r#"viewCount"#, "likeCount", 1);
+    assert_eq!(t.run(&t.proof(&other, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    let more = REF_PARAMETERS.replace(r#""responseRedactions":[]"#, &format!(r#""responseRedactions":{},{{"regex":"x"}}]"#, &derived_redactions()[..derived_redactions().len() - 1]));
+    assert_eq!(t.run(&t.proof(&more, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+    let xpath = REF_PARAMETERS.replace(r#""responseRedactions":[]"#, r#""responseRedactions":[{"xPath":"//a"}]"#);
+    assert_eq!(t.run(&t.proof(&xpath, REF_CONTEXT)), Err(VerifyError::MatchMismatch));
+}
+
+#[test]
+fn live_zkfetch_parameters_shape_is_accepted() {
+    // The exact `parameters` of the real demo proof (fixtures/reclaim/demo-live-proof.json),
+    // re-signed with the reference attestor key; only the URL host is ours.
+    let t = Ctx::new();
+    let url = "https://brown-trackback-browse-advisors.trycloudflare.com/demo/videos/live-mu8xfk7u";
+    let params = format!(r#"{{"body":"","method":"GET","responseMatches":[{REQ_VIEWS},{REQ_DESC}],"responseRedactions":{},"url":"{url}"}}"#, derived_redactions());
+    let mut t2 = t;
+    t2.url = b(&t2.env, url);
+    assert!(t2.run(&t2.proof(&params, REF_CONTEXT)).is_ok());
 }
 
 #[test]

@@ -20,6 +20,12 @@ pub enum DataKey {
     ClipCount,
     DisputeCount,
     Router,
+    /// Two-step admin transfer: proposed admin, until it calls `accept_admin`.
+    PendingAdmin,
+    /// Curated neutral arbiters a campaign may name (TM-6).
+    Arbiters,
+    /// Minimum time a clipper has to answer a challenge, i.e. lower bound of `dispute_window / 2`.
+    MinResponseWindow,
     // persistent
     Campaign(u64),
     Epoch(u64, u32),
@@ -35,6 +41,8 @@ pub enum DataKey {
     ActiveDispute(u64, u32),
     /// Participant code -> participant, per campaign (codes are unique within a campaign).
     Code(u64, String),
+    /// Verification config snapshot of a campaign (`CampaignConfig`).
+    CampaignConfig(u64),
 }
 
 pub fn bump_instance(env: &Env) {
@@ -98,8 +106,14 @@ pub fn next_id(env: &Env, key: &DataKey) -> u64 {
 
 // ---- typed accessors ----
 
+/// Also keeps the campaign's frozen `CampaignConfig` alive alongside it.
 pub fn campaign(env: &Env, id: u64) -> Result<Campaign, Error> {
-    get_live(env, &DataKey::Campaign(id)).ok_or(Error::CampaignNotFound)
+    let c = get_live(env, &DataKey::Campaign(id)).ok_or(Error::CampaignNotFound)?;
+    let cfg = DataKey::CampaignConfig(id);
+    if has(env, &cfg) {
+        env.storage().persistent().extend_ttl(&cfg, TTL_THRESHOLD, TTL_EXTEND);
+    }
+    Ok(c)
 }
 
 /// Read-only variant (no TTL bump) for view functions.

@@ -86,6 +86,7 @@ pub fn validate_params(env: &Env, brand: &Address, p: &CampaignParams) -> Result
         && p.holdback_bps <= 10_000
         // a free challenge would let anyone exclude clips at no cost
         && p.bond > 0
+        && p.bond <= MAX_BUDGET
         && p.arbiter != *brand
         && !p.platforms.is_empty()
         && p.start >= env.ledger().timestamp()
@@ -102,6 +103,18 @@ pub fn validate_params(env: &Env, brand: &Address, p: &CampaignParams) -> Result
         if !env.storage().instance().has(&DataKey::Platform(pl)) {
             return Err(Error::PlatformNotAllowed);
         }
+    }
+    // the arbiter must come from the admin-curated neutral set, so a brand cannot name its own
+    // second wallet (TM-6)
+    let arbiters: soroban_sdk::Vec<Address> =
+        storage::inst_get(env, &DataKey::Arbiters).unwrap_or_else(|| soroban_sdk::Vec::new(env));
+    if !arbiters.contains(&p.arbiter) {
+        return Err(Error::ArbiterNotAllowed);
+    }
+    // a challenged clipper always gets at least this long to respond
+    let min_resp: u64 = storage::inst_get(env, &DataKey::MinResponseWindow).unwrap_or(0);
+    if p.dispute_window / 2 < min_resp || p.dispute_window - p.dispute_window / 2 < min_resp {
+        return Err(Error::InvalidParams);
     }
     Ok(())
 }

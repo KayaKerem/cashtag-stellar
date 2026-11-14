@@ -20,7 +20,7 @@ describe("mock api", () => {
     expect(ds[0].status).toBe("Open");
     expect((await api.getEpoch(1n, 0)).open_disputes).toBe(1);
     expect((await api.getEpoch(2n, 0)).settled).toBe(true);
-    expect(await api.getParticipant(1n, A.clipper2)).toMatchObject({ code: expect.stringMatching(/^CR-[A-Z0-9]{6}$/) });
+    expect(await api.getParticipant(1n, A.clipper2)).toMatchObject({ code: expect.stringMatching(/^CR-[A-Z0-9]{10}$/) });
     expect(await api.getParticipant(1n, A.brand)).toBeNull();
   });
 

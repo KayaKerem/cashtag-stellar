@@ -172,7 +172,7 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
     if (!canJoin(c.params, t)) throw err(8);
     if (c.params.require_humanity && !humans.has(`${cid}:${addr}`)) throw err(7);
     if (participants.has(`${cid}:${addr}`)) throw err(6);
-    const code = "CR-" + Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[rand(0, 31)]).join("");
+    const code = "CR-" + Array.from({ length: 10 }, () => "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[rand(0, 35)]).join("");
     participants.set(`${cid}:${addr}`, { address: addr, code, joined_at: t });
     c.participants++;
     return code;

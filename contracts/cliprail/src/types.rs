@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Bytes, String, Symbol, Vec};
+use soroban_sdk::{contracttype, Address, Bytes, BytesN, Map, String, Symbol, Vec};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -139,4 +139,14 @@ pub struct PlatformConfig {
     pub url_prefix: Bytes,
     pub url_suffix: Bytes,
     pub required: Vec<Bytes>,
+}
+
+/// Verification config frozen into a campaign at creation (TM-1): later admin changes to
+/// attestors, owners or platforms only affect campaigns created afterwards.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignConfig {
+    pub attestors: Vec<BytesN<20>>,
+    pub owners: Vec<Bytes>,
+    pub platforms: Map<Symbol, PlatformConfig>,
 }

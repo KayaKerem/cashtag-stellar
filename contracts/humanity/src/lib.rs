@@ -37,6 +37,8 @@ pub enum Error {
     InputNotInField = 7,
     /// `wallet` is a contract address; the signal binds an ed25519 account key.
     NotAnAccount = 8,
+    /// `accept_admin` without a pending `propose_admin`.
+    NoPendingAdmin = 9,
 }
 
 /// Allowed clock skew for proof timestamps ahead of the ledger (seconds).
@@ -65,6 +67,8 @@ enum DataKey {
     /// (campaign_id, wallet) -> nullifier
     Wallet(u64, Address),
     AadhaarConfig,
+    /// Two-step admin transfer: proposed admin until it calls `accept_admin`.
+    PendingAdmin,
 }
 
 #[contractevent(topics = ["human"], data_format = "vec")]
@@ -167,6 +171,30 @@ impl Humanity {
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Relayer, &relayer);
         bump_instance(&env);
+    }
+
+    /// Step 1 of an admin transfer; the new admin must call `accept_admin`.
+    pub fn propose_admin(env: Env, new_admin: Address) {
+        admin(&env).require_auth();
+        env.storage().instance().set(&DataKey::PendingAdmin, &new_admin);
+        bump_instance(&env);
+    }
+
+    pub fn accept_admin(env: Env) -> Result<(), Error> {
+        let new_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingAdmin)
+            .ok_or(Error::NoPendingAdmin)?;
+        new_admin.require_auth();
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+        env.storage().instance().remove(&DataKey::PendingAdmin);
+        bump_instance(&env);
+        Ok(())
+    }
+
+    pub fn admin(env: Env) -> Address {
+        admin(&env)
     }
 
     pub fn set_relayer(env: Env, relayer: Address) {

@@ -136,3 +136,16 @@ fn revoke_requires_admin() {
         .try_revoke(&3, &w);
     assert!(res.is_err(), "{res:?}");
 }
+
+#[test]
+fn admin_transfer_is_two_step() {
+    let (env, c, admin, _relayer) = setup();
+    env.mock_all_auths();
+    assert_eq!(c.try_accept_admin(), Err(Ok(Error::NoPendingAdmin)));
+    let next = Address::generate(&env);
+    c.propose_admin(&next);
+    assert_eq!(c.admin(), admin);
+    c.accept_admin();
+    assert_eq!(env.auths()[0].0, next);
+    assert_eq!(c.admin(), next);
+}

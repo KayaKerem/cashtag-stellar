@@ -19,6 +19,10 @@ pub const YT_PREFIX: &str =
 pub const DEMO_PREFIX: &str = "https://demo.cliprail.example/demo/videos/";
 /// responseMatches regexes as they appear inside the canonical parameters JSON (escaped).
 pub const RE_VIEWS: &str = r#"\"viewCount\":\"(?<views>\\d+)\""#;
+/// A `responseMatches` entry exactly as in canonical parameters (what `required` holds).
+pub fn match_entry(re: &str) -> StdString {
+    format!(r#"{{"type":"regex","value":"{re}"}}"#)
+}
 pub const RE_DESC: &str = r#"\"description\":\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""#;
 
 pub struct T {
@@ -57,8 +61,8 @@ impl T {
         c.set_owners(&vec![&env, Bytes::from_slice(&env, OWNER.as_bytes())]);
         let req = vec![
             &env,
-            Bytes::from_slice(&env, RE_VIEWS.as_bytes()),
-            Bytes::from_slice(&env, RE_DESC.as_bytes()),
+            Bytes::from_slice(&env, match_entry(RE_VIEWS).as_bytes()),
+            Bytes::from_slice(&env, match_entry(RE_DESC).as_bytes()),
         ];
         c.set_platform(
             &Symbol::new(&env, "youtube"),
@@ -66,6 +70,7 @@ impl T {
             &Bytes::new(&env),
             &req,
         );
+        c.set_arbiters(&vec![&env, arbiter.clone()]);
         c.set_platform(
             &Symbol::new(&env, "demo"),
             &Bytes::from_slice(&env, DEMO_PREFIX.as_bytes()),

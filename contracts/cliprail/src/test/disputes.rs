@@ -5,6 +5,9 @@ use crate::{ClipEpochStatus, DisputeStatus, Error};
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::Address;
 
+/// Arbiter fee on the 5 USDC test bond (`DISPUTE_FEE_BPS` = 10%).
+const FEE: i128 = 5 * USDC / 10;
+
 /// One-epoch campaign, small budget (pro rata, rate < r_max), two clippers with growth 30k / 10k.
 struct D {
     t: T,
@@ -89,8 +92,9 @@ fn assert_clipper_kept(d: &D) {
     let e0 = t.c.get_epoch(&d.id, &0);
     assert_eq!(e0.rate, 20 * USDC * 1000 / 40_000);
     assert_eq!(t.c.claim(&d.id, &d.bot, &0), 15 * USDC);
-    // bot owner also received the challenger's bond
-    assert_eq!(t.token.balance(&d.bot_owner), 20 * USDC);
+    // bot owner also received the challenger's bond, minus the arbiter fee
+    assert_eq!(t.token.balance(&d.bot_owner), 20 * USDC - FEE);
+    assert_eq!(t.token.balance(&t.arbiter), FEE);
     t.check_invariant();
 }
 
@@ -107,7 +111,8 @@ fn unanswered_challenge_excludes_after_dispute_end() {
         t.c.list_disputes(&d.id).get(0).unwrap().status,
         DisputeStatus::ChallengerWon
     );
-    assert_eq!(t.token.balance(&d.ch), 5 * USDC); // bond refunded
+    assert_eq!(t.token.balance(&d.ch), 5 * USDC - FEE); // bond refunded minus the arbiter fee
+    assert_eq!(t.token.balance(&t.arbiter), FEE);
     assert_eq!(t.c.try_finalize_dispute(&dis), Err(Ok(Error::WrongPhase)));
     assert_excluded(&d);
 }
@@ -132,7 +137,7 @@ fn responded_arbiter_rules_for_clipper() {
         DisputeStatus::ClipperWon
     );
     assert_eq!(t.token.balance(&d.ch), 0);
-    assert_eq!(t.token.balance(&d.bot_owner), 5 * USDC);
+    assert_eq!(t.token.balance(&d.bot_owner), 5 * USDC - FEE);
     assert_clipper_kept(&d);
 }
 
@@ -144,7 +149,8 @@ fn responded_arbiter_rules_for_challenger() {
     t.c.respond(&dis);
     t.set_time(t.dispute_end(d.id, 0) + 10);
     t.c.resolve(&dis, &false);
-    assert_eq!(t.token.balance(&d.ch), 5 * USDC);
+    assert_eq!(t.token.balance(&d.ch), 5 * USDC - FEE);
+    assert_eq!(t.token.balance(&t.arbiter), FEE);
     assert_eq!(t.c.try_resolve(&dis, &true), Err(Ok(Error::WrongPhase)));
     assert_excluded(&d);
 }
@@ -160,7 +166,7 @@ fn arbiter_timeout_clipper_wins() {
     t.set_time(t.settle_at(d.id, 0));
     assert_eq!(t.c.try_resolve(&dis, &false), Err(Ok(Error::WrongPhase))); // arbiter too late
     t.c.finalize_dispute(&dis);
-    assert_eq!(t.token.balance(&d.bot_owner), 5 * USDC);
+    assert_eq!(t.token.balance(&d.bot_owner), 5 * USDC - FEE);
     assert_clipper_kept(&d);
 }
 

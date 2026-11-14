@@ -2,11 +2,11 @@
 //! replay protection.
 
 use reclaim_verify::{ReclaimProof, VerifyError};
-use soroban_sdk::{Bytes, BytesN, Env, String, Symbol, Vec};
+use soroban_sdk::{Bytes, Env, String, Symbol, Vec};
 
 use crate::errors::Error;
 use crate::storage::{self, DataKey};
-use crate::types::PlatformConfig;
+use crate::types::{CampaignConfig, PlatformConfig};
 
 pub const MAX_VIDEO_ID: u32 = 64;
 /// Opening proofs may be at most this old …
@@ -64,27 +64,48 @@ pub fn platform(env: &Env, platform: &Symbol) -> Result<PlatformConfig, Error> {
     storage::inst_get(env, &DataKey::Platform(platform.clone())).ok_or(Error::PlatformNotAllowed)
 }
 
+/// Snapshot of the current admin config for the campaign's platforms (taken at creation).
+pub fn snapshot(env: &Env, platforms: &Vec<Symbol>) -> Result<CampaignConfig, Error> {
+    let mut m = soroban_sdk::Map::new(env);
+    for pl in platforms.iter() {
+        m.set(pl.clone(), platform(env, &pl)?);
+    }
+    let cfg = CampaignConfig {
+        attestors: storage::inst_get(env, &DataKey::Attestors).unwrap_or_else(|| Vec::new(env)),
+        owners: storage::inst_get(env, &DataKey::Owners).unwrap_or_else(|| Vec::new(env)),
+        platforms: m,
+    };
+    // a frozen empty set would make the campaign unprovable for good
+    if cfg.attestors.is_empty() || cfg.owners.is_empty() {
+        return Err(Error::NotInitialized);
+    }
+    Ok(cfg)
+}
+
+pub fn campaign_config(env: &Env, campaign_id: u64) -> Result<CampaignConfig, Error> {
+    storage::get_live(env, &DataKey::CampaignConfig(campaign_id)).ok_or(Error::CampaignNotFound)
+}
+
 /// Full verification + replay protection. Returns the proven view count.
 pub fn verify_and_consume(
     env: &Env,
+    campaign_id: u64,
     proof: &ReclaimProof,
     platform_sym: &Symbol,
     video_id: &Bytes,
     code: &String,
 ) -> Result<u64, Error> {
-    let cfg = platform(env, platform_sym)?;
+    // the campaign's frozen config, never the live admin config (TM-1)
+    let snap = campaign_config(env, campaign_id)?;
+    let cfg = snap.platforms.get(platform_sym.clone()).ok_or(Error::PlatformNotAllowed)?;
     let mut url = cfg.url_prefix.clone();
     url.append(video_id);
     url.append(&cfg.url_suffix);
-    let attestors: Vec<BytesN<20>> =
-        storage::inst_get(env, &DataKey::Attestors).unwrap_or_else(|| Vec::new(env));
-    let owners: Vec<Bytes> =
-        storage::inst_get(env, &DataKey::Owners).unwrap_or_else(|| Vec::new(env));
     let checked = reclaim_verify::verify(
         env,
         proof,
-        &attestors,
-        &owners,
+        &snap.attestors,
+        &snap.owners,
         &url,
         &cfg.required,
         &code.to_bytes(),

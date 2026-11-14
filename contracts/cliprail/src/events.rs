@@ -112,3 +112,8 @@ pub struct SwapFunded {
     pub token_in: Address,
     pub amount_in: i128,
 }
+
+#[contractevent(topics = ["admin"], data_format = "vec")]
+pub struct AdminChanged {
+    pub admin: Address,
+}

@@ -16,6 +16,7 @@ use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{Address, Bytes, BytesN, Env, IntoVal, InvokeError, Symbol};
 
 use super::setup::*;
+use crate::dispute::dispute_fee;
 use crate::epoch::{self, MAX_BUDGET, MAX_CAP_VIEWS, MAX_EPOCHS, MAX_RATE};
 use crate::{CampaignParams, ClipEpochStatus, Error, EpochState, ParticipantEpoch};
 
@@ -314,10 +315,10 @@ fn run_conservation(ec: &Econ, n_part: usize, plans: &[ClipPlan]) {
             }
             let clipper_wins = *kind == Disp::Arbiter(true);
             if clipper_wins {
-                *bonds_to_owner.entry(plans[*i].owner).or_default() += p.bond;
+                *bonds_to_owner.entry(plans[*i].owner).or_default() += p.bond - dispute_fee(p.bond);
             } else {
                 m[*i][e].excluded = true;
-                assert_eq!(t.token.balance(ch), p.bond, "bond back to challenger");
+                assert_eq!(t.token.balance(ch), p.bond - dispute_fee(p.bond), "bond back to challenger, minus fee");
             }
         }
         t.check_invariant();
@@ -343,7 +344,7 @@ fn run_conservation(ec: &Econ, n_part: usize, plans: &[ClipPlan]) {
         for (i, d, kind, _) in dis.iter() {
             if *kind == Disp::RespondedSilent {
                 t.c.finalize_dispute(d);
-                *bonds_to_owner.entry(plans[*i].owner).or_default() += p.bond;
+                *bonds_to_owner.entry(plans[*i].owner).or_default() += p.bond - dispute_fee(p.bond);
             }
         }
         t.c.settle_epoch(&id, &eu);

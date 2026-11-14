@@ -110,17 +110,43 @@ pub fn verify(
     }
 
     // 3. Request shape, looked up only among the root object's own keys (never nested ones
-    //    such as headers.url or paramValues.url). Duplicate keys fail closed.
+    //    such as headers.url). Duplicate keys fail closed. The whole request is pinned: only the
+    //    keys zkFetch emits are allowed, `method` is GET, `body` is empty, `responseMatches` is
+    //    exactly `required` (same entries, same order, nothing extra) and `responseRedactions` is
+    //    empty or exactly the redactions zkFetch derives from those matches.
     let mut sbuf = [0u8; MAX_SMALL + 8];
+    if !only_keys(params, &[b"body", b"method", b"responseMatches", b"responseRedactions", b"url"]) {
+        return Err(MatchMismatch);
+    }
     let url = field(params, b"url").map_err(|_| UrlMismatch)?.ok_or(UrlMismatch)?;
     if str_contents(url) != Some(copy(expected_url, &mut sbuf)?) {
         return Err(UrlMismatch);
     }
+    let method = field(params, b"method").map_err(|_| MatchMismatch)?;
+    if method != Some(&b"\"GET\""[..]) {
+        return Err(MatchMismatch);
+    }
+    match field(params, b"body").map_err(|_| MatchMismatch)? {
+        None => {}
+        Some(v) if v == b"\"\"" => {}
+        Some(_) => return Err(MatchMismatch),
+    }
     let matches = field(params, b"responseMatches").map_err(|_| MatchMismatch)?.ok_or(MatchMismatch)?;
-    for r in required.iter() {
-        if find(matches, copy(&r, &mut sbuf)?).is_none() {
-            return Err(MatchMismatch);
-        }
+    if required.is_empty() || !array_eq(matches, required.len(), |i, item| {
+        let r = required.get_unchecked(i);
+        copy(&r, &mut sbuf).map(|r| r == item).unwrap_or(false)
+    }) {
+        return Err(MatchMismatch);
+    }
+    match field(params, b"responseRedactions").map_err(|_| MatchMismatch)? {
+        None => {}
+        Some(v) if v == b"[]" => {}
+        Some(v)
+            if array_eq(v, required.len(), |i, item| {
+                let r = required.get_unchecked(i);
+                copy(&r, &mut sbuf).map(|r| is_redaction_of(item, r)).unwrap_or(false)
+            }) => {}
+        Some(_) => return Err(MatchMismatch),
     }
 
     // 4. Extracted values from the root-level context.extractedParameters object.
@@ -289,6 +315,65 @@ fn field<'a>(obj: &'a [u8], key: &[u8]) -> Result<Option<&'a [u8]>, ()> {
             _ => return Err(()),
         }
     }
+}
+
+/// True when every root key of the object `obj` is in `allowed` (malformed objects fail).
+fn only_keys(obj: &[u8], allowed: &[&[u8]]) -> bool {
+    if obj.first() != Some(&b'{') {
+        return false;
+    }
+    if obj == b"{}" {
+        return true;
+    }
+    let mut i = 1;
+    loop {
+        let Some((k, j)) = json_str(obj, i) else { return false };
+        if !allowed.contains(&k) || obj.get(j) != Some(&b':') {
+            return false;
+        }
+        let Some(end) = skip_value(obj, j + 1) else { return false };
+        match obj.get(end) {
+            Some(b',') => i = end + 1,
+            Some(b'}') if end + 1 == obj.len() => return true,
+            _ => return false,
+        }
+    }
+}
+
+/// True when `arr` is a compact JSON array of exactly `n` items and `eq(i, item)` holds for each.
+fn array_eq(arr: &[u8], n: u32, mut eq: impl FnMut(u32, &[u8]) -> bool) -> bool {
+    if arr.first() != Some(&b'[') {
+        return false;
+    }
+    if arr == b"[]" {
+        return n == 0;
+    }
+    let (mut i, mut k) = (1usize, 0u32);
+    loop {
+        let Some(end) = skip_value(arr, i) else { return false };
+        if k >= n || !eq(k, &arr[i..end]) {
+            return false;
+        }
+        k += 1;
+        match arr.get(end) {
+            Some(b',') => i = end + 1,
+            Some(b']') if end + 1 == arr.len() => return k == n,
+            _ => return false,
+        }
+    }
+}
+
+/// zkFetch turns the match `{"type":"regex","value":X}` into the redaction `{"regex":X}`.
+fn is_redaction_of(item: &[u8], m: &[u8]) -> bool {
+    const M: &[u8] = b"{\"type\":\"regex\",\"value\":";
+    const R: &[u8] = b"{\"regex\":";
+    m.len() > M.len() + 1
+        && m.starts_with(M)
+        && m.ends_with(b"}")
+        && item.len() > R.len() + 1
+        && item.starts_with(R)
+        && item.ends_with(b"}")
+        && item[R.len()..item.len() - 1] == m[M.len()..m.len() - 1]
 }
 
 /// Contents of a JSON string value span (`"…"`), still escaped.
