@@ -1,0 +1,27 @@
+name: scout-audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["contracts/**", ".github/workflows/scout.yml"]
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        contract: [cliprail, humanity, reclaim-verify]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scout (${{ matrix.contract }})
+        uses: coinfabrik/scout-actions@v3
+        with:
+          target: contracts/${{ matrix.contract }}
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scout-${{ matrix.contract }}
+          path: ${{ github.workspace }}/report.md
+          if-no-files-found: warn
