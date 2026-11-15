@@ -34,8 +34,13 @@ export interface ChainApiOptions {
   cliprailId: string;
   humanityId: string;
   verifierUrl: string;
-  /** Verifier bearer token (public/demo only). */
+  /** Verifier bearer token. Server-side and scripts only: never ship it to a browser. */
   writeToken?: string;
+  /**
+   * Base URL for the token-protected verifier writes (`/humanity/*`, `/proof/submit`). Default `verifierUrl`.
+   * A browser app points this at its own server-side proxy, which adds the token (e.g. `/api/verifier`).
+   */
+  writeUrl?: string;
   /** Default `token` for createCampaign (testnet USDC SAC). */
   usdcSac?: string;
   signer: Signer;
@@ -173,8 +178,11 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
     return runWrite<T>(() => build(c, addr), { retries: 2, delayMs: opts.retryDelayMs ?? 1000, errorContext });
   };
 
+  // `/proof` is a public read; every other verifier POST is a token-protected write
   const verifier = <T>(path: string, body: unknown) =>
-    postJson<T>(opts.verifierUrl, path, body, { token: opts.writeToken, fetch: opts.fetch });
+    path === "/proof"
+      ? postJson<T>(opts.verifierUrl, path, body, { fetch: opts.fetch })
+      : postJson<T>(opts.writeUrl ?? opts.verifierUrl, path, body, { token: opts.writeToken, fetch: opts.fetch });
 
   const router = opts.soroswapRouter ?? SOROSWAP_TESTNET.router;
   const swapQuoter = opts.swapQuoter ?? rpcSwapQuoter(base);

@@ -43,7 +43,9 @@ export const api =
         humanityId: process.env.NEXT_PUBLIC_HUMANITY_ID!,
         usdcSac: process.env.NEXT_PUBLIC_USDC_SAC!,
         verifierUrl: process.env.NEXT_PUBLIC_VERIFIER_URL!,
-        writeToken: process.env.NEXT_PUBLIC_WRITE_TOKEN,
+        // token-protected writes go through your server-side proxy, which adds WRITE_TOKEN;
+        // never put the token in a NEXT_PUBLIC_ variable (see apps/web/src/app/api/verifier)
+        writeUrl: "/api/verifier",
         signer,
       });
 
@@ -90,9 +92,9 @@ if (w.needsUserPayment) await completeWithdrawPayment({ tx: w, asset, account, s
 | `NEXT_PUBLIC_HUMANITY_ID` | `CAUU4KCBSL3L5CCLU2S5GNZ354S4X3DP6Z5ZSWMSDDCNNNE3AJSCGKMQ` |
 | `NEXT_PUBLIC_USDC_SAC` | `CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E` |
 | `NEXT_PUBLIC_VERIFIER_URL` | local `http://localhost:8787`, later the Hetzner HTTPS address |
-| `NEXT_PUBLIC_WRITE_TOKEN` | the verifier's `WRITE_TOKEN` value |
+| `WRITE_TOKEN` | the verifier's `WRITE_TOKEN` value, **server-side only** |
 
-`NEXT_PUBLIC_WRITE_TOKEN` is embedded in the browser bundle, so anyone can read it. It is for the demo only and must not be treated as a real secret.
+`WRITE_TOKEN` is read only by the dashboard's server-side proxy (`apps/web/src/app/api/verifier`), which forwards the token-protected writes. Never expose it as a `NEXT_PUBLIC_` variable: those are embedded in the browser bundle.
 
 ## Commands
 

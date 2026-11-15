@@ -64,7 +64,7 @@ describe("register_zk args", () => {
   });
 });
 
-function setup(o: { sim?: unknown; simError?: string; fetchStatus?: number; fetchBody?: unknown } = {}) {
+function setup(o: { sim?: unknown; simError?: string; fetchStatus?: number; fetchBody?: unknown; writeUrl?: string; writeToken?: string } = {}) {
   const signer = { getAddress: vi.fn(async () => WALLET), signTransaction: vi.fn() };
   const fetch = vi.fn(async (_u: string, _i: RequestInit) => new Response(JSON.stringify(o.fetchBody ?? RESP), { status: o.fetchStatus ?? 200 }));
   const built: any[] = [];
@@ -80,7 +80,8 @@ function setup(o: { sim?: unknown; simError?: string; fetchStatus?: number; fetc
     cliprailId: CLIPRAIL,
     humanityId: HUMANITY,
     verifierUrl: "http://verifier/",
-    writeToken: "tok",
+    writeToken: "writeToken" in o ? o.writeToken : "tok",
+    writeUrl: o.writeUrl,
     signer,
     retryDelayMs: 0,
     fetch: fetch as unknown as typeof globalThis.fetch,
@@ -123,6 +124,16 @@ describe("chain registerHumanZk", () => {
     const { api, built } = setup({ fetchStatus: 503, fetchBody: { error: "no artifacts", code: "aadhaar_unavailable" } });
     await expect(api.registerHumanZk(1n)).rejects.toMatchObject({ code: "aadhaar_unavailable", source: "verifier" });
     expect(built).toHaveLength(0);
+  });
+});
+
+describe("writeUrl (browser proxy)", () => {
+  it("sends token-protected writes to writeUrl without a token", async () => {
+    const { api, fetch } = setup({ writeUrl: "/api/verifier", writeToken: undefined });
+    await api.registerHumanZk(1n, { identity: "alice" });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toBe("/api/verifier/humanity/aadhaar/prove");
+    expect((init.headers as Record<string, string>).authorization).toBeUndefined();
   });
 });
 

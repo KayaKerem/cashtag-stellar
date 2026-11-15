@@ -9,5 +9,6 @@ export const CHAIN_CONFIG = {
   humanityId: process.env.NEXT_PUBLIC_HUMANITY_ID ?? "",
   usdcSac: process.env.NEXT_PUBLIC_USDC_SAC ?? "",
   verifierUrl: process.env.NEXT_PUBLIC_VERIFIER_URL ?? "http://localhost:8787",
-  writeToken: process.env.NEXT_PUBLIC_WRITE_TOKEN || undefined,
+  // Token-protected verifier writes go through our server-side proxy (app/api/verifier), which holds WRITE_TOKEN.
+  writeUrl: "/api/verifier",
 };

@@ -15,17 +15,20 @@ export async function bumpDemoVideo(id: string, body: { views?: number; delta?: 
     await new Promise((r) => setTimeout(r, 400));
     return { id, views: body.views ?? body.delta ?? 0, desc: body.desc ?? "" };
   }
-  const res = await fetch(`${CHAIN_CONFIG.verifierUrl.replace(/\/$/, "")}/demo/videos/${encodeURIComponent(id)}/bump`, {
+  // through our server-side proxy, which adds WRITE_TOKEN (app/api/verifier)
+  const res = await fetch(`${CHAIN_CONFIG.writeUrl}/demo/videos/${encodeURIComponent(id)}/bump`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(CHAIN_CONFIG.writeToken ? { Authorization: `Bearer ${CHAIN_CONFIG.writeToken}` } : {}),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = res.status === 401 ? "The verifier rejected the write (WRITE_TOKEN)." : data?.error ?? `Verifier error (${res.status})`;
+    const msg =
+      res.status === 429
+        ? "Too many requests, try again in a minute."
+        : res.status === 401
+          ? "The verifier rejected the write (server WRITE_TOKEN)."
+          : data?.error ?? `Verifier error (${res.status})`;
     throw new Error(msg);
   }
   return data as DemoVideo;
