@@ -4,7 +4,7 @@ import { TokenBucket } from "../src/limit.js";
 import { DEFAULT_SIM_ATTESTOR_SECRET, DEFAULT_SIM_OWNER_SECRET } from "../src/simulated.js";
 
 describe("unsafeConfig", () => {
-  const base = { ...config, writeToken: "x".repeat(32), attestorMode: "reclaim" as const };
+  const base = { ...config, writeToken: "x".repeat(32), attestorMode: "reclaim" as const, keeper: false, relayerSecret: "SR", keeperSecret: "" };
   it("accepts a safe config", () => expect(unsafeConfig(base)).toEqual([]));
   it("flags a missing or short WRITE_TOKEN", () => {
     expect(unsafeConfig({ ...base, writeToken: "" })).toHaveLength(1);
@@ -15,6 +15,11 @@ describe("unsafeConfig", () => {
     expect(unsafeConfig({ ...sim, simAttestorSecret: DEFAULT_SIM_ATTESTOR_SECRET, simOwnerSecret: "0x" + "1".repeat(64) })).toHaveLength(1);
     expect(unsafeConfig({ ...sim, simAttestorSecret: "0x" + "2".repeat(64), simOwnerSecret: DEFAULT_SIM_OWNER_SECRET })).toHaveLength(1);
     expect(unsafeConfig({ ...sim, simAttestorSecret: "0x" + "2".repeat(64), simOwnerSecret: "0x" + "1".repeat(64) })).toEqual([]);
+  });
+  it("flags a keeper that would sign with the relayer key (TM-15)", () => {
+    expect(unsafeConfig({ ...base, keeper: true })).toHaveLength(1);
+    expect(unsafeConfig({ ...base, keeper: true, keeperSecret: "SR" })).toHaveLength(1);
+    expect(unsafeConfig({ ...base, keeper: true, keeperSecret: "SK" })).toEqual([]);
   });
 });
 

@@ -91,7 +91,7 @@ export class Keeper {
       const e = Number(d.epoch);
       if ((st === "Open" && now >= disputeEnd(p, e) + SLACK) || (st === "Responded" && now >= settleAt(p, e) + SLACK)) {
         await this.act(`finalize dispute ${d.id}`, async () => {
-          const r = await chain.invoke(cfg.cliprailId, "finalize_dispute", [u64(d.id)]);
+          const r = await chain.invoke(cfg.cliprailId, "finalize_dispute", [u64(d.id)], "keeper");
           d.status = ["Finalized"]; // don't block the settle below in this tick
           return r;
         });
@@ -104,7 +104,7 @@ export class Keeper {
       if (open) break;
       let ok = false;
       await this.act(`settle c${id} e${e}`, async () => {
-        const r = await chain.invoke(cfg.cliprailId, "settle_epoch", [u64(id), u32(e)]);
+        const r = await chain.invoke(cfg.cliprailId, "settle_epoch", [u64(id), u32(e)], "keeper");
         ok = true;
         return r;
       });

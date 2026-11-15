@@ -27,7 +27,7 @@ const aadhaar = new AadhaarProver({
   maxQueue: config.aadhaarMaxQueue,
 });
 const keeper =
-  config.keeper && config.cliprailId && chain.relayer ? new Keeper(ops, config.keeperIntervalMs) : null;
+  config.keeper && config.cliprailId && chain.keeper ? new Keeper(ops, config.keeperIntervalMs) : null;
 const health = new Health({
   version: process.env.GIT_SHA || "dev",
   latestLedger: async () => (await chain.server.getLatestLedger()).sequence,
@@ -39,7 +39,7 @@ const app = createApp({ cfg: config, demo, proofs, ops, aadhaar, health });
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`verifier listening on :${info.port}`);
   console.log(
-    `  cliprail=${config.cliprailId || "-"} humanity=${config.humanityId || "-"} relayer=${chain.relayer ?? "-"}` +
+    `  cliprail=${config.cliprailId || "-"} humanity=${config.humanityId || "-"} relayer=${chain.relayer ?? "-"} keeper=${chain.keeper ?? "-"}` +
       ` reclaim=${hasReclaim(config) ? "yes" : "no"} fixtures=${config.proofFixtureDir || "-"}` +
       ` demoBase=${config.demoPublicBase || "-"} demoMode=${config.demoMode}`,
   );
@@ -49,6 +49,6 @@ serve({ fetch: app.fetch, port: config.port }, (info) => {
 });
 
 if (config.keeper) {
-  if (!config.cliprailId || !chain.relayer) console.warn("[keeper] disabled: CLIPRAIL_ID / RELAYER_SECRET missing");
+  if (!config.cliprailId || !chain.keeper) console.warn("[keeper] disabled: CLIPRAIL_ID / KEEPER_SECRET (or RELAYER_SECRET) missing");
   else keeper!.start();
 }

@@ -114,7 +114,7 @@ export class Ops {
       }
       j.proof ??= await this.proofs.get(String(clip.platform) as Platform, String(clip.video_id), { purpose: "close" });
       try {
-        const { txHash } = await this.chain.invoke(id, "submit_proof", [u64(campaignId), u64(clipId), u32(e), reclaimProofToScVal(j.proof.proof)]);
+        const { txHash } = await this.chain.invoke(id, "submit_proof", [u64(campaignId), u64(clipId), u32(e), reclaimProofToScVal(j.proof.proof)], "keeper");
         j.done = { txHash, views: j.proof.extracted.views };
         return j.done;
       } catch (err: any) {

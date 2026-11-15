@@ -43,6 +43,8 @@ export const config = {
   reclaimAppSecret: str("RECLAIM_APP_SECRET"),
   ytApiKey: str("YT_API_KEY"),
   relayerSecret: str("RELAYER_SECRET"),
+  /** signs the keeper's permissionless calls; empty = RELAYER_SECRET (TM-15: set a separate key in production) */
+  keeperSecret: str("KEEPER_SECRET"),
   rpcUrl: str("RPC_URL", "https://soroban-testnet.stellar.org"),
   networkPassphrase: str("NETWORK_PASSPHRASE", "Test SDF Network ; September 2015"),
   cliprailId: str("CLIPRAIL_ID"),
@@ -108,5 +110,7 @@ export function unsafeConfig(c: Config = config): string[] {
     out.push(`WRITE_TOKEN must be set (>= ${MIN_WRITE_TOKEN_LEN} chars); without it every write endpoint is open`);
   if (isSimulated(c) && (c.simAttestorSecret === DEFAULT_SIM_ATTESTOR_SECRET || c.simOwnerSecret === DEFAULT_SIM_OWNER_SECRET))
     out.push("simulated mode needs explicit SIM_ATTESTOR_SECRET and SIM_OWNER_SECRET; the defaults are public test keys");
+  if (c.keeper && c.relayerSecret && (!c.keeperSecret || c.keeperSecret === c.relayerSecret))
+    out.push("KEEPER=1 needs its own KEEPER_SECRET; the relayer key can register humans and must not sign keeper calls");
   return out;
 }

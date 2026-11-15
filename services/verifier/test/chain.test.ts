@@ -93,3 +93,51 @@ describe("Chain.invoke txBadSeq recovery", () => {
     expect(server.sendTransaction).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Chain keys (TM-15)", () => {
+  const args = [nativeToScVal(1n, { type: "u64" })];
+  function setup(relayer: Keypair, keeper?: Keypair) {
+    const chain = new Chain({ ...config, relayerSecret: relayer.secret(), keeperSecret: keeper?.secret() ?? "", cliprailId: CONTRACT });
+    const sent: { source: string; seq: string; signer: string }[] = [];
+    (chain as any).server = {
+      getAccount: vi.fn(async (a: string) => new Account(a, a === relayer.publicKey() ? "100" : "500")),
+      prepareTransaction: vi.fn(async (tx: any) => tx),
+      sendTransaction: vi.fn(async (tx: any) => {
+        const d = tx.signatures[0];
+        const raw = typeof d.signature === "function" ? d.signature() : d.signature.value;
+        const sig = [relayer, keeper].find((kp) => kp?.verify(tx.hash(), Buffer.from(raw)))?.publicKey() ?? "unknown";
+        sent.push({ source: tx.source, seq: tx.sequence, signer: sig });
+        return { status: "PENDING", hash: `h${sent.length}` };
+      }),
+      pollTransaction: vi.fn(async () => ({ status: "SUCCESS" })),
+    };
+    return { chain, sent };
+  }
+  const hint = (kp: Keypair) => kp.publicKey();
+
+  it("signs keeper calls with KEEPER_SECRET and relayer calls with RELAYER_SECRET, each on its own sequence", async () => {
+    const r = Keypair.random();
+    const k = Keypair.random();
+    const { chain, sent } = setup(r, k);
+    expect(chain.relayer).toBe(r.publicKey());
+    expect(chain.keeper).toBe(k.publicKey());
+    await Promise.all([
+      chain.invoke(CONTRACT, "settle_epoch", args, "keeper"),
+      chain.invoke(CONTRACT, "register", args, "relayer"),
+      chain.invoke(CONTRACT, "submit_proof", args, "keeper"),
+    ]);
+    const byKeeper = sent.filter((s) => s.source === k.publicKey());
+    const byRelayer = sent.filter((s) => s.source === r.publicKey());
+    expect(byKeeper.map((s) => s.seq)).toEqual(["501", "502"]);
+    expect(byKeeper.every((s) => s.signer === hint(k))).toBe(true);
+    expect(byRelayer).toEqual([{ source: r.publicKey(), seq: "101", signer: hint(r) }]);
+  });
+
+  it("falls back to the relayer key (one shared sequence) when KEEPER_SECRET is not set", async () => {
+    const r = Keypair.random();
+    const { chain, sent } = setup(r);
+    expect(chain.keeper).toBe(r.publicKey());
+    await Promise.all([chain.invoke(CONTRACT, "settle_epoch", args, "keeper"), chain.invoke(CONTRACT, "register", args)]);
+    expect(sent.map((s) => s.seq)).toEqual(["101", "102"]);
+  });
+});
