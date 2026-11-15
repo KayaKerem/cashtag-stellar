@@ -1,6 +1,7 @@
 # Build context = repo root:
 #   docker build -f services/verifier/Dockerfile -t cliprail-verifier .
-FROM node:24-alpine
+# Debian (glibc), not Alpine (musl): Reclaim zkFetch loads a glibc-linked native library (libreclaim.so)
+FROM node:24-bookworm-slim
 RUN corepack enable && corepack prepare pnpm@10.14.0 --activate
 WORKDIR /app
 

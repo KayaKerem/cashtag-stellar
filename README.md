@@ -6,7 +6,7 @@ A brand publishes a brief or an asset and locks a USDC budget in a Soroban escro
 
 The first market we go after is **clipping campaigns**, and the on-chain naming still carries that history: the contract functions are `register_clip` and `submit_proof`, and a "clip" on-chain simply means *a registered post*. Nothing in the contract is video-specific or platform-specific. See [Platforms](#platforms).
 
-**A note on names.** The product is **Cashtag**. On-chain and package names still use the original `cliprail` identifier; it means the same thing. The Soroban crate and contract are `cliprail`, its functions are `register_clip` and `submit_proof`, the npm packages are `@cliprail/shared` and `@cliprail/client`, and participant codes are contract-generated `CR-XXXXXX`. Renaming them would mean redeploying the contract and invalidating every explorer link in this README, so the identifiers stay as they are.
+**A note on names.** The product is **Cashtag**. On-chain and package names still use the original `cliprail` identifier; it means the same thing. The Soroban crate and contract are `cliprail`, its functions are `register_clip` and `submit_proof`, the npm packages are `@cliprail/shared` and `@cliprail/client`, and participant codes are contract-generated `CR-` plus 10 base36 characters (older runs below show the earlier 6-character format). Renaming them would mean redeploying the contract and invalidating every explorer link in this README, so the identifiers stay as they are.
 
 > **The number is real** (zkTLS, verified on-chain) · **One human, once** (per-campaign nullifier) · **The rules can't change** (Soroban escrow)
 
@@ -39,8 +39,8 @@ Status: hackathon build on Stellar **testnet**, Rise In × Stellar hackathon, **
 | What | Where |
 |---|---|
 | Live dashboard (Next.js) | **https://cashtag-stellar-web.vercel.app** |
-| Verifier service (`/health`, `/demo/videos/:id`) | **https://cashtag-stellar.loca.lt** |
-| Contracts | [Demo deployment (testnet)](#demo-deployment-testnet), each linked to stellar.expert |
+| Verifier service (`/health`, `/demo/videos/:id`) | **https://91.99.152.134.sslip.io** (Hetzner VPS, Docker Compose + Caddy) |
+| Contracts | [Current deployment (testnet)](#current-deployment-testnet), each linked to stellar.expert. Security review: [`security/`](security/) |
 | Live Reclaim zkTLS proof verified on-chain | [`register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69), replayed offline by `pnpm --filter verifier test` |
 | X (Twitter) live on-chain | [`set_platform("x", …)`](https://stellar.expert/explorer/testnet/tx/2707530e880bd48a5619a32d99850e040d0debc9133206d31aa3e9d5cbecadde) · [campaign 9 with `platforms: ["x"]`](https://stellar.expert/explorer/testnet/tx/a53eaa67fefae5e01fd0212823640fbc8dc01b5d0fec207660cbdbdbc31bc148) · [join → `CR-7ZYWBA`](https://stellar.expert/explorer/testnet/tx/5f0fc0c5815846e3fb5714143f5c34d4c069270d65ae378c7a3163dad62c81f8), and [a live X proof replayed against every contract check](#a-live-x-proof-replayed-on-chain) |
 | Full lifecycle, reproducible | `pnpm --filter e2e run e2e`: 39/39 steps, prints every explorer link |
@@ -69,7 +69,7 @@ A fresh e2e instance is needed per run because the post registry (`(platform, po
 |---|---|---|
 | **The number is real** | The reach metric and the caption text the platform served reach the contract unmodified | Reclaim zkTLS proof. Secp256k1 attestor signature, URL template, `responseMatches` and the extracted metric / caption fields (`views`/`desc`) are all verified in the `cliprail` contract (`contracts/reclaim-verify`), not by a backend |
 | **One human, once** | A registered nullifier joins a campaign at most once, and caps apply per nullifier, not per account | `humanity` registry: `(campaign, nullifier)` and `(campaign, wallet)` are each unique. The nullifier is scoped per campaign and the proof is bound to the wallet. Anon Aadhaar Groth16 verified on-chain (`register_zk`); relayer `register` as fallback |
-| **The rules can't change** | Rate, caps, windows, holdback, bond and arbiter are fixed at creation. There are no discretionary rejections | Budget sits in a Soroban escrow. Every payout is a formula over proven numbers. Disputes are bonded and time-boxed |
+| **The rules can't change** | Rate, caps, windows, holdback, bond and arbiter are fixed at creation, and so is the proof-verification config (attestors, owners, each platform's URL and regexes), which is copied into the campaign. Later admin changes only affect new campaigns. There are no discretionary rejections | Budget sits in a Soroban escrow. Every payout is a formula over proven numbers. Disputes are bonded and time-boxed |
 
 ## The problem
 
@@ -89,12 +89,12 @@ create ─▶ humanity ─▶ join (CR code) ─▶ register post (opening proof
       ─▶ holdback released by next-epoch liveness ─▶ refund
 ```
 
-1. **Create.** The brand calls `create_campaign` and the budget moves into escrow. Parameters are validated (`epoch_len ≥ proof + dispute + arbiter windows`, `claim_grace ≥ epoch_len`, `bond > 0`, arbiter ≠ brand) and are then immutable.
+1. **Create.** The brand calls `create_campaign` and the budget moves into escrow. Parameters are validated (`epoch_len ≥ proof + dispute + arbiter windows`, `claim_grace ≥ epoch_len`, `bond > 0`, the arbiter is on the admin-curated list and is not the brand, each half of `dispute_window` is at least the minimum response window) and are then immutable. The verification config in force at that moment is snapshotted into the campaign.
 2. **Humanity.** The clipper submits an Anon Aadhaar Groth16 proof to `humanity.register_zk`. The contract recomputes the bound public inputs itself (UIDAI pubkey hash from config, `nullifierSeed = keccak256("cliprail:" ‖ campaign_id) >> 3`, `signalHash = keccak256(wallet ed25519 key) >> 3`), checks the QR timestamp against `max_age`, and runs the BN254 pairing check. A second wallet with the same nullifier is rejected.
-3. **Join.** `join` checks `humanity.is_verified` and returns a code `CR-XXXXXX` derived from `sha256(campaign_id ‖ participant)`. The participant puts it in the caption or description of the post.
+3. **Join.** `join` checks `humanity.is_verified` and returns a code `CR-` + 10 base36 characters derived from `sha256(campaign_id ‖ participant)`, unique within the campaign. The participant puts it in the caption or description of the post.
 4. **Register the post.** The participant submits the post link. The verifier produces an **opening proof**: the extracted caption contains the code, and the current metric value is N. The contract verifies it and records `baseline = N`, so only growth after registration counts. Each `(platform, post id)` pair can be registered only once, globally. (The on-chain function is `register_clip`, and the registry key is `(platform, video_id)`, historical naming for "a registered post".)
 5. **Closing proofs.** In every epoch's window `[content_end, proof_end)` anyone can submit a fresh proof. If the same post is re-proven in the window, the higher metric value wins. The verifier's keeper does this automatically.
-6. **Bonded disputes.** Anyone can challenge a post-epoch by posting a bond. The clipper responds for free. The arbiter rules on responded disputes only. An unanswered challenge excludes the post. An arbiter who misses the deadline loses by default: the clipper wins. Excluded weight is redistributed to other clippers through the rate. It does not return to the brand.
+6. **Bonded disputes.** Anyone can challenge a post-epoch by posting a bond. The clipper responds for free. The arbiter rules on responded disputes only. An unanswered challenge excludes the post. An arbiter who misses the deadline loses by default: the clipper wins. The arbiter cannot join or challenge in its own campaign. Every closed dispute pays the arbiter 10% of the bond whatever the ruling; the rest goes to the winner. Both are credited in the contract and pulled with `withdraw`, so a recipient that cannot receive the token never blocks settlement. Excluded weight is redistributed to other clippers through the rate; whatever stays unspent returns to the brand at `refund`.
 7. **Settle.** After `settle_at(e)`, with no open disputes, `settle_epoch` fixes the epoch rate at `min(rate cap, 1000 × epoch budget / total eligible weight)`. The advertised rate is an upper bound, and a busy epoch pays its budget out pro-rata instead ([details](#the-rate-is-a-ceiling-not-a-price)). Unspent budget carries over to the next epoch and ends up back with the brand at `refund`.
 8. **Claim.** `claim` pays each post-epoch its share, O(1). Part of it (`holdback_bps`) is held back.
 9. **Holdback.** Epoch e's held share is released only to posts that are still live, meaning they got a closing proof in epoch e+1. Deleted posts forfeit their share to the survivors. The last epoch has no holdback.
@@ -119,7 +119,7 @@ Arc Testnet USDC ──burn──▶ Circle attestation ──mint──▶ Stel
 |---|---|---|
 | Bridge 5 USDC, Arc → Stellar, Fast finality | **24 s** burn → mint (attestation 10-13 s), **0 bps fee** | [Arc burn](https://testnet.arcscan.app/tx/0xfe502def03331ffe33d17f7496edf6f932c1966e99f030806e4e7b40e2525bea) · [Stellar `mint_and_forward`](https://stellar.expert/explorer/testnet/tx/ea727dcc6e648f0da4722fa4d2b2b40f59bac808a79b90ed43a33b8df8293a30) |
 | Bridge 1 USDC (smoke run) | **25 s** burn → mint | [Arc burn](https://testnet.arcscan.app/tx/0xb2c06a426c48db549b9cfeafa2d84fd148461bbd214dd1b223fa89415fbbe0ec) · [Stellar mint](https://stellar.expert/explorer/testnet/tx/2d85b781d319ba84c41b9d54b3dfcca9836d4154ffb02498d983131e1e894c48) |
-| `create_campaign` with the bridged USDC | **7 s**, so **~31 s end to end** from burn to a funded campaign | **[campaign #10](https://stellar.expert/explorer/testnet/tx/401924c7e6d7c7e5bada57499387fa20d8a41cd16abde0f3b848b4cc3fce2451)** (on the [demo deployment](#demo-deployment-testnet)) |
+| `create_campaign` with the bridged USDC | **7 s**, so **~31 s end to end** from burn to a funded campaign | **[campaign #10](https://stellar.expert/explorer/testnet/tx/401924c7e6d7c7e5bada57499387fa20d8a41cd16abde0f3b848b4cc3fce2451)** (on the [demo deployment](#demo-deployment-testnet-hackathon)) |
 
 Across the two runs **6 USDC were burned and exactly 6 USDC were minted**: CCTP charged **0 bps** on Arc → Stellar at both the Standard and the Fast finality tier. Total gas for all four Arc transactions came to **0.008985 USDC** (Arc pays gas in USDC, so a single faucet claim covers the whole demo). The 6-decimal → 7-decimal conversion was exact: `1000000` → `10000000` and `5000000` → `50000000`, never through a float.
 
@@ -419,7 +419,7 @@ sequenceDiagram
 
 **Legend.** Each coloured band is one lifecycle phase, numbered 1-7; the step numbers on the arrows are the order of the calls. Everything in bands 1-7 has run on testnet (see [the lifecycle run](#full-product-lifecycle-run-testnet)); the TL leg of band 7 is a testnet sandbox anchor.
 
-The verifier has **no authority over funds**. It cannot change a count because the attestor signs it, and it cannot pay anyone. The worst it can do is not submit a proof, and anyone else can submit one in the same window.
+The verifier has **no authority over funds**. It cannot change a count because the attestor signs it, and it cannot pay anyone. The worst it can do is not submit a proof. `submit_proof` itself needs no signature, so anyone holding a valid proof can submit it in the same window; today valid proofs come from our Reclaim app, so in practice that fallback is the team (see TM-11 in [`security/`](security/)).
 
 ## Mechanism
 
@@ -516,9 +516,23 @@ Every row has a dedicated test in [`contracts/cliprail/src/test/attacks.rs`](con
 | A16 | Early refund | `refund_at` | `a16_early_refund` |
 | A17 | Post deleted after payout | No next-epoch proof, so its holdback goes to survivors | `a17_deleted_video_forfeits_holdback` |
 
-## Demo deployment (testnet)
+## Current deployment (testnet)
 
-The canonical deployment used by the dashboard, the verifier and every run in this README:
+Stellar testnet only, test tokens, no real funds. Deployed on 2026-11-15 with the security fixes in [`security/REMEDIATION.md`](security/REMEDIATION.md) (frozen per-campaign config, curated arbiters with a dispute fee, pull-based dispute payouts, pinned Reclaim request).
+
+| Component | ID / endpoint |
+|---|---|
+| `cliprail` | [`CCLJFRBNBL23DMVCQNFGK6UKKYIPXPCLXQLT74WWQXLOZDICA7HMWA3W`](https://stellar.expert/explorer/testnet/contract/CCLJFRBNBL23DMVCQNFGK6UKKYIPXPCLXQLT74WWQXLOZDICA7HMWA3W) |
+| `humanity` (Anon Aadhaar `register_zk` configured, TEST key) | [`CAVHXWQN6CEQSEZTTDX4HIGATZCYXAUNOGF4ONAXYP4IF2LVX2WUFBHW`](https://stellar.expert/explorer/testnet/contract/CAVHXWQN6CEQSEZTTDX4HIGATZCYXAUNOGF4ONAXYP4IF2LVX2WUFBHW) |
+| Verifier, keeper, Anon Aadhaar prover | **https://91.99.152.134.sslip.io** (`/health`) |
+| zkTLS attestor | **live Reclaim** only (`0x244897572368eadf65bfbc5aec98d8e5443a9072`); the simulated test attestor is not allow-listed |
+| Soroswap router | [`CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD`](https://stellar.expert/explorer/testnet/contract/CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD) |
+
+**Live Reclaim check on this deployment (2026-11-15).** The hosted verifier fetched real Reclaim attestor proofs for a demo video and the contract verified them on-chain: [`create_campaign`](https://stellar.expert/explorer/testnet/tx/3c4f2f085acf52c22b8d0bfd5f11b24b993ec1f3f96e91ad55b0fa17861e611d) · [`register_clip`](https://stellar.expert/explorer/testnet/tx/d3ee75b95699af0886e072691a522cbd59869d9af5e261a295af164ed060c426) (opening proof, 1,200 views) · [`submit_proof`](https://stellar.expert/explorer/testnet/tx/65b67470d38ae4aae5bd17fd369ca94fd230d223606e004fe98f6787dcbb6d70) (closing proof, 5,200 views). Reproduce with `scripts/e2e/live-reclaim.ts` (`CLIPRAIL_ID`, `HUMANITY_ID`, `VERIFIER_URL`, `DEMO_ADMIN_URL`, `DEMO_PREFIX`, `RAW_SSH`).
+
+## Demo deployment (testnet, hackathon)
+
+The deployment used by the dashboard, the verifier and every run in this README up to 2026-09 (previous contract code):
 
 | Component | ID / endpoint |
 |---|---|
@@ -529,7 +543,7 @@ The canonical deployment used by the dashboard, the verifier and every run in th
 | TRY anchor | [`tr-mock-anchor.fly.dev`](https://tr-mock-anchor.fly.dev/.well-known/stellar.toml): SEP-1 / SEP-6 / SEP-10 / SEP-12 / SEP-38 (testnet sandbox, no real money) |
 | zkTLS attestor | **live Reclaim** (`0x244897572368eadf65bfbc5aec98d8e5443a9072`, `attestor.reclaimprotocol.org`, epoch 1), proof owner = our Reclaim app address. The **simulated** attestor (a clearly labeled test key, used for rehearsals) stays available as a fallback; both are allowlisted on-chain via [`set_attestors`](https://stellar.expert/explorer/testnet/tx/89d0a29fd65f480329cfd3987bd0acb502a4d6b6ace17e7699d7ff5341be4666) and [`set_owners`](https://stellar.expert/explorer/testnet/tx/75df3f0a3f11893346a7f178ec87e53e6c96b57639a1ad26421209f59312f26b) |
 
-Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Verifier URL: **https://cashtag-stellar.loca.lt**
+Network: `Test SDF Network ; September 2015`, RPC `https://soroban-testnet.stellar.org`. Its verifier ran on a laptop tunnel that is no longer online; the hosted verifier above serves the current deployment.
 
 <details>
 <summary>Legacy deployment (pre-ZK, own test USDC)</summary>
@@ -546,7 +560,7 @@ Earlier instance with relayer-only humanity and a self-issued test USDC; kept fo
 
 ## Full product lifecycle run (testnet)
 
-`REFUND=1 pnpm --filter @cliprail/client smoke:full` drives the real product path with `@cliprail/client` (`createApi("chain")` + `createTryRamp("chain")`, the same code the dashboard uses) against the [demo deployment](#demo-deployment-testnet), with keypair signers for brand, two clippers and the arbiter. Run of 2026-09-20: **30/30 steps PASS**, ~8 minutes (2 epochs of 120 s). Attestor: simulated (this multi-epoch rehearsal would otherwise burn the free Reclaim quota; the live attestor path is proven separately by the [live `register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) and [live `submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69) on the same deployment); humanity: Anon Aadhaar TEST proofs, proven by the verifier.
+`REFUND=1 pnpm --filter @cliprail/client smoke:full` drives the real product path with `@cliprail/client` (`createApi("chain")` + `createTryRamp("chain")`, the same code the dashboard uses) against the [demo deployment](#demo-deployment-testnet-hackathon), with keypair signers for brand, two clippers and the arbiter. Run of 2026-09-20: **30/30 steps PASS**, ~8 minutes (2 epochs of 120 s). Attestor: simulated (this multi-epoch rehearsal would otherwise burn the free Reclaim quota; the live attestor path is proven separately by the [live `register_clip`](https://stellar.expert/explorer/testnet/tx/dfc3b7dd5256a2b9177e4c86002b06ce0e9a33db3e8a8fdc029e59f73f593bbd) and [live `submit_proof`](https://stellar.expert/explorer/testnet/tx/6729a5468ba252ada84b8805a98be51c83bd8275c110a072ee069da224340d69) on the same deployment); humanity: Anon Aadhaar TEST proofs, proven by the verifier.
 
 | Step | Action | Result | Tx |
 |---|---|---|---|

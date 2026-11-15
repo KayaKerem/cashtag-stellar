@@ -57,8 +57,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@stellar/stellar-sdk':
-        specifier: ^17.1.0
-        version: 17.1.0
+        specifier: ^17.4.0
+        version: 17.4.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -85,8 +85,8 @@ importers:
   packages/cliprail-client:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: ^16.0.1
-        version: 16.3.0
+        specifier: ^17.4.0
+        version: 17.4.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -98,8 +98,8 @@ importers:
   packages/humanity-client:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: ^16.0.1
-        version: 16.3.0
+        specifier: ^17.4.0
+        version: 17.4.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -126,8 +126,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@stellar/stellar-sdk':
-        specifier: ^17.1.0
-        version: 17.1.0
+        specifier: ^17.4.0
+        version: 17.4.0
       tsx:
         specifier: ^4.23.13
         version: 4.23.13
@@ -154,8 +154,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@stellar/stellar-sdk':
-        specifier: ^17.1.0
-        version: 17.1.0
+        specifier: ^17.4.0
+        version: 17.4.0
       canonicalize:
         specifier: ^5.1.0
         version: 5.1.0
@@ -188,17 +188,17 @@ importers:
         specifier: ^2.4.0
         version: 2.4.0
       '@reclaimprotocol/attestor-core':
-        specifier: 5.1.4
-        version: 5.1.4(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+        specifier: 5.1.6
+        version: 5.1.6(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       '@reclaimprotocol/tls':
-        specifier: 0.1.4
-        version: 0.1.4
+        specifier: 0.1.5
+        version: 0.1.5
       '@reclaimprotocol/zk-fetch':
         specifier: ^1.1.0
         version: 1.1.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       '@stellar/stellar-sdk':
-        specifier: ^17.1.0
-        version: 17.1.0
+        specifier: ^17.4.0
+        version: 17.4.0
       canonicalize:
         specifier: ^5.1.0
         version: 5.1.0
@@ -1066,17 +1066,17 @@ packages:
     peerDependencies:
       preact: '>= 10.25.0 || >=11.0.0-0'
 
-  '@reclaimprotocol/attestor-core@5.1.4':
-    resolution: {integrity: sha512-6s8pywB5gWSUA/igj7AdAn9qObkSpk2SfkCWu4KheQIbyMCIKyUH5FMsektU9TzYNKZW7YRQDxRFbxNTcMulgg==}
+  '@reclaimprotocol/attestor-core@5.1.6':
+    resolution: {integrity: sha512-Eq132IuMXLf8QtoF01LIdMAzAJvqHCnAH7SmLoPDrQL0TVGaFVydnq4/Sp/cISxmRexb1RVSsPY5D8EAaNZS0Q==}
 
-  '@reclaimprotocol/tls@0.1.4':
-    resolution: {integrity: sha512-YIz0bRJxBj6S4u0nJf7Rkb7Nkqpwv2ySKHWjdvHUVU0xK1NqxWPPNxyLmiXiqDL2x0sLmDhDDZFPJxtnhabDTw==}
+  '@reclaimprotocol/tls@0.1.5':
+    resolution: {integrity: sha512-pFVZil0U4izuSjbE0MacYOXF+Eb4/w/hhMEfMWqb+wDzPYSqV+vZBJKsQlDdxXFYzkyjvOgw+mNQULOFfX9PpA==}
 
   '@reclaimprotocol/zk-fetch@1.1.0':
     resolution: {integrity: sha512-NSW6eP6eRnXcb4OX5cNAYE8GZarqIN16kRNOWaL+G8GfDIaDN7y3Pytiz4PYGjHRiHPlpkt9SEpPvVFGosCaBg==}
 
-  '@reclaimprotocol/zk-symmetric-crypto@5.1.6':
-    resolution: {integrity: sha512-7D0Dlp4LYGj/ODB1gUMugsuGn80w7Ac4GthpzNqKoHKotTsMtlAPbNrUSU3hdkqNGxa5Jz8LXgVP5RhdHeADZA==}
+  '@reclaimprotocol/zk-symmetric-crypto@5.1.7':
+    resolution: {integrity: sha512-jGvolBL5zRp9jp2Yhl+et6jRpYG7M/G9uoFrHChCuRkceCjzhnQwAyeNMAiEmUOTNWc4Am8mrXNMA4BJWvV52g==}
     peerDependencies:
       '@reclaimprotocol/tls': '*'
       koffi: '*'
@@ -1620,21 +1620,17 @@ packages:
   '@stellar/freighter-api@6.0.0':
     resolution: {integrity: sha512-8CTQcKQmTq/wL715ZUzn1x1POpR0eYhYPKEiaeA7AT0WYBOauOGTxfWPFtSidX3ohAlJZP5HFXy1kG29cVjqxw==}
 
-  '@stellar/js-xdr@4.0.0':
-    resolution: {integrity: sha512-+NmNa7Tk5BI5XFdy/6xGTqAN4J9a9KgCrCGhj2uEUTCBhLkch0M+QbKzNH8zEnejWe0p8w+0q5hUVX6L3OzoVA==}
-    engines: {node: '>=20.0.0', pnpm: '>=9.0.0'}
-
   '@stellar/js-xdr@5.0.0':
     resolution: {integrity: sha512-HBDNKnxr+ecdaEmbZ0mcKkirOF8tXXEbWSw34P3wT40Tn3g+u+cCH17xAWZymzscq8cojHB8340pR8QNVaD32w==}
     engines: {node: '>=22.0.0', pnpm: '>=10.0.0'}
 
-  '@stellar/stellar-sdk@16.3.0':
-    resolution: {integrity: sha512-pnB1t4bdnkN8M7tRIcLXnNboq+Hof62NzPMnQrl5MWBNC/d1vUbdrzXgy7yw8I+0hbfz5YN64uVb84BqzIpYiQ==}
-    engines: {node: '>=22.0.0'}
-    hasBin: true
-
   '@stellar/stellar-sdk@17.1.0':
     resolution: {integrity: sha512-vf/d9KR2B7MkrJBKW+cN8GPgBbiLFrRfr2pkR41VmqI6is6EfYvzhyGztbuJ3XPmcotkCRCveweAAzw2cjDn1w==}
+    engines: {node: '>=22.12.0'}
+    hasBin: true
+
+  '@stellar/stellar-sdk@17.4.0':
+    resolution: {integrity: sha512-IX6gi62yWQ+6Oz56LsVEEeSViSOWJL3BkttftwVmVsu+62nLTWNVsCmTWEzwgNLT/q5HGP25OnlU+hhy2E4wwA==}
     engines: {node: '>=22.12.0'}
     hasBin: true
 
@@ -2319,9 +2315,6 @@ packages:
     peerDependencies:
       axios: 0.x || 1.x
 
-  axios@1.18.0:
-    resolution: {integrity: sha512-E32NzpYKp++W7XRe52rHiXV2ehxmh3wbdgO7MHeFM+vqxLBYHzt0ElkiImtOBxtOmyp0yoC8C6uESVV84Y2/hw==}
-
   axios@1.20.0:
     resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
 
@@ -2341,10 +2334,6 @@ packages:
 
   base-x@5.0.1:
     resolution: {integrity: sha512-M7uio8Zt++eg3jPj+rHMfCC+IuygQHHCOU+IYsVtik6FWjuYpVt/+MRKcgsAMHh8mMFAwnB+Bs+mTrFiXjMzKg==}
-
-  base32.js@0.1.0:
-    resolution: {integrity: sha512-n3TkB02ixgBOhTvANakDb4xaMXnYUVkNoRFJjQflcqMQhyEKxEHdj3E6N8t8sUQ0mjH/3/JxzlXuz3ul/J90pQ==}
-    engines: {node: '>=0.12.0'}
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
@@ -5540,14 +5529,14 @@ snapshots:
       '@preact/signals-core': 1.14.4
       preact: 10.29.8
 
-  '@reclaimprotocol/attestor-core@5.1.4(bufferutil@4.1.0)(utf-8-validate@6.0.6)':
+  '@reclaimprotocol/attestor-core@5.1.6(bufferutil@4.1.0)(utf-8-validate@6.0.6)':
     dependencies:
       '@bufbuild/protobuf': 2.15.0
       '@peculiar/asn1-x509': 2.9.4
       '@peculiar/webcrypto': 1.7.1
       '@peculiar/x509': 1.14.3
-      '@reclaimprotocol/tls': 0.1.4
-      '@reclaimprotocol/zk-symmetric-crypto': 5.1.6(@reclaimprotocol/tls@0.1.4)(koffi@2.16.3)(p-queue@8.1.1)(snarkjs@0.7.6)
+      '@reclaimprotocol/tls': 0.1.5
+      '@reclaimprotocol/zk-symmetric-crypto': 5.1.7(@reclaimprotocol/tls@0.1.5)(koffi@2.16.3)(p-queue@8.1.1)(snarkjs@0.7.6)
       ajv: 8.20.0
       bs58: 6.0.0
       canonicalize: 2.1.0
@@ -5577,7 +5566,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@reclaimprotocol/tls@0.1.4':
+  '@reclaimprotocol/tls@0.1.5':
     dependencies:
       '@noble/ciphers': 1.3.0
       '@noble/curves': 1.9.7
@@ -5589,7 +5578,7 @@ snapshots:
 
   '@reclaimprotocol/zk-fetch@1.1.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)':
     dependencies:
-      '@reclaimprotocol/attestor-core': 5.1.4(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+      '@reclaimprotocol/attestor-core': 5.1.6(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       '@swc/core': 1.16.2
       ethers: 5.8.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       pino: 8.21.0
@@ -5600,9 +5589,9 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@reclaimprotocol/zk-symmetric-crypto@5.1.6(@reclaimprotocol/tls@0.1.4)(koffi@2.16.3)(p-queue@8.1.1)(snarkjs@0.7.6)':
+  '@reclaimprotocol/zk-symmetric-crypto@5.1.7(@reclaimprotocol/tls@0.1.5)(koffi@2.16.3)(p-queue@8.1.1)(snarkjs@0.7.6)':
     dependencies:
-      '@reclaimprotocol/tls': 0.1.4
+      '@reclaimprotocol/tls': 0.1.5
       js-base64: 3.9.4
     optionalDependencies:
       koffi: 2.16.3
@@ -6518,19 +6507,17 @@ snapshots:
       buffer: 6.0.3
       semver: 7.7.1
 
-  '@stellar/js-xdr@4.0.0': {}
-
   '@stellar/js-xdr@5.0.0': {}
 
-  '@stellar/stellar-sdk@16.3.0':
+  '@stellar/stellar-sdk@17.1.0':
     dependencies:
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
       '@noble/ed25519': 3.2.0
       '@noble/hashes': 2.4.0
-      '@stellar/js-xdr': 4.0.0
-      axios: 1.18.0
-      base32.js: 0.1.0
+      '@stellar/js-xdr': 5.0.0
+      '@types/json-schema': 7.0.15
+      axios: 1.20.0
       bignumber.js: 11.1.5
-      buffer: 6.0.3
       commander: 14.0.3
       eventsource: 4.1.1
       feaxios: 0.0.23
@@ -6540,7 +6527,7 @@ snapshots:
       - debug
       - supports-color
 
-  '@stellar/stellar-sdk@17.1.0':
+  '@stellar/stellar-sdk@17.4.0':
     dependencies:
       '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
       '@noble/ed25519': 3.2.0
@@ -7540,16 +7527,6 @@ snapshots:
       is-retry-allowed: 2.2.0
     optional: true
 
-  axios@1.18.0:
-    dependencies:
-      follow-redirects: 1.16.0
-      form-data: 4.0.6
-      https-proxy-agent: 5.0.1
-      proxy-from-env: 2.1.0
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
   axios@1.20.0:
     dependencies:
       follow-redirects: 1.16.0
@@ -7569,8 +7546,6 @@ snapshots:
       safe-buffer: 5.2.1
 
   base-x@5.0.1: {}
-
-  base32.js@0.1.0: {}
 
   base64-js@1.5.1: {}
 

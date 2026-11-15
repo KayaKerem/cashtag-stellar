@@ -6,6 +6,7 @@
 // public demo host (the tunnel) serving the demo video that the attestor fetches: demo bumps go to
 // DEMO_ADMIN_URL (default http://127.0.0.1:8787), whose store is behind DEMO_PUBLIC_BASE.
 //   pnpm --filter e2e tsx live-reclaim.ts
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -27,8 +28,9 @@ import { structToScVal, reclaimProofToScVal } from "../../services/verifier/src/
 import type { ProofJson } from "../../services/verifier/src/proof.ts";
 
 const env = readEnvFile(E2E_ENV);
-const CLIPRAIL = env.E2E_CLIPRAIL_ID;
-const HUMANITY = env.E2E_HUMANITY_ID;
+// CLIPRAIL_ID / HUMANITY_ID override the e2e instance (e.g. the hosted deployment in deploy.env)
+const CLIPRAIL = process.env.CLIPRAIL_ID || env.E2E_CLIPRAIL_ID;
+const HUMANITY = process.env.HUMANITY_ID || env.E2E_HUMANITY_ID;
 const USDC = accounts.USDC_SAC || env.USDC_SAC;
 const SIM_ATTESTOR = env.E2E_ATTESTOR;
 const SIM_OWNER = env.E2E_OWNER;
@@ -140,6 +142,12 @@ async function main() {
 
   // raw zkFetch proof as the verifier cached it (fixture + byte-level report)
   const rawPath = resolve(CACHE_DIR, `demo-${vid}.json`);
+  // hosted verifier: RAW_SSH=user@host copies the raw proof out of the verifier container
+  if (!existsSync(rawPath) && process.env.RAW_SSH) {
+    const out = execFileSync("ssh", [process.env.RAW_SSH, `docker exec deploy-verifier-1 cat /data/cache/demo-${vid}.json`], { encoding: "utf8" });
+    mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(rawPath, out);
+  }
   if (!existsSync(rawPath)) throw new Error(`raw proof not found at ${rawPath}`);
   const raw = JSON.parse(readFileSync(rawPath, "utf8"));
   const liveAttestor = String(raw.witnesses?.[0]?.id ?? "").toLowerCase();
@@ -148,7 +156,7 @@ async function main() {
   const parameters = Buffer.from(r1.proof.parameters, "hex").toString("utf8");
   const context = Buffer.from(r1.proof.context, "hex").toString("utf8");
   const owner = Buffer.from(r1.proof.owner, "hex").toString("utf8");
-  const expectedUrl = `${env.E2E_DEMO_PREFIX}${vid}`;
+  const expectedUrl = `${process.env.DEMO_PREFIX || env.E2E_DEMO_PREFIX}${vid}`;
   const report = {
     videoId: vid,
     campaignId: cid.toString(),
@@ -186,27 +194,32 @@ async function main() {
   if (!report.urlNeedleFound) throw new Error("url needle not found in parameters");
   if (report.requiredFound.some((r) => !r.found)) throw new Error("required substring missing from parameters");
 
-  // ---------------- on-chain config: live + simulated attestor/owner
-  const attestors = [liveAttestor, SIM_ATTESTOR.toLowerCase()].filter((v, i, a) => a.indexOf(v) === i);
-  const owners = [owner.toLowerCase(), SIM_OWNER.toLowerCase()].filter((v, i, a) => a.indexOf(v) === i);
-  log(`set_attestors ${attestors.join(", ")}`);
-  const ra = await invoke(
-    CLIPRAIL,
-    "set_attestors",
-    [sv.vec(attestors.map((a) => sv.bytes(Buffer.from(a.slice(2), "hex"))))],
-    identity("admin"),
-  );
-  if (!ra.ok) throw new Error(`set_attestors failed: ${ra.error}`);
-  log(`set_attestors ok ${txLink(ra.hash!)}`);
-  log(`set_owners ${owners.join(", ")}`);
-  const ro = await invoke(CLIPRAIL, "set_owners", [sv.vec(owners.map((o) => sv.bytes(Buffer.from(o, "utf8"))))], identity("admin"));
-  if (!ro.ok) throw new Error(`set_owners failed: ${ro.error}`);
-  log(`set_owners ok ${txLink(ro.hash!)}`);
+  // ---------------- on-chain config: live + simulated attestor/owner (e2e instance only;
+  // a hosted deployment passed via CLIPRAIL_ID keeps its live-only allow-list, see TM-5)
+  let cfgTx: string[] = [];
+  if (!process.env.CLIPRAIL_ID) {
+    const attestors = [liveAttestor, SIM_ATTESTOR.toLowerCase()].filter((v, i, a) => a.indexOf(v) === i);
+    const owners = [owner.toLowerCase(), SIM_OWNER.toLowerCase()].filter((v, i, a) => a.indexOf(v) === i);
+    log(`set_attestors ${attestors.join(", ")}`);
+    const ra = await invoke(
+      CLIPRAIL,
+      "set_attestors",
+      [sv.vec(attestors.map((a) => sv.bytes(Buffer.from(a.slice(2), "hex"))))],
+      identity("admin"),
+    );
+    if (!ra.ok) throw new Error(`set_attestors failed: ${ra.error}`);
+    log(`set_attestors ok ${txLink(ra.hash!)}`);
+    log(`set_owners ${owners.join(", ")}`);
+    const ro = await invoke(CLIPRAIL, "set_owners", [sv.vec(owners.map((o) => sv.bytes(Buffer.from(o, "utf8"))))], identity("admin"));
+    if (!ro.ok) throw new Error(`set_owners failed: ${ro.error}`);
+    log(`set_owners ok ${txLink(ro.hash!)}`);
+    cfgTx = [ra.hash!, ro.hash!];
 
-  // remember the live pair so a redeploy (deploy.ts) keeps configuring both modes
-  const lines = readFileSync(E2E_ENV, "utf8").split("\n").filter((l) => !/^E2E_(ATTESTOR|OWNER)_LIVE=/.test(l));
-  const keep = lines[lines.length - 1] === "" ? lines.slice(0, -1) : lines;
-  writeFileSync(E2E_ENV, [...keep, `E2E_ATTESTOR_LIVE=${liveAttestor}`, `E2E_OWNER_LIVE=${owner.toLowerCase()}`, ""].join("\n"));
+    // remember the live pair so a redeploy (deploy.ts) keeps configuring both modes
+    const lines = readFileSync(E2E_ENV, "utf8").split("\n").filter((l) => !/^E2E_(ATTESTOR|OWNER)_LIVE=/.test(l));
+    const keep = lines[lines.length - 1] === "" ? lines.slice(0, -1) : lines;
+    writeFileSync(E2E_ENV, [...keep, `E2E_ATTESTOR_LIVE=${liveAttestor}`, `E2E_OWNER_LIVE=${owner.toLowerCase()}`, ""].join("\n"));
+  }
 
   // ---------------- register_clip with the LIVE opening proof
   const rr = await invoke(
@@ -245,8 +258,7 @@ async function main() {
   console.log(`attestor      ${liveAttestor}`);
   console.log(`owner         ${owner}`);
   console.log(`create        ${txLink(rc.hash!)}`);
-  console.log(`set_attestors ${txLink(ra.hash!)}`);
-  console.log(`set_owners    ${txLink(ro.hash!)}`);
+  for (const t of cfgTx) console.log(`config        ${txLink(t)}`);
   console.log(`register_clip ${txLink(rr.hash!)}`);
   console.log(`submit_proof  ${txLink(r2.txHash)}`);
 }

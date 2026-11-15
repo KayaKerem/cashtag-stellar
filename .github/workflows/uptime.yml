@@ -1,0 +1,30 @@
+# Uptime check for the hosted testnet stack (verifier + keeper + prover). Stellar testnet only.
+# /health returns 503 when the RPC is unreachable or the keeper is stale, so a failed run means
+# the stack needs attention; GitHub emails the workflow owner on failure.
+# Scheduled runs can start a few minutes late; this is a coarse monitor, not a pager.
+name: uptime
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /health (3 tries)
+        env:
+          URL: https://91.99.152.134.sslip.io/health
+        run: |
+          for i in 1 2 3; do
+            if body=$(curl -fsS --max-time 20 "$URL"); then
+              echo "$body"
+              echo "$body" | jq -e '.ok == true and .attestorMode == "reclaim"' >/dev/null && exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::health check failed for $URL"
+          curl -sS --max-time 20 "$URL" || true
+          exit 1
