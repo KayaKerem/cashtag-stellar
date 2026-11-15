@@ -85,6 +85,15 @@ export type DisputeStatus = {
     tag: "ClipperWon";
     values: void;
 };
+/**
+ * Verification config frozen into a campaign at creation (TM-1): later admin changes to
+ * attestors, owners or platforms only affect campaigns created afterwards.
+ */
+export interface CampaignConfig {
+    attestors: Array<Buffer>;
+    owners: Array<Buffer>;
+    platforms: Map<string, PlatformConfig>;
+}
 export interface CampaignParams {
     arbiter: string;
     arbiter_window: u64;
@@ -106,6 +115,15 @@ export interface CampaignParams {
     start: u64;
     title: string;
     token: string;
+}
+/**
+ * Admin-configured platform: expected URL is `url_prefix ‖ video_id ‖ url_suffix`;
+ * every `required` byte string must appear in the proof `parameters`.
+ */
+export interface PlatformConfig {
+    required: Array<Buffer>;
+    url_prefix: Buffer;
+    url_suffix: Buffer;
 }
 export type ClipEpochStatus = {
     tag: "Active";
@@ -226,6 +244,42 @@ export declare const Errors: {
     35: {
         message: string;
     };
+    /**
+     * `create_campaign_with_swap` before the admin configured a swap router.
+     */
+    36: {
+        message: string;
+    };
+    /**
+     * Swap path must be `[token_in, …, params.token]` with at least two distinct ends.
+     */
+    37: {
+        message: string;
+    };
+    /**
+     * Router call failed (slippage over `amount_in_max`, deadline, liquidity) or delivered too little.
+     */
+    38: {
+        message: string;
+    };
+    /**
+     * `join`: the derived participant code is already used by another participant of the campaign.
+     */
+    39: {
+        message: string;
+    };
+    /**
+     * `create_campaign`: `params.arbiter` is not on the admin-curated arbiter list.
+     */
+    40: {
+        message: string;
+    };
+    /**
+     * `accept_admin` without a pending `propose_admin`.
+     */
+    41: {
+        message: string;
+    };
 };
 /**
  * A Reclaim claim + attestor signature, exactly as produced by zkFetch (`claimData` + `signatures[0]`).
@@ -266,6 +320,17 @@ export interface Client {
         participant: string;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Result<string>>>;
     /**
+     * Construct and simulate a owed transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     */
+    owed: ({ who, token }: {
+        who: string;
+        token: string;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
+    /**
+     * Construct and simulate a admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     */
+    admin: (options?: MethodOptions) => Promise<AssembledTransaction<Result<string>>>;
+    /**
      * Construct and simulate a claim transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      */
     claim: ({ campaign_id, clip_id, epoch }: {
@@ -280,6 +345,10 @@ export interface Client {
         campaign_id: u64;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Result<i128>>>;
     /**
+     * Construct and simulate a router transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     */
+    router: (options?: MethodOptions) => Promise<AssembledTransaction<Option<string>>>;
+    /**
      * Construct and simulate a resolve transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      */
     resolve: ({ dispute_id, clipper_wins }: {
@@ -293,11 +362,23 @@ export interface Client {
         dispute_id: u64;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
+     * Construct and simulate a arbiters transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     */
+    arbiters: (options?: MethodOptions) => Promise<AssembledTransaction<Array<string>>>;
+    /**
      * Construct and simulate a get_clip transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      */
     get_clip: ({ clip_id }: {
         clip_id: u64;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Clip>>;
+    /**
+     * Construct and simulate a withdraw transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Withdraw dispute bond payouts and arbiter fees credited to `who` in `token`.
+     */
+    withdraw: ({ who, token }: {
+        who: string;
+        token: string;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<i128>>>;
     /**
      * Construct and simulate a challenge transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      */
@@ -331,11 +412,29 @@ export interface Client {
         owners: Array<Buffer>;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
+     * Construct and simulate a set_router transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Soroswap router used by `create_campaign_with_swap`.
+     */
+    set_router: ({ router }: {
+        router: string;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
+    /**
+     * Construct and simulate a accept_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     */
+    accept_admin: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
+    /**
      * Construct and simulate a get_campaign transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      */
     get_campaign: ({ id }: {
         id: u64;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Campaign>>;
+    /**
+     * Construct and simulate a set_arbiters transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Curated neutral arbiters a new campaign may name (TM-6). Existing campaigns keep theirs.
+     */
+    set_arbiters: ({ arbiters }: {
+        arbiters: Array<string>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a set_platform transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      */
@@ -367,6 +466,13 @@ export interface Client {
     list_disputes: ({ campaign_id }: {
         campaign_id: u64;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Array<Dispute>>>;
+    /**
+     * Construct and simulate a propose_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Step 1 of an admin transfer; the new admin must call `accept_admin` (no typo lock-out).
+     */
+    propose_admin: ({ new_admin }: {
+        new_admin: string;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a register_clip transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      */
@@ -422,6 +528,38 @@ export interface Client {
     finalize_dispute: ({ dispute_id }: {
         dispute_id: u64;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
+    /**
+     * Construct and simulate a get_campaign_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Attestors, owners and platform configs frozen into the campaign at creation.
+     */
+    get_campaign_config: ({ id }: {
+        id: u64;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<CampaignConfig>>;
+    /**
+     * Construct and simulate a min_response_window transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     */
+    min_response_window: (options?: MethodOptions) => Promise<AssembledTransaction<u64>>;
+    /**
+     * Construct and simulate a set_min_response_window transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Lower bound (seconds) on the clipper's response time, checked at campaign creation.
+     */
+    set_min_response_window: ({ seconds }: {
+        seconds: u64;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
+    /**
+     * Construct and simulate a create_campaign_with_swap transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Funds a campaign with any asset: swaps at most `amount_in_max` of `token_in` into exactly
+     * `params.budget` of `params.token` via the Soroswap router (`path` = `[token_in, …, params.token]`,
+     * output to the brand), then escrows the budget like `create_campaign`. All or nothing.
+     */
+    create_campaign_with_swap: ({ brand, params, token_in, amount_in_max, path, deadline }: {
+        brand: string;
+        params: CampaignParams;
+        token_in: string;
+        amount_in_max: i128;
+        path: Array<string>;
+        deadline: u64;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<u64>>>;
 }
 export declare class Client extends ContractClient {
     readonly options: ContractClientOptions;
@@ -443,20 +581,29 @@ export declare class Client extends ContractClient {
     constructor(options: ContractClientOptions);
     readonly fromJSON: {
         join: (json: string) => AssembledTransaction<Result<string, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
+        owed: (json: string) => AssembledTransaction<bigint>;
+        admin: (json: string) => AssembledTransaction<Result<string, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         claim: (json: string) => AssembledTransaction<Result<bigint, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         refund: (json: string) => AssembledTransaction<Result<bigint, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
+        router: (json: string) => AssembledTransaction<Option<string>>;
         resolve: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         respond: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
+        arbiters: (json: string) => AssembledTransaction<string[]>;
         get_clip: (json: string) => AssembledTransaction<Clip>;
+        withdraw: (json: string) => AssembledTransaction<Result<bigint, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         challenge: (json: string) => AssembledTransaction<Result<bigint, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         get_clips: (json: string) => AssembledTransaction<ClipView[]>;
         get_epoch: (json: string) => AssembledTransaction<EpochState>;
         set_owners: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
+        set_router: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
+        accept_admin: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         get_campaign: (json: string) => AssembledTransaction<Campaign>;
+        set_arbiters: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         set_platform: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         settle_epoch: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         submit_proof: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         list_disputes: (json: string) => AssembledTransaction<Dispute[]>;
+        propose_admin: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         register_clip: (json: string) => AssembledTransaction<Result<bigint, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         set_attestors: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         campaign_count: (json: string) => AssembledTransaction<bigint>;
@@ -465,5 +612,9 @@ export declare class Client extends ContractClient {
         create_campaign: (json: string) => AssembledTransaction<Result<bigint, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         get_participant: (json: string) => AssembledTransaction<Option<Participant>>;
         finalize_dispute: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
+        get_campaign_config: (json: string) => AssembledTransaction<CampaignConfig>;
+        min_response_window: (json: string) => AssembledTransaction<bigint>;
+        set_min_response_window: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
+        create_campaign_with_swap: (json: string) => AssembledTransaction<Result<bigint, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
     };
 }
