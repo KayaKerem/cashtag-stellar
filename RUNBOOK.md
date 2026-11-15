@@ -140,13 +140,26 @@ docker compose restart verifier
 2. Update the contract IDs in the server's `verifier.env` and in the Vercel env (`NEXT_PUBLIC_CLIPRAIL_ID`, `NEXT_PUBLIC_HUMANITY_ID`), then redeploy both.
 3. `/health` and the dashboard badge flag any mismatch.
 
-**Key rotation.** The relayer key (`RELAYER_SECRET`) signs keeper and relayer transactions and pays their fees. It holds no campaign funds. To rotate it:
+**Keys on the server.** There are two funded testnet accounts, each in `verifier.env`:
 
-1. Fund a new account.
-2. Set it in `verifier.env` and run `docker compose up -d verifier`.
-3. Point the `humanity` contract at it with `set_relayer` (admin key).
+- **Keeper** (`KEEPER_SECRET`, `GAB7WVYUN5VIPEU4GI3DGOB6DNYT4LWBGIA5UFZ4CS5JK54Y2DY7EJLC`) signs `submit_proof`, `settle_epoch` and `finalize_dispute`. Those calls are permissionless, so a leaked keeper key can only spend fees.
+- **Relayer** (`RELAYER_SECRET`) signs only `humanity.register`, which can register humans.
 
-To rotate `WRITE_TOKEN`, change it in both `verifier.env` and the Vercel env, then redeploy both. Splitting the keeper and relayer into separate keys is still open (see [`security/REMEDIATION.md`](security/REMEDIATION.md), TM-15).
+Neither key holds campaign funds. The service refuses to start in production when the keeper is on without its own key. The startup log prints both addresses (`relayer=… keeper=…`).
+
+**Key rotation.**
+
+- **Keeper:**
+  1. `stellar keys generate keeper2 --network testnet --fund`.
+  2. Replace `KEEPER_SECRET` in `verifier.env`.
+  3. `docker compose up -d verifier`.
+
+  No contract change is needed.
+- **Relayer:**
+  1. Fund a new account.
+  2. Point the `humanity` contract at it with `set_relayer` (admin key).
+  3. Replace `RELAYER_SECRET` and restart.
+- **Write token:** change `WRITE_TOKEN` in both `verifier.env` and the Vercel env, then redeploy both.
 
 ## 7. Troubleshooting
 

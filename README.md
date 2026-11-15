@@ -641,7 +641,7 @@ pnpm --filter verifier dev                                 # http://localhost:87
 - **Attestor mode.** `reclaim` produces live attestor-signed zkFetch proofs; `simulated` signs in the exact Reclaim format with a local test key for rehearsals. Both are allowlisted on the demo deployment, and the dashboard badges simulated proofs. **Operational note:** the free Reclaim tier is ~100 zkFetch calls per month, and in live mode the keeper spends one per closing proof. The hosted deployment allow-lists only the live attestor; the e2e instance used by `pnpm --filter e2e run` uses `simulated`.
 - Without Reclaim credentials the service still starts in `simulated` mode. `/health` and `/demo/*` work, and live `/proof` returns 503.
 - `RELAYER_SECRET`, `CLIPRAIL_ID` and `HUMANITY_ID` fall back to `scripts/.accounts/`.
-- `KEEPER=1` enables automatic closing proofs, dispute finalization and settlement.
+- `KEEPER=1` enables automatic closing proofs, dispute finalization and settlement. These are signed with `KEEPER_SECRET`, a key separate from the relayer key, which only registers humans. Production refuses to start without it; locally it falls back to `RELAYER_SECRET`.
 - `DEMO_MODE=1` enables `/humanity/demo-register`.
 - `WRITE_TOKEN` protects write endpoints, and `/proof` is rate-limited per IP.
 - Docker and Caddy deployment instructions are in [services/verifier/README.md](services/verifier/README.md).
