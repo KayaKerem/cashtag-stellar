@@ -2,6 +2,7 @@
 // so the mock follows the same timeline as the contract; the clock runs in real time (× speed).
 import {
   CLIPRAIL_ERRORS,
+  disputeFee,
   canChallenge,
   canClaim,
   canClaimHoldback,
@@ -44,6 +45,8 @@ export const MOCK_ACCOUNTS = {
   clipper3: "GCUADPRYBBDRWZ4DBS5G3KQ6UY3XC5BAG6GXS4OYNLE4T7LPFPGDLOVJ",
 } as const;
 const USDC_SAC = "CCRCO347GR4FVCZACMTXZWE4EKTICARZXRRTS4R4HZZYK7R7E65UX45E";
+/** Testnet value of the contract's min_response_window (seconds). */
+const MIN_RESPONSE_WINDOW = 10n;
 const USDC = 10_000_000n;
 
 /** Mock Soroswap pool: 5 tokenIn per campaign token, 0.3% fee (like the seeded testnet XLM/USDC pool). */
@@ -127,6 +130,12 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
   const clips: ClipRec[] = [];
   const epochs = new Map<string, EpochState>(); // `${cid}:${e}`
   const disputes: Dispute[] = [];
+  const arbiters: string[] = [MOCK_ACCOUNTS.arbiter]; // admin-curated list (contract set_arbiters)
+  const owed = new Map<string, bigint>(); // `${addr}|${token}`: dispute payouts awaiting withdraw
+  const credit = (who: string, token: string, amount: bigint) => {
+    const k = `${who}|${token}`;
+    owed.set(k, (owed.get(k) ?? 0n) + amount);
+  };
 
   const camp = (id: bigint) => campaigns.get(id) ?? (() => { throw err(4); })();
   const clipRec = (id: bigint) => clips.find((c) => c.clip.id === id) ?? (() => { throw err(11); })();
@@ -163,12 +172,16 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
   function createCampaignS(brand: string, params: CampaignParams): bigint {
     if (params.epochs < 1 || params.budget <= 0n || params.epoch_len <= 0n || params.holdback_bps > 10_000 || params.platforms.length === 0)
       throw err(3);
+    if (!arbiters.includes(params.arbiter)) throw err(40);
+    if (params.arbiter === brand) throw err(3);
+    if (params.dispute_window / 2n < MIN_RESPONSE_WINDOW) throw err(3);
     const id = BigInt(campaigns.size + 1);
     campaigns.set(id, { id, brand, params: clone(params), balance: params.budget, settled_epochs: 0, refunded: false, participants: 0, clips: 0 });
     return id;
   }
   function joinS(cid: bigint, addr: string, t: bigint): string {
     const c = camp(cid);
+    if (addr === c.params.arbiter) throw err(3);
     if (!canJoin(c.params, t)) throw err(8);
     if (c.params.require_humanity && !humans.has(`${cid}:${addr}`)) throw err(7);
     if (participants.has(`${cid}:${addr}`)) throw err(6);
@@ -216,6 +229,7 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
   }
   function challengeS(cid: bigint, clipId: bigint, e: number, who: string, evidence: string, t: bigint): bigint {
     const c = camp(cid);
+    if (who === c.params.arbiter) throw err(3);
     const r = clipRec(clipId);
     if (!canChallenge(c.params, e, t)) throw err(8);
     const ce = r.epochs[e];
@@ -229,6 +243,13 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
   }
   const disputeOf = (id: bigint) => disputes.find((d) => d.id === id) ?? (() => { throw err(28); })();
   function closeDispute(d: Dispute, clipperWins: boolean) {
+    const p = camp(d.campaign_id).params;
+    // bond and arbiter fee are credited, then pulled with withdraw (contract dispute.rs:close)
+    if (p.bond > 0n) {
+      const fee = disputeFee(p.bond);
+      credit(p.arbiter, p.token, fee);
+      credit(clipperWins ? clipRec(d.clip_id).clip.owner : d.challenger, p.token, p.bond - fee);
+    }
     d.status = clipperWins ? "ClipperWon" : "ChallengerWon";
     clipRec(d.clip_id).epochs[d.epoch]!.status = clipperWins ? "Active" : "Excluded";
     epochOf(d.campaign_id, d.epoch).open_disputes--;
@@ -432,6 +453,17 @@ export function createMockApi(opts: MockApiOptions = {}): MockApi {
         const amount = holdbackShare(r.held[e], { held_total: st.held_total, held_survived: survived });
         ce.holdback_claimed = true;
         c.balance -= amount;
+        return { amount };
+      }),
+    listArbiters: () => read(() => arbiters),
+    minResponseWindow: () => read(() => Number(MIN_RESPONSE_WINDOW)),
+    owed: (addr, token) => read(() => owed.get(`${addr}|${token ?? USDC_SAC}`) ?? 0n),
+    withdraw: (token) =>
+      write((_t, who) => {
+        const k = `${who}|${token ?? USDC_SAC}`;
+        const amount = owed.get(k) ?? 0n;
+        if (amount <= 0n) throw err(26);
+        owed.delete(k);
         return { amount };
       }),
     refund: (id) =>

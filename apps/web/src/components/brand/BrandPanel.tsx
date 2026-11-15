@@ -18,6 +18,7 @@ import {
 import { useState } from "react";
 import { AddressChip } from "@/components/common/AddressChip";
 import { Amount } from "@/components/common/Amount";
+import { WithdrawCard } from "@/components/common/WithdrawCard";
 import { EmptyState, Skeleton } from "@/components/common/EmptyState";
 import { PhaseTimeline } from "@/components/common/PhaseTimeline";
 import { StatusPill } from "@/components/common/StatusPill";
@@ -108,6 +109,8 @@ export function BrandPanel({ id }: { id: bigint }) {
           </>
         }
       />
+
+      {isBrand && <WithdrawCard role="brand" className="mb-6" />}
 
       {!isBrand && (
         <p className="mb-6 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info">

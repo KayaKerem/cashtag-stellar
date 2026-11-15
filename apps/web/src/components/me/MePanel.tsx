@@ -1,10 +1,11 @@
 "use client";
 
-import { canJoin, type CampaignView, type ClipView, type Dispute, type EpochState } from "@cliprail/shared";
+import { canJoin, disputeFee, type CampaignView, type ClipView, type Dispute, type EpochState } from "@cliprail/shared";
 import { useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { Amount } from "@/components/common/Amount";
 import { TryRampButton } from "@/components/anchor/TryRampDialog";
+import { WithdrawCard } from "@/components/common/WithdrawCard";
 import { CodeBadge } from "@/components/common/CodeBadge";
 import { DemoBoostButton } from "./DemoBoostButton";
 import { EmptyState, Skeleton } from "@/components/common/EmptyState";
@@ -60,7 +61,7 @@ function CellActionButton({ c, clipId, cell }: { c: CampaignView; clipId: bigint
             disabledReason={reason}
             action={() => {
               const ok = window.confirm(
-                `Responding to this challenge posts a ${Number(c.params.bond) / 1e7} USDC bond. If the arbiter rules against you, you lose it; if they rule for you, you take both bonds. Continue?`,
+                `Responding sends this challenge to the arbiter; it costs you nothing. If the arbiter rules for you, the challenger's ${Number(c.params.bond) / 1e7} USDC bond minus a 10% arbiter fee is credited to you (withdraw it from this page). If the ruling goes against you, the clip is excluded from this epoch. Continue?`,
               );
               if (!ok) return Promise.reject(new Cancelled());
               return respond.mutateAsync(a.disputeId);
@@ -70,7 +71,7 @@ function CellActionButton({ c, clipId, cell }: { c: CampaignView; clipId: bigint
           >
             Respond to the challenge
           </TxButton>
-          <span className="text-[10px] text-muted">Bond: <Amount value={c.params.bond} /></span>
+          <span className="text-[10px] text-muted">If you win: <Amount value={c.params.bond - disputeFee(c.params.bond)} /></span>
         </span>
       );
   }
@@ -251,6 +252,8 @@ export function MePanel() {
         description="Your clips, epoch status and earnings. Actions unlock only during the matching phase."
         actions={<TryRampButton kind="withdraw" />}
       />
+
+      <WithdrawCard role="clipper" className="mb-6" />
 
       <div className="mb-8 grid gap-3 sm:grid-cols-3">
         {[

@@ -335,5 +335,20 @@ export function createChainApi(opts: ChainApiOptions): CliprailApi {
       const r = await write<bigint>((c) => c.refund({ campaign_id: id }));
       return { amount: big(r.result), txHash: r.txHash };
     },
+
+    async listArbiters() {
+      return read<string[]>(reader.arbiters());
+    },
+    async minResponseWindow() {
+      return Number(await read<bigint>(reader.min_response_window()));
+    },
+    async owed(addr, token) {
+      return big(await read(reader.owed({ who: addr, token: token ?? defaultToken() })));
+    },
+    async withdraw(token) {
+      const t = token ?? defaultToken();
+      const r = await write<bigint>((c, who) => c.withdraw({ who, token: t }), { tokenIds: [t] });
+      return { amount: big(r.result), txHash: r.txHash };
+    },
   };
 }

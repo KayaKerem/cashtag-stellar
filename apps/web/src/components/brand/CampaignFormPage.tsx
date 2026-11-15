@@ -3,14 +3,14 @@
 import { MOCK_ACCOUNTS } from "@cliprail/client";
 import { parseUsdc, type Platform } from "@cliprail/shared";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TryRampButton } from "@/components/anchor/TryRampDialog";
 import { PhaseTimeline } from "@/components/common/PhaseTimeline";
 import { FundingChoice, SWAP_CAMPAIGN_TOKEN, SWAP_TOKEN_IN, swapErrorMessage, type FundWith } from "./SwapFunding";
 import { useToast } from "@/components/common/Toast";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useApi } from "@/lib/api/ApiProvider";
-import { useWrite } from "@/lib/api/hooks";
+import { useArbiters, useMinResponseWindow, useWrite } from "@/lib/api/hooks";
 import { buildParams, demoPreset, emptyForm, type CampaignForm, type FormErrors } from "@/lib/campaignForm";
 import { formatDuration, useNow } from "@/lib/hooks/useNow";
 import { useWallet } from "@/lib/wallet/WalletProvider";
@@ -72,7 +72,16 @@ export function CampaignFormPage() {
   const [touched, setTouched] = useState(false);
   const [fundWith, setFundWith] = useState<FundWith>("usdc");
 
-  const { params, errors } = useMemo(() => buildParams(form, account, now), [form, account, now]);
+  const arbiters = useArbiters().data;
+  const minResponseWindow = useMinResponseWindow().data;
+  // the arbiter must come from the admin-curated list: preselect the first one
+  useEffect(() => {
+    if (arbiters?.length && !arbiters.includes(form.arbiter)) setForm((f) => ({ ...f, arbiter: arbiters[0] }));
+  }, [arbiters, form.arbiter]);
+  const { params, errors } = useMemo(
+    () => buildParams(form, account, now, { arbiters, minResponseWindow }),
+    [form, account, now, arbiters, minResponseWindow],
+  );
   const shown: FormErrors = touched ? errors : {};
 
   const create = useWrite((api, p: NonNullable<typeof params>) => api.createCampaign(p));
@@ -235,12 +244,22 @@ export function CampaignFormPage() {
             <Field label="Holdback" help="Held back from every payout and released when the video is still live in the next epoch; not applied in the last epoch." error={shown.holdback_pct} suffix="%">
               <input {...text("holdback_pct")} inputMode="decimal" />
             </Field>
-            <Field label="Challenge bond" help="Posted by both the challenger and the responder; the loser forfeits it." error={shown.bond} suffix="USDC">
+            <Field label="Challenge bond" help="Posted by whoever opens a challenge. When the dispute closes, 10% goes to the arbiter whatever the ruling; the rest is credited to the winner, who withdraws it." error={shown.bond} suffix="USDC">
               <input {...text("bond")} inputMode="decimal" />
             </Field>
             <div className="sm:col-span-2">
-              <Field label="Arbiter address" help="Decides challenges that got a response. Can&apos;t be the brand. Defaults to the team arbiter account." error={shown.arbiter}>
-                <input {...text("arbiter")} className={`${inputCls(shown.arbiter)} font-mono text-xs`} spellCheck={false} />
+              <Field label="Arbiter" help="Decides challenges that got a response. Picked from the admin-curated list of neutral arbiters; it can't be the brand, and it can't join or challenge in this campaign." error={shown.arbiter}>
+                {arbiters?.length ? (
+                  <select value={form.arbiter} onChange={(e) => set("arbiter", e.target.value)} className={`${inputCls(shown.arbiter)} font-mono text-xs`}>
+                    {arbiters.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input {...text("arbiter")} className={`${inputCls(shown.arbiter)} font-mono text-xs`} spellCheck={false} />
+                )}
               </Field>
             </div>
           </Group>

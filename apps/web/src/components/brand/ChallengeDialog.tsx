@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { disputeFee } from "@cliprail/shared";
 import { Amount } from "@/components/common/Amount";
 import { TxButton } from "@/components/common/TxButton";
 
@@ -61,8 +62,12 @@ export function ChallengeDialog({
             You&apos;re posting a <Amount value={bond} /> bond.
           </p>
           <ul className="mt-1.5 list-disc space-y-1 pl-4">
-            <li>If the clipper doesn&apos;t respond, you win: your bond is returned and the clip is excluded from this epoch.</li>
-            <li>If the clipper responds, the arbiter decides; if the ruling goes against you, you lose your bond.</li>
+            <li>If the clipper doesn&apos;t respond, you win and the clip is excluded from this epoch.</li>
+            <li>If the clipper responds, the arbiter decides; if the ruling goes against you, the clipper gets your bond.</li>
+            <li>
+              Whatever the outcome, <Amount value={disputeFee(bond)} /> (10% of the bond) goes to the arbiter. If you win, the remaining{" "}
+              <Amount value={bond - disputeFee(bond)} /> is credited to you; withdraw it from this panel.
+            </li>
             <li>The excluded clip&apos;s share doesn&apos;t come back to you; it is split among the other clippers.</li>
           </ul>
         </div>

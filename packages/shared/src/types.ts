@@ -180,6 +180,18 @@ export interface CliprailApi {
   claim(id: bigint, clipId: bigint, e: number): Promise<{ amount: bigint; txHash: string }>;
   claimHoldback(id: bigint, clipId: bigint, e: number): Promise<{ amount: bigint; txHash: string }>;
   refund(id: bigint): Promise<{ amount: bigint; txHash: string }>;
+
+  /** Admin-curated arbiters a new campaign may name (`params.arbiter`, else contract #40). */
+  listArbiters(): Promise<string[]>;
+  /** Lower bound in seconds for each half of `dispute_window` (`dispute_window / 2`). */
+  minResponseWindow(): Promise<number>;
+  /**
+   * Dispute payouts credited to `addr` and not yet withdrawn: bonds won and arbiter fees.
+   * `token` defaults to the testnet USDC SAC.
+   */
+  owed(addr: string, token?: string): Promise<bigint>;
+  /** Pull everything credited to the connected wallet in `token` (contract #26 when nothing is owed). */
+  withdraw(token?: string): Promise<{ amount: bigint; txHash: string }>;
 }
 
 // ---------------------------------------------------------------- normalization

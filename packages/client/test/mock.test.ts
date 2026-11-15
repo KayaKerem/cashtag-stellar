@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { refundAt } from "@cliprail/shared";
+import { disputeFee, refundAt } from "@cliprail/shared";
 import { createApi, createMockApi, MOCK_ACCOUNTS as A, type MockApi } from "../src";
 
 function setup() {
@@ -67,6 +67,37 @@ describe("mock api", () => {
     await expect(api.claim(1n, 1n, 0)).rejects.toMatchObject({ code: 25 });
     await expect(api.claim(1n, 3n, 0)).rejects.toMatchObject({ code: 30 });
     expect((await api.getCampaign(1n)).balance).toBe(3000n * 10_000_000n - c.amount);
+  });
+
+  it("closed dispute credits arbiter fee and bond; recipients withdraw", async () => {
+    const { api, as } = setup();
+    const p = (await api.getCampaign(1n)).params;
+    const fee = disputeFee(p.bond);
+    as(A.clipper3);
+    await api.respond(1n);
+    api.advance(110);
+    as(A.arbiter);
+    await api.resolve(1n, true);
+    expect(await api.owed(A.arbiter)).toBe(fee);
+    expect(await api.owed(A.clipper3)).toBe(p.bond - fee);
+    expect((await api.withdraw()).amount).toBe(fee);
+    expect(await api.owed(A.arbiter)).toBe(0n);
+    await expect(api.withdraw()).rejects.toMatchObject({ code: 26 });
+    expect(disputeFee(5n)).toBe(1n); // never zero for a non-zero bond
+  });
+
+  it("arbiter must be curated and not the brand; min response window", async () => {
+    const api = createApi("mock", { address: A.brand }) as MockApi;
+    expect(await api.listArbiters()).toEqual([A.arbiter]);
+    expect(await api.minResponseWindow()).toBe(10);
+    const p = (await api.listCampaigns())[0].params;
+    const base = { ...p, platforms: ["demo" as const], start: api.now() + 60n };
+    await expect(api.createCampaign({ ...base, arbiter: A.clipper1 })).rejects.toMatchObject({ code: 40 });
+    await expect(api.createCampaign({ ...base, dispute_window: 10n })).rejects.toMatchObject({ code: 3 });
+    const { id } = await api.createCampaign(base);
+    const arb = createApi("mock", { address: A.arbiter }) as MockApi;
+    await expect(arb.createCampaign({ ...base })).rejects.toMatchObject({ code: 3 });
+    expect(id).toBe(3n);
   });
 
   it("unanswered dispute is finalized for the challenger", async () => {

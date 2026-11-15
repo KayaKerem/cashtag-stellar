@@ -90,6 +90,8 @@ export function buildParams(
   f: CampaignForm,
   brand: string | null,
   now: bigint,
+  /** On-chain rules, once loaded: the curated arbiter list and the minimum response window (s). */
+  rules: { arbiters?: string[]; minResponseWindow?: number } = {},
 ): { params: CampaignParamsInput | null; errors: FormErrors } {
   const e: FormErrors = {};
 
@@ -130,6 +132,8 @@ export function buildParams(
   if (proof === null) e.proof_window = "Enter a whole number.";
   if (dispute === null) e.dispute_window = "Enter a whole number.";
   else if (dispute < 2n) e.dispute_window = "At least 2s (half for challenges, half for responses).";
+  else if (rules.minResponseWindow && dispute / 2n < BigInt(rules.minResponseWindow))
+    e.dispute_window = `Each half must be at least ${rules.minResponseWindow}s so the clipper has time to respond (at least ${2 * rules.minResponseWindow}s).`;
   if (arbiterW === null) e.arbiter_window = "Enter a whole number.";
   if (epochLen === null || epochLen <= 0n) e.epoch_len = "Must be greater than 0.";
   else if (proof !== null && dispute !== null && arbiterW !== null && epochLen < proof + dispute + arbiterW)
@@ -145,6 +149,7 @@ export function buildParams(
 
   if (!isStellarAddress(f.arbiter)) e.arbiter = "Enter a valid Stellar address (G…).";
   else if (brand && f.arbiter === brand) e.arbiter = "The arbiter can't be the brand.";
+  else if (rules.arbiters && !rules.arbiters.includes(f.arbiter)) e.arbiter = "Pick an arbiter from the curated list.";
 
   if (!f.platforms.length) e.platforms = "Pick at least one platform.";
 

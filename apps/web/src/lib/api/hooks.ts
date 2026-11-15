@@ -14,6 +14,9 @@ export const qk = {
   participant: (id: bigint, addr: string) => ["campaign", id, "participant", addr] as const,
   human: (id: bigint, addr: string) => ["campaign", id, "human", addr] as const,
   disputes: (id: bigint) => ["campaign", id, "disputes"] as const,
+  arbiters: ["arbiters"] as const,
+  minResponseWindow: ["minResponseWindow"] as const,
+  owed: (addr: string) => ["owed", addr] as const,
 };
 
 export function useCampaigns() {
@@ -86,6 +89,29 @@ export function useDisputes(id: bigint | null) {
     queryKey: qk.disputes(id ?? 0n),
     queryFn: () => api.listDisputes(id!),
     enabled: id !== null,
+    refetchInterval: LIVE_MS,
+  });
+}
+
+/** Admin-curated arbiters a new campaign may name. */
+export function useArbiters() {
+  const { api } = useApi();
+  return useQuery({ queryKey: qk.arbiters, queryFn: () => api.listArbiters(), staleTime: 60_000 });
+}
+
+/** Contract lower bound (seconds) for each half of the challenge window. */
+export function useMinResponseWindow() {
+  const { api } = useApi();
+  return useQuery({ queryKey: qk.minResponseWindow, queryFn: () => api.minResponseWindow(), staleTime: 60_000 });
+}
+
+/** Dispute payouts (bonds won, arbiter fees) credited to `addr` and not yet withdrawn. */
+export function useOwed(addr: string | null) {
+  const { api } = useApi();
+  return useQuery({
+    queryKey: qk.owed(addr ?? ""),
+    queryFn: () => api.owed(addr!),
+    enabled: !!addr,
     refetchInterval: LIVE_MS,
   });
 }

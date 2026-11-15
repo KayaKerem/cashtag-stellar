@@ -13,6 +13,7 @@ import { useApi } from "@/lib/api/ApiProvider";
 import { LIVE_MS, qk, useCampaigns, useWrite } from "@/lib/api/hooks";
 import { formatDuration, useNow } from "@/lib/hooks/useNow";
 import { useWallet } from "@/lib/wallet/WalletProvider";
+import { WithdrawCard } from "@/components/common/WithdrawCard";
 import { PLATFORM_LABEL, videoUrl } from "@/lib/video";
 
 function resolveReason(c: CampaignView, d: Dispute, now: bigint): string | null {
@@ -156,6 +157,8 @@ export function ArbiterPage() {
         title="Arbiter"
         description="Decide the challenges a clipper responded to. Decisions happen after the response window closes and before settle; if the window runs out, the clipper wins."
       />
+
+      <WithdrawCard role="arbiter" className="mb-6" />
 
       {loading ? (
         <Skeleton className="h-64" />

@@ -137,3 +137,12 @@ export function holdbackShare(heldI: bigint, st: Pick<EpochState, "held_total" |
   if (st.held_survived === 0n) return 0n;
   return (heldI * st.held_total) / st.held_survived;
 }
+
+/** Arbiter fee on every closed dispute, in basis points of the bond (contract `DISPUTE_FEE_BPS`). */
+export const DISPUTE_FEE_BPS = 1_000n;
+
+/** Arbiter fee for a bond: 10%, rounded up (mirrors `dispute.rs:dispute_fee`). The winner is credited `bond - fee`. */
+export function disputeFee(bond: bigint): bigint {
+  if (bond <= 0n) return 0n;
+  return (bond / 10_000n) * DISPUTE_FEE_BPS + ((bond % 10_000n) * DISPUTE_FEE_BPS + 9_999n) / 10_000n;
+}
