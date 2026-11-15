@@ -1,0 +1,1052 @@
+{
+  "name": "Contracts",
+  "date": "2026-11-16",
+  "summary": {
+    "executed_on": [
+      {
+        "name": "cliprail",
+        "id": "path+file://./contracts/cliprail#0.1.0",
+        "relative_path": "./Cargo.toml",
+        "absolute_path": "./contracts/cliprail/Cargo.toml"
+      }
+    ],
+    "total_vulnerabilities": 77,
+    "by_severity": {
+      "minor": 0,
+      "enhancement": 22,
+      "critical": 40,
+      "medium": 15
+    },
+    "table": {
+      "header": {
+        "cells": [
+          {
+            "content": "Crate",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Status",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Critical",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Medium",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Minor",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Enhancement",
+            "color": {
+              "Importance": "Header"
+            }
+          }
+        ]
+      },
+      "rows": [
+        {
+          "cells": [
+            {
+              "content": "cliprail",
+              "color": "Default"
+            },
+            {
+              "content": "Analyzed",
+              "color": "Default"
+            },
+            {
+              "content": "40",
+              "color": "Default"
+            },
+            {
+              "content": "15",
+              "color": "Default"
+            },
+            {
+              "content": "0",
+              "color": "Default"
+            },
+            {
+              "content": "22",
+              "color": "Default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "categories": [
+    {
+      "id": "Error Handling",
+      "name": "Unsafe Unwrap",
+      "vulnerabilities": [
+        {
+          "id": "unsafe_unwrap",
+          "name": "Unsafe Unwrap",
+          "short_message": "Unsafe usage of `unwrap`",
+          "long_message": "This vulnerability class pertains to the inappropriate usage of the unwrap method in Rust, which is commonly employed for error handling. The unwrap method retrieves the inner value of an Option or Result, but if an error or None occurs, it triggers a panic and crashes the program.    ",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/rust/unsafe-unwrap"
+        }
+      ]
+    },
+    {
+      "id": "DoS",
+      "name": "Dos Unexpected Revert With Storage",
+      "vulnerabilities": [
+        {
+          "id": "dos_unexpected_revert_with_storage",
+          "name": "Dos Unexpected Revert With Storage",
+          "short_message": "This storage (vector or map) operation is called without access control",
+          "long_message": " It occurs by preventing transactions by other users from being successfully executed forcing the blockchain state to revert to its original state.",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/dos-unexpected-revert-with-storage"
+        },
+        {
+          "id": "dos_unbounded_operation",
+          "name": "Dos Unbounded Operation",
+          "short_message": "In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided",
+          "long_message": "In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided. This includes loops that do not have a bounded number of iterations, and recursive calls.    ",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/dos-unbounded-operation"
+        }
+      ]
+    },
+    {
+      "id": "Arithmetic",
+      "name": "Integer Overflow Or Underflow",
+      "vulnerabilities": [
+        {
+          "id": "integer_overflow_or_underflow",
+          "name": "Integer Overflow Or Underflow",
+          "short_message": "Potential for integer arithmetic overflow/underflow. Consider checked, wrapping or saturating arithmetic.",
+          "long_message": "An overflow/underflow is typically caught and generates an error. When it is not caught, the operation will result in an inexact result which could lead to serious problems.",
+          "severity": "Critical",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/integer-overflow-or-underflow"
+        },
+        {
+          "id": "divide_before_multiply",
+          "name": "Divide Before Multiply",
+          "short_message": "Division before multiplication might result in a loss of precision",
+          "long_message": "Division before multiplication might result in a loss of precision",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/rust/divide-before-multiply"
+        }
+      ]
+    },
+    {
+      "id": "Authorization",
+      "name": "Unsafe Map Get",
+      "vulnerabilities": [
+        {
+          "id": "unsafe_map_get",
+          "name": "Unsafe Map Get",
+          "short_message": "Unsafe access on Map, method could panic.",
+          "long_message": "This vulnerability class pertains to the inappropriate usage of the get method for Map in soroban",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/unsafe-map-get"
+        }
+      ]
+    },
+    {
+      "id": "Best Practices",
+      "name": "Avoid Vec Map Input",
+      "vulnerabilities": [
+        {
+          "id": "avoid_vec_map_input",
+          "name": "Avoid Vec Map Input",
+          "short_message": "Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.",
+          "long_message": "Soroban Vec and Map<K, V> parameters arrive as raw Val values. Validate or normalize every element before storing or reusing them so a bad conversion does not halt contract execution.",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/avoid-vec-map-input"
+        },
+        {
+          "id": "storage_change_events",
+          "name": "Storage Change Events",
+          "short_message": "Consider emiting an event when storage is modified",
+          "long_message": "Emiting an event when storage changes is a good practice to make the contracts more transparent and usable to its clients and observers",
+          "severity": "Enhancement",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/storage-change-events"
+        }
+      ]
+    },
+    {
+      "id": "MEV",
+      "name": "Front Running",
+      "vulnerabilities": [
+        {
+          "id": "front_running",
+          "name": "Front Running",
+          "short_message": "The transferred amount should be checked against a minimum to prevent front-running",
+          "long_message": "This lint checks for potential front-running vulnerabilities in token transfers",
+          "severity": "Medium",
+          "help": "Consider implementing a minimum amount check before the transfer"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": 0,
+      "occurrence_index": 1,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "dispute.rs:26:5 - 26:89",
+      "code_snippet": "bond / 10_000 * DISPUTE_FEE_BPS + (bond % 10_000 * DISPUTE_FEE_BPS + 9_999) / 10_000",
+      "package": "cliprail",
+      "file_path": "cliprail/src/dispute.rs"
+    },
+    {
+      "id": 1,
+      "occurrence_index": 1,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "divide_before_multiply",
+      "error_message": "[MEDIUM] Division before multiplication might result in a loss of precision",
+      "span": "dispute.rs:26:5 - 26:18",
+      "code_snippet": "bond / 10_000",
+      "package": "cliprail",
+      "file_path": "cliprail/src/dispute.rs"
+    },
+    {
+      "id": 2,
+      "occurrence_index": 2,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "dispute.rs:88:5 - 88:26",
+      "code_snippet": "st.open_disputes += 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/dispute.rs"
+    },
+    {
+      "id": 3,
+      "occurrence_index": 1,
+      "category_id": "MEV",
+      "vulnerability_id": "front_running",
+      "error_message": "[MEDIUM] The transferred amount should be checked against a minimum to prevent front-running",
+      "span": "dispute.rs:165:5 - 165:96",
+      "code_snippet": "token::Client::new(env, &token_id).transfer(&env.current_contract_address(), &who, &amount)",
+      "package": "cliprail",
+      "file_path": "cliprail/src/dispute.rs"
+    },
+    {
+      "id": 4,
+      "occurrence_index": 1,
+      "category_id": "Error Handling",
+      "vulnerability_id": "unsafe_unwrap",
+      "error_message": "[MEDIUM] Unsafe usage of `unwrap`",
+      "span": "dispute.rs:172:16 - 172:54",
+      "code_snippet": "storage::clip(env, d.clip_id).unwrap()",
+      "package": "cliprail",
+      "file_path": "cliprail/src/dispute.rs"
+    },
+    {
+      "id": 5,
+      "occurrence_index": 2,
+      "category_id": "Error Handling",
+      "vulnerability_id": "unsafe_unwrap",
+      "error_message": "[MEDIUM] Unsafe usage of `unwrap`",
+      "span": "dispute.rs:173:18 - 173:71",
+      "code_snippet": "storage::clip_epoch(env, d.clip_id, d.epoch).unwrap()",
+      "package": "cliprail",
+      "file_path": "cliprail/src/dispute.rs"
+    },
+    {
+      "id": 6,
+      "occurrence_index": 3,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "dispute.rs:191:45 - 191:57",
+      "code_snippet": "p.bond - fee",
+      "package": "cliprail",
+      "file_path": "cliprail/src/dispute.rs"
+    },
+    {
+      "id": 7,
+      "occurrence_index": 4,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "dispute.rs:195:5 - 195:26",
+      "code_snippet": "st.open_disputes -= 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/dispute.rs"
+    },
+    {
+      "id": 8,
+      "occurrence_index": 5,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:18:5 - 18:43",
+      "code_snippet": "p.start + (e as u64 + 1) * p.epoch_len",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 9,
+      "occurrence_index": 6,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "epoch.rs:21:5 - 21:39",
+      "code_snippet": "content_end(p, e) + p.proof_window",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 10,
+      "occurrence_index": 7,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:24:5 - 24:43",
+      "code_snippet": "proof_end(p, e) + p.dispute_window / 2",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 11,
+      "occurrence_index": 8,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "epoch.rs:27:5 - 27:39",
+      "code_snippet": "proof_end(p, e) + p.dispute_window",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 12,
+      "occurrence_index": 9,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "epoch.rs:30:5 - 30:41",
+      "code_snippet": "dispute_end(p, e) + p.arbiter_window",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 13,
+      "occurrence_index": 10,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "epoch.rs:33:5 - 33:17",
+      "code_snippet": "p.epochs - 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 14,
+      "occurrence_index": 11,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "epoch.rs:37:5 - 37:42",
+      "code_snippet": "settle_at(p, last(p)) + p.claim_grace",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 15,
+      "occurrence_index": 12,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:45:13 - 45:42",
+      "code_snippet": "(now - p.start) / p.epoch_len",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 16,
+      "occurrence_index": 13,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "epoch.rs:56:18 - 56:23",
+      "code_snippet": "e + 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 17,
+      "occurrence_index": 14,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:129:9 - 129:26",
+      "code_snippet": "b += p.budget % n",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 18,
+      "occurrence_index": 15,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "epoch.rs:139:40 - 139:45",
+      "code_snippet": "e - 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 19,
+      "occurrence_index": 16,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "epoch.rs:141:9 - 141:33",
+      "code_snippet": "prev.budget - prev.spent",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 20,
+      "occurrence_index": 17,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:151:13 - 151:42",
+      "code_snippet": "budget_e * 1000 / (w as i128)",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 21,
+      "occurrence_index": 18,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "epoch.rs:161:20 - 161:45",
+      "code_snippet": "base_budget(p, e) + carry",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 22,
+      "occurrence_index": 19,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:163:17 - 163:56",
+      "code_snippet": "rate * (st.total_weight as i128) / 1000",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 23,
+      "occurrence_index": 20,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:167:21 - 167:56",
+      "code_snippet": "spent * holdback_bps(p, e) / 10_000",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 24,
+      "occurrence_index": 21,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:176:5 - 176:78",
+      "code_snippet": "rate * (pe.weight as i128) * (w_clip as i128) / ((pe.raw as i128) * 1000)",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 25,
+      "occurrence_index": 22,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:181:5 - 181:48",
+      "code_snippet": "(pay * holdback_bps(p, e) + 9_999) / 10_000",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 26,
+      "occurrence_index": 23,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "epoch.rs:189:28 - 189:44",
+      "code_snippet": "views - baseline",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 27,
+      "occurrence_index": 24,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:209:14 - 209:36",
+      "code_snippet": "pe.raw - old_w + new_w",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 28,
+      "occurrence_index": 25,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "epoch.rs:214:27 - 214:63",
+      "code_snippet": "st.total_weight - old_pw + pe.weight",
+      "package": "cliprail",
+      "file_path": "cliprail/src/epoch.rs"
+    },
+    {
+      "id": 29,
+      "occurrence_index": 1,
+      "category_id": "DoS",
+      "vulnerability_id": "dos_unexpected_revert_with_storage",
+      "error_message": "[MEDIUM] This storage (vector or map) operation is called without access control",
+      "span": "proof.rs:71:11 - 71:14",
+      "code_snippet": "set",
+      "package": "cliprail",
+      "file_path": "cliprail/src/proof.rs"
+    },
+    {
+      "id": 30,
+      "occurrence_index": 1,
+      "category_id": "Authorization",
+      "vulnerability_id": "unsafe_map_get",
+      "error_message": "[MEDIUM] Unsafe access on Map, method could panic.",
+      "span": "proof.rs:100:15 - 100:55",
+      "code_snippet": "snap.platforms.get(platform_sym.clone())",
+      "package": "cliprail",
+      "file_path": "cliprail/src/proof.rs"
+    },
+    {
+      "id": 31,
+      "occurrence_index": 26,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "storage.rs:104:18 - 104:53",
+      "code_snippet": "inst_get(env, key).unwrap_or(0) + 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/storage.rs"
+    },
+    {
+      "id": 32,
+      "occurrence_index": 2,
+      "category_id": "DoS",
+      "vulnerability_id": "dos_unexpected_revert_with_storage",
+      "error_message": "[MEDIUM] This storage (vector or map) operation is called without access control",
+      "span": "storage.rs:177:7 - 177:16",
+      "code_snippet": "push_back",
+      "package": "cliprail",
+      "file_path": "cliprail/src/storage.rs"
+    },
+    {
+      "id": 33,
+      "occurrence_index": 27,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "storage.rs:187:17 - 187:47",
+      "code_snippet": "owed(env, who, token) + amount",
+      "package": "cliprail",
+      "file_path": "cliprail/src/storage.rs"
+    },
+    {
+      "id": 34,
+      "occurrence_index": 28,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:91:9 - 91:25",
+      "code_snippet": "c.balance -= amt",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 35,
+      "occurrence_index": 29,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:137:24 - 137:29",
+      "code_snippet": "e + 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 36,
+      "occurrence_index": 30,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:394:9 - 394:28",
+      "code_snippet": "c.participants += 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 37,
+      "occurrence_index": 31,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:452:9 - 452:21",
+      "code_snippet": "c.clips += 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 38,
+      "occurrence_index": 32,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:536:72 - 536:77",
+      "code_snippet": "e - 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 39,
+      "occurrence_index": 33,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:538:68 - 538:73",
+      "code_snippet": "e - 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 40,
+      "occurrence_index": 34,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:539:57 - 539:62",
+      "code_snippet": "e - 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 41,
+      "occurrence_index": 35,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:540:21 - 540:71",
+      "code_snippet": "st.held_survived += epoch::held_of(&p, e - 1, pay)",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 42,
+      "occurrence_index": 36,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:540:60 - 540:65",
+      "code_snippet": "e - 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 43,
+      "occurrence_index": 37,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:541:59 - 541:64",
+      "code_snippet": "e - 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 44,
+      "occurrence_index": 38,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:543:60 - 543:65",
+      "code_snippet": "e - 1",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 45,
+      "occurrence_index": 39,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:592:25 - 592:64",
+      "code_snippet": "pay - epoch::held_of(&c.params, e, pay)",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 46,
+      "occurrence_index": 40,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:644:21 - 644:62",
+      "code_snippet": "held_i * st.held_total / st.held_survived",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 47,
+      "occurrence_index": 1,
+      "category_id": "DoS",
+      "vulnerability_id": "dos_unbounded_operation",
+      "error_message": "[MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided",
+      "span": "lib.rs:767:13 - 769:14",
+      "code_snippet": "for e in 0..c.params.epochs {\n                epochs.push_back(storage::get(&env, &DataKey::ClipEpoch(clip_id, e)));\n            }",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 48,
+      "occurrence_index": 3,
+      "category_id": "DoS",
+      "vulnerability_id": "dos_unexpected_revert_with_storage",
+      "error_message": "[MEDIUM] This storage (vector or map) operation is called without access control",
+      "span": "lib.rs:770:17 - 770:26",
+      "code_snippet": "push_back",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 49,
+      "occurrence_index": 4,
+      "category_id": "DoS",
+      "vulnerability_id": "dos_unexpected_revert_with_storage",
+      "error_message": "[MEDIUM] This storage (vector or map) operation is called without access control",
+      "span": "lib.rs:779:21 - 779:30",
+      "code_snippet": "push_back",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 50,
+      "occurrence_index": 1,
+      "category_id": "Best Practices",
+      "vulnerability_id": "avoid_vec_map_input",
+      "error_message": "[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.",
+      "span": "lib.rs:222:35 - 222:57",
+      "code_snippet": "arbiters: Vec<Address>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 51,
+      "occurrence_index": 2,
+      "category_id": "Best Practices",
+      "vulnerability_id": "avoid_vec_map_input",
+      "error_message": "[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.",
+      "span": "lib.rs:264:9 - 264:29",
+      "code_snippet": "required: Vec<Bytes>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 52,
+      "occurrence_index": 3,
+      "category_id": "Best Practices",
+      "vulnerability_id": "avoid_vec_map_input",
+      "error_message": "[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.",
+      "span": "lib.rs:308:9 - 308:27",
+      "code_snippet": "path: Vec<Address>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 53,
+      "occurrence_index": 4,
+      "category_id": "Best Practices",
+      "vulnerability_id": "avoid_vec_map_input",
+      "error_message": "[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.",
+      "span": "lib.rs:245:36 - 245:62",
+      "code_snippet": "attestors: Vec<BytesN<20>>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 54,
+      "occurrence_index": 5,
+      "category_id": "Best Practices",
+      "vulnerability_id": "avoid_vec_map_input",
+      "error_message": "[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.",
+      "span": "lib.rs:252:33 - 252:51",
+      "code_snippet": "owners: Vec<Bytes>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 55,
+      "occurrence_index": 1,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:302:5 - 310:28",
+      "code_snippet": "pub fn create_campaign_with_swap(\n        env: Env,\n        brand: Address,\n        params: CampaignParams,\n        token_in: Address,\n        amount_in_max: i128,\n        path: Vec<Address>,\n        deadline: u64,\n    ) -> Result<u64, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 56,
+      "occurrence_index": 2,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:564:5 - 564:94",
+      "code_snippet": "pub fn claim(env: Env, campaign_id: u64, clip_id: u64, epoch: u32) -> Result<i128, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 57,
+      "occurrence_index": 3,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:245:5 - 245:84",
+      "code_snippet": "pub fn set_attestors(env: Env, attestors: Vec<BytesN<20>>) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 58,
+      "occurrence_index": 4,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:359:5 - 359:91",
+      "code_snippet": "pub fn join(env: Env, campaign_id: u64, participant: Address) -> Result<String, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 59,
+      "occurrence_index": 5,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:558:5 - 558:85",
+      "code_snippet": "pub fn settle_epoch(env: Env, campaign_id: u64, epoch: u32) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 60,
+      "occurrence_index": 6,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:252:5 - 252:73",
+      "code_snippet": "pub fn set_owners(env: Env, owners: Vec<Bytes>) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 61,
+      "occurrence_index": 7,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:234:5 - 234:80",
+      "code_snippet": "pub fn set_min_response_window(env: Env, seconds: u64) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 62,
+      "occurrence_index": 8,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:405:5 - 412:28",
+      "code_snippet": "pub fn register_clip(\n        env: Env,\n        campaign_id: u64,\n        participant: Address,\n        platform: Symbol,\n        video_id: String,\n        proof: ReclaimProof,\n    ) -> Result<u64, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 63,
+      "occurrence_index": 9,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:199:5 - 199:76",
+      "code_snippet": "pub fn propose_admin(env: Env, new_admin: Address) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 64,
+      "occurrence_index": 10,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:608:5 - 613:29",
+      "code_snippet": "pub fn claim_holdback(\n        env: Env,\n        campaign_id: u64,\n        clip_id: u64,\n        epoch: u32,\n    ) -> Result<i128, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 65,
+      "occurrence_index": 11,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:700:5 - 700:67",
+      "code_snippet": "pub fn respond(env: Env, dispute_id: u64) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 66,
+      "occurrence_index": 12,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:688:5 - 695:28",
+      "code_snippet": "pub fn challenge(\n        env: Env,\n        campaign_id: u64,\n        clip_id: u64,\n        epoch: u32,\n        challenger: Address,\n        evidence: String,\n    ) -> Result<u64, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 67,
+      "occurrence_index": 13,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:663:5 - 663:69",
+      "code_snippet": "pub fn refund(env: Env, campaign_id: u64) -> Result<i128, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 68,
+      "occurrence_index": 14,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:222:5 - 222:79",
+      "code_snippet": "pub fn set_arbiters(env: Env, arbiters: Vec<Address>) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 69,
+      "occurrence_index": 15,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:259:5 - 265:27",
+      "code_snippet": "pub fn set_platform(\n        env: Env,\n        platform: Symbol,\n        url_prefix: Bytes,\n        url_suffix: Bytes,\n        required: Vec<Bytes>,\n    ) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 70,
+      "occurrence_index": 16,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:705:5 - 705:87",
+      "code_snippet": "pub fn resolve(env: Env, dispute_id: u64, clipper_wins: bool) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 71,
+      "occurrence_index": 17,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:716:5 - 716:83",
+      "code_snippet": "pub fn withdraw(env: Env, who: Address, token: Address) -> Result<i128, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 72,
+      "occurrence_index": 18,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:710:5 - 710:76",
+      "code_snippet": "pub fn finalize_dispute(env: Env, dispute_id: u64) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 73,
+      "occurrence_index": 19,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:206:5 - 206:55",
+      "code_snippet": "pub fn accept_admin(env: Env) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 74,
+      "occurrence_index": 20,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:291:5 - 291:99",
+      "code_snippet": "pub fn create_campaign(env: Env, brand: Address, params: CampaignParams) -> Result<u64, Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 75,
+      "occurrence_index": 21,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:278:5 - 278:70",
+      "code_snippet": "pub fn set_router(env: Env, router: Address) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    },
+    {
+      "id": 76,
+      "occurrence_index": 22,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:468:5 - 474:27",
+      "code_snippet": "pub fn submit_proof(\n        env: Env,\n        campaign_id: u64,\n        clip_id: u64,\n        epoch: u32,\n        proof: ReclaimProof,\n    ) -> Result<(), Error>",
+      "package": "cliprail",
+      "file_path": "cliprail/src/lib.rs"
+    }
+  ]
+}

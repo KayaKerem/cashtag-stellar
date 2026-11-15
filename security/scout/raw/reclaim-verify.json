@@ -1,0 +1,565 @@
+{
+  "name": "Contracts",
+  "date": "2026-11-16",
+  "summary": {
+    "executed_on": [
+      {
+        "name": "reclaim-verify",
+        "id": "path+file://./contracts/reclaim-verify#0.1.0",
+        "relative_path": "./Cargo.toml",
+        "absolute_path": "./contracts/reclaim-verify/Cargo.toml"
+      }
+    ],
+    "total_vulnerabilities": 40,
+    "by_severity": {
+      "minor": 0,
+      "critical": 39,
+      "medium": 1,
+      "enhancement": 0
+    },
+    "table": {
+      "header": {
+        "cells": [
+          {
+            "content": "Crate",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Status",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Critical",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Medium",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Minor",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Enhancement",
+            "color": {
+              "Importance": "Header"
+            }
+          }
+        ]
+      },
+      "rows": [
+        {
+          "cells": [
+            {
+              "content": "reclaim_verify",
+              "color": "Default"
+            },
+            {
+              "content": "Analyzed",
+              "color": "Default"
+            },
+            {
+              "content": "39",
+              "color": "Default"
+            },
+            {
+              "content": "1",
+              "color": "Default"
+            },
+            {
+              "content": "0",
+              "color": "Default"
+            },
+            {
+              "content": "0",
+              "color": "Default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "categories": [
+    {
+      "id": "Arithmetic",
+      "name": "Integer Overflow Or Underflow",
+      "vulnerabilities": [
+        {
+          "id": "integer_overflow_or_underflow",
+          "name": "Integer Overflow Or Underflow",
+          "short_message": "Potential for integer arithmetic overflow/underflow. Consider checked, wrapping or saturating arithmetic.",
+          "long_message": "An overflow/underflow is typically caught and generates an error. When it is not caught, the operation will result in an inexact result which could lead to serious problems.",
+          "severity": "Critical",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/integer-overflow-or-underflow"
+        }
+      ]
+    },
+    {
+      "id": "Error Handling",
+      "name": "Unsafe Unwrap",
+      "vulnerabilities": [
+        {
+          "id": "unsafe_unwrap",
+          "name": "Unsafe Unwrap",
+          "short_message": "Unsafe usage of `unwrap`",
+          "long_message": "This vulnerability class pertains to the inappropriate usage of the unwrap method in Rust, which is commonly employed for error handling. The unwrap method retrieves the inner value of an Option or Result, but if an error or None occurs, it triggers a panic and crashes the program.    ",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/rust/unsafe-unwrap"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": 0,
+      "occurrence_index": 1,
+      "category_id": "Error Handling",
+      "vulnerability_id": "unsafe_unwrap",
+      "error_message": "[MEDIUM] Unsafe usage of `unwrap`",
+      "span": "lib.rs:172:5 - 172:41",
+      "code_snippet": "hb.slice(12..32).try_into().unwrap()",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 1,
+      "occurrence_index": 1,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:204:9 - 204:15",
+      "code_snippet": "i -= 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 2,
+      "occurrence_index": 2,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:205:18 - 205:39",
+      "code_snippet": "b'0' + (v % 10) as u8",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 3,
+      "occurrence_index": 3,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:211:13 - 211:26",
+      "code_snippet": "tmp.len() - i",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 4,
+      "occurrence_index": 4,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:224:13 - 224:22",
+      "code_snippet": "2 + 2 * i",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 5,
+      "occurrence_index": 5,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:225:13 - 225:22",
+      "code_snippet": "3 + 2 * i",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 6,
+      "occurrence_index": 6,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:229:16 - 229:35",
+      "code_snippet": "n + 1 + owner.len()",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 7,
+      "occurrence_index": 7,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:230:5 - 230:25",
+      "code_snippet": "n += 1 + owner.len()",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 8,
+      "occurrence_index": 8,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:232:5 - 232:46",
+      "code_snippet": "n += 1 + write_dec(&mut ser[n + 1..], ts)",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 9,
+      "occurrence_index": 9,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:234:5 - 234:56",
+      "code_snippet": "n += 1 + write_dec(&mut ser[n + 1..], epoch as u64)",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 10,
+      "occurrence_index": 10,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:239:5 - 239:44",
+      "code_snippet": "m += write_dec(&mut out[m..], n as u64)",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 11,
+      "occurrence_index": 11,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:240:12 - 240:17",
+      "code_snippet": "m + n",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 12,
+      "occurrence_index": 12,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:241:5 - 241:10",
+      "code_snippet": "m + n",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 13,
+      "occurrence_index": 13,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:250:17 - 250:22",
+      "code_snippet": "i + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 14,
+      "occurrence_index": 14,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:253:22 - 253:28",
+      "code_snippet": "j += 2",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 15,
+      "occurrence_index": 15,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:254:37 - 254:42",
+      "code_snippet": "i + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 16,
+      "occurrence_index": 16,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:254:48 - 254:53",
+      "code_snippet": "j + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 17,
+      "occurrence_index": 17,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:255:18 - 255:24",
+      "code_snippet": "j += 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 18,
+      "occurrence_index": 18,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:270:50 - 270:59",
+      "code_snippet": "depth + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 19,
+      "occurrence_index": 19,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:270:61 - 270:66",
+      "code_snippet": "j + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 20,
+      "occurrence_index": 20,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:272:25 - 272:35",
+      "code_snippet": "depth -= 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 21,
+      "occurrence_index": 21,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:273:25 - 273:31",
+      "code_snippet": "j += 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 22,
+      "occurrence_index": 22,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:278:26 - 278:32",
+      "code_snippet": "j += 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 23,
+      "occurrence_index": 23,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:283:91 - 283:102",
+      "code_snippet": "b.len() - i",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 24,
+      "occurrence_index": 24,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:284:31 - 284:36",
+      "code_snippet": "i + n",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 25,
+      "occurrence_index": 25,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:298:19 - 298:37",
+      "code_snippet": "i + 1 == obj.len()",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 26,
+      "occurrence_index": 26,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:305:35 - 305:40",
+      "code_snippet": "j + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 27,
+      "occurrence_index": 27,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:310:31 - 310:36",
+      "code_snippet": "j + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 28,
+      "occurrence_index": 28,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:313:31 - 313:38",
+      "code_snippet": "end + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 29,
+      "occurrence_index": 29,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:314:27 - 314:47",
+      "code_snippet": "end + 1 == obj.len()",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 30,
+      "occurrence_index": 30,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:334:41 - 334:46",
+      "code_snippet": "j + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 31,
+      "occurrence_index": 31,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:336:31 - 336:38",
+      "code_snippet": "end + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 32,
+      "occurrence_index": 32,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:337:27 - 337:47",
+      "code_snippet": "end + 1 == obj.len()",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 33,
+      "occurrence_index": 33,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:357:9 - 357:15",
+      "code_snippet": "k += 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 34,
+      "occurrence_index": 34,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "lib.rs:359:31 - 359:38",
+      "code_snippet": "end + 1",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 35,
+      "occurrence_index": 35,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:360:27 - 360:47",
+      "code_snippet": "end + 1 == arr.len()",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 36,
+      "occurrence_index": 36,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:395:42 - 395:52",
+      "code_snippet": "(c - b'0')",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 37,
+      "occurrence_index": 37,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:409:18 - 409:58",
+      "code_snippet": "(nib(s[2 * i]) << 4) | nib(s[2 * i + 1])",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 38,
+      "occurrence_index": 38,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "lib.rs:402:28 - 402:36",
+      "code_snippet": "c - b'0'",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    },
+    {
+      "id": 39,
+      "occurrence_index": 39,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This operation could overflow or underflow.",
+      "span": "lib.rs:403:18 - 403:31",
+      "code_snippet": "c - b'a' + 10",
+      "package": "reclaim-verify",
+      "file_path": "reclaim-verify/src/lib.rs"
+    }
+  ]
+}

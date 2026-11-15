@@ -1,0 +1,340 @@
+{
+  "name": "Contracts",
+  "date": "2026-11-16",
+  "summary": {
+    "executed_on": [
+      {
+        "name": "humanity",
+        "id": "path+file://./contracts/humanity#0.1.0",
+        "relative_path": "./Cargo.toml",
+        "absolute_path": "./contracts/humanity/Cargo.toml"
+      }
+    ],
+    "total_vulnerabilities": 15,
+    "by_severity": {
+      "critical": 3,
+      "medium": 4,
+      "enhancement": 7,
+      "minor": 1
+    },
+    "table": {
+      "header": {
+        "cells": [
+          {
+            "content": "Crate",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Status",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Critical",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Medium",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Minor",
+            "color": {
+              "Importance": "Header"
+            }
+          },
+          {
+            "content": "Enhancement",
+            "color": {
+              "Importance": "Header"
+            }
+          }
+        ]
+      },
+      "rows": [
+        {
+          "cells": [
+            {
+              "content": "humanity",
+              "color": "Default"
+            },
+            {
+              "content": "Analyzed",
+              "color": "Default"
+            },
+            {
+              "content": "3",
+              "color": "Default"
+            },
+            {
+              "content": "4",
+              "color": "Default"
+            },
+            {
+              "content": "1",
+              "color": "Default"
+            },
+            {
+              "content": "7",
+              "color": "Default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "categories": [
+    {
+      "id": "Best Practices",
+      "name": "Storage Change Events",
+      "vulnerabilities": [
+        {
+          "id": "storage_change_events",
+          "name": "Storage Change Events",
+          "short_message": "Consider emiting an event when storage is modified",
+          "long_message": "Emiting an event when storage changes is a good practice to make the contracts more transparent and usable to its clients and observers",
+          "severity": "Enhancement",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/storage-change-events"
+        }
+      ]
+    },
+    {
+      "id": "DoS",
+      "name": "Dos Unexpected Revert With Storage",
+      "vulnerabilities": [
+        {
+          "id": "dos_unexpected_revert_with_storage",
+          "name": "Dos Unexpected Revert With Storage",
+          "short_message": "This storage (vector or map) operation is called without access control",
+          "long_message": " It occurs by preventing transactions by other users from being successfully executed forcing the blockchain state to revert to its original state.",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/dos-unexpected-revert-with-storage"
+        }
+      ]
+    },
+    {
+      "id": "Arithmetic",
+      "name": "Integer Overflow Or Underflow",
+      "vulnerabilities": [
+        {
+          "id": "integer_overflow_or_underflow",
+          "name": "Integer Overflow Or Underflow",
+          "short_message": "Potential for integer arithmetic overflow/underflow. Consider checked, wrapping or saturating arithmetic.",
+          "long_message": "An overflow/underflow is typically caught and generates an error. When it is not caught, the operation will result in an inexact result which could lead to serious problems.",
+          "severity": "Critical",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/integer-overflow-or-underflow"
+        }
+      ]
+    },
+    {
+      "id": "Authorization",
+      "name": "Missing New Admin Auth",
+      "vulnerabilities": [
+        {
+          "id": "missing_new_admin_auth",
+          "name": "Missing New Admin Auth",
+          "short_message": "New admin/owner address must sign before being stored",
+          "long_message": "When updating admin or owner, the incoming address should also sign to prevent accidental bricking due to a mistaken address.",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/missing-new-admin-auth"
+        }
+      ]
+    },
+    {
+      "id": "Error Handling",
+      "name": "Unsafe Expect",
+      "vulnerabilities": [
+        {
+          "id": "unsafe_expect",
+          "name": "Unsafe Expect",
+          "short_message": "Unsafe usage of `expect`",
+          "long_message": "In Rust, the expect method is commonly used for error handling. It retrieves the value from a Result or Option and panics with a specified error message if an error occurs. However, using expect can lead to unexpected program crashes.    ",
+          "severity": "Medium",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/rust/unsafe-expect"
+        },
+        {
+          "id": "unused_return_enum",
+          "name": "Unused Return Enum",
+          "short_message": "If any of the variants (Ok/Err) is not used, the code could be simplified or it could imply a bug",
+          "long_message": "Soroban functions can return a Result enum with a custom error type. This is useful for the caller to know what went wrong when the message fails. The definition of the Result type enum consists of two variants: Ok and Err. If any of the variants is not used, the code could be simplified or it could imply a bug.    ",
+          "severity": "Minor",
+          "help": "https://coinfabrik.github.io/scout-audit/docs/detectors/soroban/unused-return-enum"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": 0,
+      "occurrence_index": 1,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This subtraction operation could underflow.",
+      "span": "groth16.rs:60:9 - 60:15",
+      "code_snippet": "i -= 1",
+      "package": "humanity",
+      "file_path": "humanity/src/groth16.rs"
+    },
+    {
+      "id": 1,
+      "occurrence_index": 2,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "groth16.rs:61:21 - 61:42",
+      "code_snippet": "b'0' + (n % 10) as u8",
+      "package": "humanity",
+      "file_path": "humanity/src/groth16.rs"
+    },
+    {
+      "id": 2,
+      "occurrence_index": 1,
+      "category_id": "DoS",
+      "vulnerability_id": "dos_unexpected_revert_with_storage",
+      "error_message": "[MEDIUM] This storage (vector or map) operation is called without access control",
+      "span": "groth16.rs:99:17 - 99:26",
+      "code_snippet": "push_back",
+      "package": "humanity",
+      "file_path": "humanity/src/groth16.rs"
+    },
+    {
+      "id": 3,
+      "occurrence_index": 3,
+      "category_id": "Arithmetic",
+      "vulnerability_id": "integer_overflow_or_underflow",
+      "error_message": "[CRITICAL] This addition operation could overflow.",
+      "span": "groth16.rs:98:57 - 98:62",
+      "code_snippet": "i + 1",
+      "package": "humanity",
+      "file_path": "humanity/src/groth16.rs"
+    },
+    {
+      "id": 4,
+      "occurrence_index": 1,
+      "category_id": "Error Handling",
+      "vulnerability_id": "unsafe_expect",
+      "error_message": "[MEDIUM] Unsafe usage of `expect`",
+      "span": "lib.rs:222:32 - 226:39",
+      "code_snippet": "env\n            .storage()\n            .instance()\n            .get(&DataKey::Relayer)\n            .expect(\"not initialized\")",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 5,
+      "occurrence_index": 1,
+      "category_id": "Error Handling",
+      "vulnerability_id": "unused_return_enum",
+      "error_message": "[MINOR] If any of the variants (Ok/Err) is not used, the code could be simplified or it could imply a bug",
+      "span": "lib.rs:247:9 - 247:15",
+      "code_snippet": "Ok(())",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 6,
+      "occurrence_index": 2,
+      "category_id": "Error Handling",
+      "vulnerability_id": "unsafe_expect",
+      "error_message": "[MEDIUM] Unsafe usage of `expect`",
+      "span": "lib.rs:297:43 - 300:40",
+      "code_snippet": "nullifier\n            .to_be_bytes()\n            .try_into()\n            .expect(\"u256 is 32 bytes\")",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 7,
+      "occurrence_index": 1,
+      "category_id": "Authorization",
+      "vulnerability_id": "missing_new_admin_auth",
+      "error_message": "[MEDIUM] New admin/owner address must sign before being stored",
+      "span": "lib.rs:179:9 - 179:73",
+      "code_snippet": "env.storage().instance().set(&DataKey::PendingAdmin, &new_admin)",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 8,
+      "occurrence_index": 1,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:241:5 - 241:84",
+      "code_snippet": "pub fn set_aadhaar_config(env: Env, config: AadhaarConfig) -> Result<(), Error>",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 9,
+      "occurrence_index": 2,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:261:5 - 272:27",
+      "code_snippet": "pub fn register_zk(\n        env: Env,\n        campaign_id: u64,\n        wallet: Address,\n        proof: Groth16Proof,\n        nullifier: U256,\n        timestamp: u64,\n        age_above_18: U256,\n        gender: U256,\n        pin_code: U256,\n        state: U256,\n    ) -> Result<(), Error>",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 10,
+      "occurrence_index": 3,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:216:5 - 221:27",
+      "code_snippet": "pub fn register(\n        env: Env,\n        campaign_id: u64,\n        nullifier: BytesN<32>,\n        wallet: Address,\n    ) -> Result<(), Error>",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 11,
+      "occurrence_index": 4,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:183:5 - 183:55",
+      "code_snippet": "pub fn accept_admin(env: Env) -> Result<(), Error>",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 12,
+      "occurrence_index": 5,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:200:5 - 200:51",
+      "code_snippet": "pub fn set_relayer(env: Env, relayer: Address)",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 13,
+      "occurrence_index": 6,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:208:5 - 208:63",
+      "code_snippet": "pub fn revoke(env: Env, campaign_id: u64, wallet: Address)",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    },
+    {
+      "id": 14,
+      "occurrence_index": 7,
+      "category_id": "Best Practices",
+      "vulnerability_id": "storage_change_events",
+      "error_message": "[ENHANCEMENT] Consider emiting an event when storage is modified",
+      "span": "lib.rs:177:5 - 177:55",
+      "code_snippet": "pub fn propose_admin(env: Env, new_admin: Address)",
+      "package": "humanity",
+      "file_path": "humanity/src/lib.rs"
+    }
+  ]
+}
