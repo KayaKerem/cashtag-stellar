@@ -27,7 +27,17 @@ export function AttestorBadge() {
       </span>
     );
   }
-  if (data.attestorMode !== "simulated") return null;
+  if (data.attestorMode !== "simulated") {
+    return (
+      <span
+        title={`Verifier online: ${data.network}, ${data.attestorMode ?? "unknown"} attestor. Test tokens only, no real funds.`}
+        className="label-mono inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[11px] text-muted"
+      >
+        <span className="size-1.5 rounded-full bg-success" aria-hidden />
+        Testnet
+      </span>
+    );
+  }
   return (
     <span
       title="For this demo, proofs are signed with a test key instead of the live Reclaim attestor. In-contract verification is identical."
