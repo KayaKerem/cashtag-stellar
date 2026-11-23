@@ -38,6 +38,8 @@ function mk(cfgOver: Partial<typeof baseCfg> = {}, extra: { health?: any } = {})
   const ops = {
     submitClose: vi.fn(async () => ({ txHash: "ab".repeat(32), views: "10" })),
     demoRegister: vi.fn(async () => ({ txHash: "cd".repeat(32) })),
+    campaignInfo: vi.fn(async () => ({ brand: "GBRAND", platforms: ["youtube", "demo"] })),
+    participantCode: vi.fn(async () => "CR-ABCDEFGHIJ" as string | null),
   };
   return { app: createApp({ cfg, demo, proofs, ops, ...extra }), ops, demo };
 }

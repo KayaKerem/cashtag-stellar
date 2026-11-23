@@ -89,6 +89,19 @@ export class Ops {
     for (const [k, j] of this.jobs) if (!j.running && t > j.proofEnd + 120) this.jobs.delete(k);
   }
 
+  /** Brand and allowed platforms of a campaign. */
+  async campaignInfo(campaignId: bigint): Promise<{ brand: string; platforms: string[] }> {
+    const c = await this.chain.read(this.cfg.cliprailId, "get_campaign", [u64(campaignId)]);
+    return { brand: String(c.brand), platforms: (c.params?.platforms ?? []).map(String) };
+  }
+
+  /** The wallet's participant code in a campaign, or null if it has not joined. */
+  async participantCode(campaignId: bigint, wallet: string): Promise<string | null> {
+    if (!StrKey.isValidEd25519PublicKey(wallet)) throw new HttpError(400, "invalid wallet address", "bad_request");
+    const p = await this.chain.read(this.cfg.cliprailId, "get_participant", [u64(campaignId), address(wallet)]);
+    return p ? String(p.code) : null;
+  }
+
   /** Close proof for (clip, epoch): prechecks on-chain, fetches (or reuses) the proof, sends submit_proof. */
   submitClose(campaignId: bigint, clipId: bigint, e: number): Promise<{ txHash: string; views: string }> {
     const key = `${clipId}:${e}`;

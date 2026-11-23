@@ -7,6 +7,7 @@ import { TokenBucket } from "./limit.js";
 import type { Config, Platform } from "./config.js";
 import { PLATFORMS, attestorAddress } from "./config.js";
 import type { DemoStore } from "./demo.js";
+import { IG_CODE_RE, openSigned, parsePostRef, type IgStore } from "./instagram.js";
 import { DEMO_ID_RE } from "./demo.js";
 import type { Ops } from "./ops.js";
 import { defaultIdentity, type AadhaarProver } from "./aadhaar.js";
@@ -16,7 +17,8 @@ export interface Deps {
   cfg: Config;
   demo: DemoStore;
   proofs: Pick<ProofService, "get">;
-  ops: Pick<Ops, "submitClose" | "demoRegister">;
+  ops: Pick<Ops, "submitClose" | "demoRegister" | "campaignInfo" | "participantCode">;
+  ig?: IgStore;
   aadhaar?: Pick<AadhaarProver, "prove" | "available">;
   health?: Pick<Health, "snapshot">;
 }
@@ -73,6 +75,7 @@ async function body(c: Context): Promise<unknown> {
 
 export const PROOF_REUSE_S = 120; // /proof reuses a cached proof at most this old
 export const PROOF_RATE = { perMin: 5 }; // /proof per client IP
+export const SIGNED_RATE = { perMin: 30 }; // signed /ig/* writes per client IP
 
 /**
  * Client IP. Behind our proxy (TRUST_PROXY=1) it is the LAST X-Forwarded-For hop: the proxy
@@ -104,12 +107,13 @@ function requireToken(token: string): MiddlewareHandler {
   };
 }
 
-export function createApp({ cfg, demo, proofs, ops, aadhaar, health }: Deps) {
+export function createApp({ cfg, demo, proofs, ops, aadhaar, health, ig }: Deps) {
   const app = new Hono();
   // CORS_ORIGIN: "*" (default) or comma-separated origins, e.g. "https://cliprail.app,http://localhost:3000"
   app.use("*", cors({ origin: cfg.corsOrigin === "*" ? "*" : cfg.corsOrigin.split(",").map((s) => s.trim()) }));
   const auth = requireToken(cfg.writeToken);
   const bucket = new TokenBucket(PROOF_RATE.perMin, 60_000);
+  const signedBucket = new TokenBucket(SIGNED_RATE.perMin, 60_000);
 
   app.onError((err, c) => {
     if (err instanceof HttpError) return c.json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, err.status as any);
@@ -165,8 +169,91 @@ export function createApp({ cfg, demo, proofs, ops, aadhaar, health }: Deps) {
   app.post("/humanity/demo-register", auth, async (c) => {
     if (!cfg.demoMode) throw new HttpError(403, "demo registration disabled (DEMO_MODE!=1)", "disabled");
     const { campaignId, wallet } = parseDemoRegisterReq(await body(c));
+    // Instagram campaigns admit only participants the organiser approved (/ig/participants/approve).
+    if ((await ops.campaignInfo(campaignId)).platforms.includes("instagram"))
+      throw new HttpError(403, "this campaign admits only participants approved by the organiser", "approval_required");
     return c.json(await ops.demoRegister(campaignId, wallet));
   });
+
+  // ---- Instagram campaigns (instagram.ts) ----
+  if (ig) {
+    /** Signed body -> action + signer; rate-limited per IP. */
+    const signed = async (c: Context, action: string) => {
+      if (!signedBucket.take(clientIp(c, cfg.trustProxy))) throw new HttpError(429, "too many requests, try again in a minute", "rate_limited");
+      try {
+        return openSigned(await body(c), action);
+      } catch (e: any) {
+        if (e instanceof HttpError) throw e;
+        throw new HttpError(e.message === "bad signature" ? 401 : 400, e.message, e.message === "bad signature" ? "unauthorized" : "bad_request");
+      }
+    };
+    const postOf = (v: unknown) => {
+      const code = typeof v === "string" ? parsePostRef(v) : null;
+      if (!code) throw new HttpError(400, "post must be an Instagram post link or shortcode", "bad_request");
+      return code;
+    };
+    const instagramCampaign = async (campaignId: bigint) => {
+      const info = await ops.campaignInfo(campaignId);
+      if (!info.platforms.includes("instagram")) throw new HttpError(400, "not an Instagram campaign", "bad_request");
+      return info;
+    };
+    const asBrand = (signer: string, brand: string) => {
+      if (signer !== brand) throw new HttpError(403, "only the campaign organiser can do this", "forbidden");
+    };
+    const storeErr = (e: any): never => {
+      throw new HttpError(400, e?.message ?? String(e), "bad_request");
+    };
+
+    // Read by the attestor (zkFetch) and by anyone: the organiser-confirmed engagement score.
+    app.get("/ig/posts/:code", (c) => {
+      const code = c.req.param("code");
+      if (!IG_CODE_RE.test(code)) return c.json({ error: "invalid post", code: "bad_request" }, 400);
+      return c.json(ig.shape(code));
+    });
+
+    app.get("/ig/campaigns/:id/posts", (c) => c.json({ posts: ig.list(String(parseId(c.req.param("id"), "id"))) }));
+
+    // Participant (signed by their wallet) submits their post before registering it as a clip.
+    app.post("/ig/submit", async (c) => {
+      const { msg, signer } = await signed(c, "cashtag:ig-submit");
+      const campaignId = parseId(msg.campaignId, "campaignId");
+      const code = postOf(msg.post);
+      await instagramCampaign(campaignId);
+      const participantCode = await ops.participantCode(campaignId, signer);
+      if (!participantCode) throw new HttpError(400, "join the campaign first", "not_joined");
+      let post;
+      try {
+        post = ig.submit({ code, campaignId: String(campaignId), wallet: signer, participantCode });
+      } catch (e) {
+        storeErr(e);
+      }
+      return c.json({ post });
+    });
+
+    // Organiser (signed by the campaign's brand wallet) confirms a post's engagement.
+    app.post("/ig/approve", async (c) => {
+      const { msg, signer } = await signed(c, "cashtag:ig-approve");
+      const campaignId = parseId(msg.campaignId, "campaignId");
+      const code = postOf(msg.post);
+      asBrand(signer, (await instagramCampaign(campaignId)).brand);
+      let post;
+      try {
+        post = ig.approve(code, String(campaignId), msg.likes as number, msg.comments as number);
+      } catch (e) {
+        storeErr(e);
+      }
+      return c.json({ post });
+    });
+
+    // Organiser approves a participant: registers the wallet in humanity for this campaign only.
+    app.post("/ig/participants/approve", async (c) => {
+      const { msg, signer } = await signed(c, "cashtag:ig-approve-participant");
+      const campaignId = parseId(msg.campaignId, "campaignId");
+      if (typeof msg.wallet !== "string" || !msg.wallet) throw new HttpError(400, "wallet required", "bad_request");
+      asBrand(signer, (await instagramCampaign(campaignId)).brand);
+      return c.json(await ops.demoRegister(campaignId, msg.wallet));
+    });
+  }
 
   // Anon Aadhaar ZK proof for humanity.register_zk — TEST mode (UIDAI test key/data, demo identities).
   // Production proves in the browser from the user's own QR; the server never sees identity data.

@@ -9,6 +9,7 @@ import { pLimit } from "./limit.js";
 import { attestorOf, claimUrl, extractValues, toProofJson, type Extracted, type ProofJson, type ZkProof } from "./proof.js";
 import { addressOfSecret, extractFromBody, signClaim, zkFetchParams } from "./simulated.js";
 import type { DemoStore } from "./demo.js";
+import type { IgStore } from "./instagram.js";
 
 export class HttpError extends Error {
   constructor(
@@ -24,12 +25,13 @@ export const VIDEO_ID_RE: Record<Platform, RegExp> = {
   youtube: /^[A-Za-z0-9_-]{11}$/,
   demo: /^[a-z0-9-]{1,32}$/,
   x: /^[0-9]{1,20}$/, // X (Twitter) snowflake status id
+  instagram: /^[A-Za-z0-9_-]{5,40}$/, // post shortcode; engagement confirmed by the organiser (instagram.ts)
 };
 
 /** Full URL that ends up in the claim parameters (must equal contract url_prefix ‖ id ‖ url_suffix). */
 export function proofUrl(platform: Platform, videoId: string, cfg: Config = defaultConfig, prov: ProviderCfg = providers[platform]) {
   let prefix = prov.urlPrefix;
-  if (platform === "demo") {
+  if (platform === "demo" || platform === "instagram") {
     if (!cfg.demoPublicBase) throw new HttpError(503, "DEMO_PUBLIC_BASE not configured", "config");
     prefix = prefix.replace("https://DEMO_HOST", cfg.demoPublicBase);
   }
@@ -99,6 +101,8 @@ export class ProofService {
     /** simulated mode reads demo videos from this store instead of over HTTP */
     private demo: Pick<DemoStore, "youtubeShape"> | null = null,
     private fetchImpl: typeof fetch = fetch,
+    /** simulated mode reads Instagram posts from this store instead of over HTTP */
+    private ig: Pick<IgStore, "shape"> | null = null,
   ) {
     // simulated proofs never share a cache with real ones
     this.cache = new ProofCache(join(cfg.dataDir, isSimulated(cfg) ? "cache-simulated" : "cache"));
@@ -157,6 +161,7 @@ export class ProofService {
   /** Response body the attestor would see: demo videos straight from the store, anything else over HTTP. */
   private async responseBody(platform: Platform, videoId: string, url: string, headers: Record<string, string>): Promise<string> {
     if (platform === "demo" && this.demo) return JSON.stringify(this.demo.youtubeShape(videoId));
+    if (platform === "instagram" && this.ig) return JSON.stringify(this.ig.shape(videoId));
     let res: Response;
     try {
       res = await this.fetchImpl(url, { method: "GET", headers });

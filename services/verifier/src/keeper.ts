@@ -17,6 +17,7 @@ export class Keeper {
     private ops: Ops,
     private intervalMs = 5000,
     private log = (msg: string) => console.log(`[keeper] ${msg}`),
+    private igApproved: (code: string) => boolean = () => true,
   ) {}
 
   start() {
@@ -120,6 +121,8 @@ export class Keeper {
       for (const { clip, epochs: ce } of views) {
         const clipId = BigInt(clip.id);
         if (Number(clip.first_epoch) > e) continue;
+        // Instagram: close only once the organiser confirmed the post's engagement.
+        if (String(clip.platform) === "instagram" && !this.igApproved(String(clip.video_id))) continue;
         const st = ce?.[e];
         if (st && (tag(st.status) !== "Active" || BigInt(st.views) > 0n)) continue; // excluded/disputed/already proven
         const job = this.ops.jobState(clipId, e);

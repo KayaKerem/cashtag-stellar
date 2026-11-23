@@ -32,5 +32,16 @@
       "\"id_str\":\"\\d+\",\"text\":\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
     ],
     "urlNeedleExample": "\"url\":\"https://cdn.syndication.twimg.com/tweet-result?lang=en&token=a&id=VIDEO_ID\""
+  },
+  "instagram": {
+    "required": [
+      "{\"type\":\"regex\",\"value\":\"\\\"viewCount\\\":\\\\s*\\\"(?<views>\\\\d+)\\\"\"}",
+      "{\"type\":\"regex\",\"value\":\"\\\"description\\\":\\\\s*\\\"(?<desc>(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*)\\\"\"}"
+    ],
+    "regexValues": [
+      "\"viewCount\":\\s*\"(?<views>\\d+)\"",
+      "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
+    ],
+    "urlNeedleExample": "\"url\":\"https://DEMO_HOST/ig/posts/VIDEO_ID\""
   }
 }

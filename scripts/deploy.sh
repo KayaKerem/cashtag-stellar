@@ -108,10 +108,10 @@ REQ_FILE="$ROOT/fixtures/required-substrings.json"
 required_hex() { python3 -c 'import json,sys; print(json.dumps([s.encode().hex() for s in json.load(open(sys.argv[1]))[sys.argv[2]]["required"]]))' "$REQ_FILE" "$1"; }
 
 PROVIDERS="$ROOT/config/providers.json"
-for p in youtube demo; do
+for p in youtube demo instagram; do
   prefix=$(jq -r ".$p.urlPrefix" "$PROVIDERS")
   suffix=$(jq -r ".$p.urlSuffix // \"\"" "$PROVIDERS")
-  [ "$p" = demo ] && prefix="${prefix/https:\/\/DEMO_HOST/$DEMO_PUBLIC_BASE}"
+  [ "$p" = demo ] || [ "$p" = instagram ] && prefix="${prefix/https:\/\/DEMO_HOST/$DEMO_PUBLIC_BASE}"
   log "platform $p: $prefix<id>$suffix"
   invoke "$CLIPRAIL_ID" set_platform --platform "$p" --url_prefix "$(hex "$prefix")" --url_suffix "$( [ -n "$suffix" ] && hex "$suffix" || echo '""' )" \
     --required "$(required_hex "$p")"

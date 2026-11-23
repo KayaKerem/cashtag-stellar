@@ -4,6 +4,7 @@ import { attestorAddress, config, hasReclaim, isSimulated, SERVICE_DIR, unsafeCo
 import { createApp } from "./app.js";
 import { Chain } from "./chain.js";
 import { DemoStore } from "./demo.js";
+import { IgStore } from "./instagram.js";
 import { Keeper } from "./keeper.js";
 import { Ops } from "./ops.js";
 import { ProofService } from "./zkfetch.js";
@@ -18,7 +19,8 @@ if (config.production && unsafe.length) {
 }
 
 const demo = new DemoStore(join(config.dataDir, "demo-state.json"), join(SERVICE_DIR, "fixtures/demo-state.json"));
-const proofs = new ProofService(config, undefined, demo);
+const ig = new IgStore(join(config.dataDir, "instagram-state.json"));
+const proofs = new ProofService(config, undefined, demo, undefined, ig);
 const chain = new Chain(config);
 const ops = new Ops(config, proofs, chain);
 const aadhaar = new AadhaarProver({
@@ -27,14 +29,14 @@ const aadhaar = new AadhaarProver({
   maxQueue: config.aadhaarMaxQueue,
 });
 const keeper =
-  config.keeper && config.cliprailId && chain.keeper ? new Keeper(ops, config.keeperIntervalMs) : null;
+  config.keeper && config.cliprailId && chain.keeper ? new Keeper(ops, config.keeperIntervalMs, undefined, (code) => ig.isApproved(code)) : null;
 const health = new Health({
   version: process.env.GIT_SHA || "dev",
   latestLedger: async () => (await chain.server.getLatestLedger()).sequence,
   keeper: keeper ? () => keeper.status() : undefined,
   aadhaarAvailable: () => aadhaar.available,
 });
-const app = createApp({ cfg: config, demo, proofs, ops, aadhaar, health });
+const app = createApp({ cfg: config, demo, proofs, ops, aadhaar, health, ig });
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`verifier listening on :${info.port}`);

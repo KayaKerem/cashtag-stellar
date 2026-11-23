@@ -42,5 +42,20 @@
         "value": "\"id_str\":\"\\d+\",\"text\":\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
       }
     ]
+  },
+  "instagram": {
+    "metric": "engagement",
+    "urlPrefix": "https://DEMO_HOST/ig/posts/",
+    "urlSuffix": "",
+    "responseMatches": [
+      {
+        "type": "regex",
+        "value": "\"viewCount\":\\s*\"(?<views>\\d+)\""
+      },
+      {
+        "type": "regex",
+        "value": "\"description\":\\s*\"(?<desc>(?:[^\"\\\\]|\\\\.)*)\""
+      }
+    ]
   }
 }
