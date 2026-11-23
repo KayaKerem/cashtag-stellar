@@ -15,7 +15,8 @@
     "swap-fund-smoke": "tsx swap-fund-smoke.ts",
     "anchor-try-smoke": "tsx anchor-try-smoke.ts",
     "live-reclaim": "tsx live-reclaim.ts",
-    "rehearsal": "tsx rehearsal.ts"
+    "rehearsal": "tsx rehearsal.ts",
+    "ig-rehearsal": "tsx ig-rehearsal.ts"
   },
   "dependencies": {
     "@cliprail/client": "workspace:*",
