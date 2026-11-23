@@ -92,8 +92,9 @@ export function JoinFlow({ id }: { id: bigint }) {
   const s2: StepState = !walletOk ? "locked" : isHuman ? "done" : "current";
   const s3: StepState = joined ? "done" : walletOk && isHuman ? "current" : "locked";
 
+  const where = instagram ? "post caption" : "video description";
   const sampleDesc = joined
-    ? `#ad A clip made for ${p.title}. Cashtag code: ${joined.code}`
+    ? `#ad ${instagram ? "A post" : "A clip"} made for ${p.title}. Cashtag code: ${joined.code}`
     : "";
 
   return (
@@ -103,7 +104,7 @@ export function JoinFlow({ id }: { id: bigint }) {
         description={
           <>
             <span className="text-fg">{p.title || `Campaign #${c.id}`}</span> · join in three steps, get your code,
-            and add it to your video description.
+            and add it to your {where}.
           </>
         }
       />
@@ -165,9 +166,11 @@ export function JoinFlow({ id }: { id: bigint }) {
             <div className="space-y-4">
               <CodeBadge code={joined.code} />
               <div className="rounded-2xl bg-panel p-4 text-sm">
-                <p className="font-medium">Add this code to your video description</p>
+                <p className="font-medium">Add this code to your {where}</p>
                 <p className="mt-1 text-muted">
-                  The proof looks for this code in the description. Without it, the clip is rejected. Add #ad to disclose the promotion.
+                  {instagram
+                    ? "The organiser checks for this code in the caption before confirming your likes and comments. Add #ad to disclose the promotion."
+                    : "The proof looks for this code in the description. Without it, the clip is rejected. Add #ad to disclose the promotion."}
                 </p>
                 <div className="mt-3 flex items-start gap-2 rounded-xl border border-border bg-surface p-3">
                   <p className="min-w-0 flex-1 break-words font-mono text-xs">{sampleDesc}</p>
@@ -175,7 +178,7 @@ export function JoinFlow({ id }: { id: bigint }) {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <ButtonLink href={`/c/${c.id}/register`}>Register your clip</ButtonLink>
+                <ButtonLink href={`/c/${c.id}/register`}>{instagram ? "Register your post" : "Register your clip"}</ButtonLink>
                 <ButtonLink href={`/c/${c.id}`} variant="outline">
                   Campaign page
                 </ButtonLink>

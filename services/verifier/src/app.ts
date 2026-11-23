@@ -7,7 +7,7 @@ import { TokenBucket } from "./limit.js";
 import type { Config, Platform } from "./config.js";
 import { PLATFORMS, attestorAddress } from "./config.js";
 import type { DemoStore } from "./demo.js";
-import { IG_CODE_RE, openSigned, parsePostRef, type IgStore } from "./instagram.js";
+import { IG_CODE_RE, openSigned, parsePostRef, score, type IgStore } from "./instagram.js";
 import { DEMO_ID_RE } from "./demo.js";
 import type { Ops } from "./ops.js";
 import { defaultIdentity, type AadhaarProver } from "./aadhaar.js";
@@ -227,7 +227,7 @@ export function createApp({ cfg, demo, proofs, ops, aadhaar, health, ig }: Deps)
       } catch (e) {
         storeErr(e);
       }
-      return c.json({ post });
+      return c.json({ post: { ...post!, score: score(post!) } });
     });
 
     // Organiser (signed by the campaign's brand wallet) confirms a post's engagement.
@@ -242,7 +242,7 @@ export function createApp({ cfg, demo, proofs, ops, aadhaar, health, ig }: Deps)
       } catch (e) {
         storeErr(e);
       }
-      return c.json({ post });
+      return c.json({ post: { ...post!, score: score(post!) } });
     });
 
     // Organiser removes a submission it will not pay (only while unconfirmed).

@@ -94,6 +94,7 @@ describe("instagram flow", () => {
 
     const a = await post(app, "/ig/approve", signedBody(brand, { action: "cashtag:ig-approve", campaignId: 7, post: POST, likes: 120, comments: 8 }));
     expect(a.status).toBe(200);
+    expect((await a.json()).post.score).toBe(128); // the dashboard shows it in the confirm toast
     j = await (await app.request(`/ig/posts/${POST}`)).json();
     expect(j.items[0].statistics.viewCount).toBe("128");
     const list = await (await app.request("/ig/campaigns/7/posts")).json();

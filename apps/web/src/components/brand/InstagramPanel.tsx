@@ -78,7 +78,7 @@ function PostRow({ post, campaignId, isBrand }: { post: IgPost; campaignId: bigi
     setPending("confirm");
     try {
       const p = await approveIgPost(signer!, campaignId, post.code, l, c);
-      toast.success("Engagement confirmed", { body: `${post.code}: score ${p.score.toLocaleString("en-US")}` });
+      toast.success("Engagement confirmed", { body: `${post.code}: score ${(p.score ?? (p.approved ? p.likes + p.comments : 0)).toLocaleString("en-US")}` });
       qc.invalidateQueries({ queryKey: qk.igPosts(campaignId) });
     } catch (err) {
       toast.error(err, "Couldn't confirm the post");
@@ -113,10 +113,10 @@ function PostRow({ post, campaignId, isBrand }: { post: IgPost; campaignId: bigi
         <AddressChip address={post.wallet} />
       </td>
       <td className="px-4 py-3">
-        <input value={likes} onChange={(e) => setLikes(e.target.value)} inputMode="numeric" aria-label="Likes" disabled={!isBrand} className={inputCls} />
+        <input value={likes} onChange={(e) => setLikes(e.target.value)} onFocus={(e) => e.currentTarget.select()} inputMode="numeric" aria-label="Likes" disabled={!isBrand} className={inputCls} />
       </td>
       <td className="px-4 py-3">
-        <input value={comments} onChange={(e) => setComments(e.target.value)} inputMode="numeric" aria-label="Comments" disabled={!isBrand} className={inputCls} />
+        <input value={comments} onChange={(e) => setComments(e.target.value)} onFocus={(e) => e.currentTarget.select()} inputMode="numeric" aria-label="Comments" disabled={!isBrand} className={inputCls} />
       </td>
       <td className="px-4 py-3 text-right font-mono tabular">{post.score.toLocaleString("en-US")}</td>
       <td className="px-4 py-3">

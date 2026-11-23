@@ -10,6 +10,7 @@ import { useApi } from "@/lib/api/ApiProvider";
 import { errorMessage } from "@/lib/api/errors";
 import { useCampaign, useClips, useDisputes, useEpochs, useParticipant } from "@/lib/api/hooks";
 import { useNow } from "@/lib/hooks/useNow";
+import { isInstagram } from "@/lib/video";
 import { ClipsTable } from "./ClipsTable";
 import { DisputeList } from "./DisputeList";
 import { EpochCards } from "./EpochCards";
@@ -98,7 +99,7 @@ export function CampaignPage({ id }: { id: bigint }) {
       {joined && me.data && (
         <div className="flex flex-col gap-3 rounded-[20px] border border-border bg-panel p-4 sm:flex-row sm:items-center">
           <p className="text-sm">
-            You&apos;re in. Add this code to your video description, then register the link:
+            You&apos;re in. Add this code to your {isInstagram(p.platforms) ? "post caption" : "video description"}, then register the link:
           </p>
           <div className="sm:ml-auto">
             <CodeBadge code={me.data.code} size="sm" />
