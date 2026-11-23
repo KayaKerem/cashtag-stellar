@@ -13,6 +13,7 @@ import { useApi } from "@/lib/api/ApiProvider";
 import { useArbiters, useMinResponseWindow, useWrite } from "@/lib/api/hooks";
 import { buildParams, demoPreset, emptyForm, type CampaignForm, type FormErrors } from "@/lib/campaignForm";
 import { formatDuration, useNow } from "@/lib/hooks/useNow";
+import { PLATFORM_LABEL } from "@/lib/video";
 import { useWallet } from "@/lib/wallet/WalletProvider";
 
 type Key = keyof CampaignForm;
@@ -108,7 +109,12 @@ export function CampaignFormPage() {
     return /^\d+$/.test(v) ? formatDuration(Number(v)) : undefined;
   };
   const togglePlatform = (p: Platform) =>
-    set("platforms", form.platforms.includes(p) ? form.platforms.filter((x) => x !== p) : [...form.platforms, p]);
+    setForm((f) => {
+      const on = f.platforms.includes(p);
+      const platforms = on ? f.platforms.filter((x) => x !== p) : [...f.platforms, p];
+      // Instagram approval works through the humanity registration, so it needs the requirement on
+      return { ...f, platforms, require_humanity: !on && p === "instagram" ? true : f.require_humanity };
+    });
 
   const needWallet = mode === "chain" && !connected;
 
@@ -268,7 +274,7 @@ export function CampaignFormPage() {
             <div className="sm:col-span-2">
               <span className="text-sm font-medium">Platforms</span>
               <div className="mt-2 flex flex-wrap gap-2">
-                {(["youtube", "demo"] as Platform[]).map((p) => {
+                {(["youtube", "instagram", "demo"] as Platform[]).map((p) => {
                   const on = form.platforms.includes(p);
                   return (
                     <button
@@ -278,12 +284,19 @@ export function CampaignFormPage() {
                       aria-pressed={on}
                       className={`rounded-full border px-4 py-2 text-sm transition ${on ? "border-transparent bg-lime text-lime-fg" : "border-border-strong hover:bg-surface-2"}`}
                     >
-                      {p === "youtube" ? "YouTube" : "Demo (live demo)"}
+                      {p === "demo" ? "Demo (live demo)" : PLATFORM_LABEL[p]}
                     </button>
                   );
                 })}
               </div>
               {shown.platforms && <span className="mt-1 block text-xs text-danger">{shown.platforms}</span>}
+              {form.platforms.includes("instagram") && (
+                <p className="mt-2 rounded-xl bg-info-soft px-3 py-2 text-xs text-info">
+                  Instagram campaigns are approval-only: you approve each participant&apos;s wallet from the brand panel. After the
+                  campaign you enter each post&apos;s likes and comments; the payout is shared pro rata on likes + comments, and caps and
+                  the minimum count engagement instead of views.
+                </p>
+              )}
             </div>
             <label className="flex items-start gap-3 sm:col-span-2">
               <input
@@ -295,6 +308,7 @@ export function CampaignFormPage() {
               <span className="text-sm">
                 <span className="font-medium">Require human verification</span>
                 <span className="block text-muted">Verification is required before joining; one person joins a campaign once.</span>
+                {shown.require_humanity && <span className="mt-1 block text-xs text-danger">{shown.require_humanity}</span>}
               </span>
             </label>
           </Group>

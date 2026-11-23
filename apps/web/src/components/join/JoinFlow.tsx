@@ -2,7 +2,7 @@
 
 import { canJoin } from "@cliprail/shared";
 import { AddressChip } from "@/components/common/AddressChip";
-import { HumanStep, ZkDoneCard, type ZkResult } from "./HumanStep";
+import { HumanStep, InstagramApprovalStep, ZkDoneCard, type ZkResult } from "./HumanStep";
 import { CodeBadge } from "@/components/common/CodeBadge";
 import { CopyButton } from "@/components/common/CopyButton";
 import { EmptyState, Skeleton } from "@/components/common/EmptyState";
@@ -14,6 +14,7 @@ import { useApi } from "@/lib/api/ApiProvider";
 import { errorMessage } from "@/lib/api/errors";
 import { useCampaign, useIsHuman, useParticipant, useWrite } from "@/lib/api/hooks";
 import { useNow } from "@/lib/hooks/useNow";
+import { isInstagram } from "@/lib/video";
 import { useWallet } from "@/lib/wallet/WalletProvider";
 import { useState } from "react";
 
@@ -80,6 +81,7 @@ export function JoinFlow({ id }: { id: bigint }) {
   const p = c.params;
   const walletOk = mode === "chain" ? wallet.connected && !!account : !!account;
   const needsHuman = p.require_humanity;
+  const instagram = isInstagram(p.platforms);
   const isHuman = !needsHuman || human.data === true;
   const joined = participant.data ?? null;
   const open = canJoin(p, now) && !c.refunded;
@@ -130,7 +132,7 @@ export function JoinFlow({ id }: { id: bigint }) {
           )}
         </Step>
 
-        <Step n={2} title="Human verification" state={s2}>
+        <Step n={2} title={instagram ? "Organiser approval" : "Human verification"} state={s2}>
           {!needsHuman ? (
             <p className="text-sm text-muted">This campaign doesn&apos;t require human verification.</p>
           ) : humanLoading ? (
@@ -139,10 +141,18 @@ export function JoinFlow({ id }: { id: bigint }) {
             zkResult ? (
               <ZkDoneCard result={zkResult} />
             ) : (
-              <p className="text-sm text-muted">You&apos;re already registered as a unique human for this campaign.</p>
+              <p className="text-sm text-muted">
+                {instagram
+                  ? "The organiser approved your wallet for this campaign."
+                  : "You're already registered as a unique human for this campaign."}
+              </p>
             )
           ) : s2 === "current" ? (
-            <HumanStep campaignId={id} onZkDone={setZkResult} />
+            instagram ? (
+              <InstagramApprovalStep campaignId={id} address={account!} checking={human.isFetching} onCheck={() => human.refetch()} />
+            ) : (
+              <HumanStep campaignId={id} onZkDone={setZkResult} />
+            )
           ) : (
             <p className="text-sm text-muted">Connect your wallet first.</p>
           )}

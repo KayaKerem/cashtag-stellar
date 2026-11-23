@@ -3,6 +3,7 @@
 import { carryIn, estimateEpoch, type CampaignParams, type EpochState } from "@cliprail/shared";
 import { Amount } from "@/components/common/Amount";
 import { Skeleton } from "@/components/common/EmptyState";
+import { metricLabel } from "@/lib/video";
 
 export function EpochCards({ params, epochs }: { params: CampaignParams; epochs: EpochState[] | undefined }) {
   if (!epochs) {
@@ -20,6 +21,7 @@ export function EpochCards({ params, epochs }: { params: CampaignParams; epochs:
         const prev = e > 0 ? epochs[e - 1] : null;
         const est = estimateEpoch(params, e, st, prev);
         const carry = carryIn(prev);
+        const unit = metricLabel(params.platforms);
         return (
           <article key={e} className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
             <div className="flex items-center justify-between">
@@ -38,7 +40,7 @@ export function EpochCards({ params, epochs }: { params: CampaignParams; epochs:
                 <dd className="font-mono tabular">{st.total_weight.toLocaleString("en-US")}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">{est.final ? "Effective rate / 1,000 views" : "Estimated rate / 1,000 views"}</dt>
+                <dt className="text-xs text-muted">{est.final ? `Effective rate / 1,000 ${unit}` : `Estimated rate / 1,000 ${unit}`}</dt>
                 <dd>
                   <Amount value={est.rate} decimals={4} />
                 </dd>

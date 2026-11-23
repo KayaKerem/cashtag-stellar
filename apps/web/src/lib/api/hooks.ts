@@ -1,7 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWallet } from "@/lib/wallet/WalletProvider";
 import { useApi } from "./ApiProvider";
+import { listIgPosts, type MessageSigner } from "./instagram";
 
 /** Phase and timeline data refresh on this interval (DEVELOPMENT_PLAN §6: 5s) */
 export const LIVE_MS = 5_000;
@@ -17,6 +19,7 @@ export const qk = {
   arbiters: ["arbiters"] as const,
   minResponseWindow: ["minResponseWindow"] as const,
   owed: (addr: string) => ["owed", addr] as const,
+  igPosts: (id: bigint) => ["campaign", id, "igPosts"] as const,
 };
 
 export function useCampaigns() {
@@ -114,6 +117,28 @@ export function useOwed(addr: string | null) {
     enabled: !!addr,
     refetchInterval: LIVE_MS,
   });
+}
+
+/** Instagram posts submitted to a campaign, with the organiser-confirmed scores. */
+export function useIgPosts(id: bigint | null) {
+  return useQuery({
+    queryKey: qk.igPosts(id ?? 0n),
+    queryFn: () => listIgPosts(id!),
+    enabled: id !== null,
+    refetchInterval: LIVE_MS,
+  });
+}
+
+/**
+ * Signs verifier messages as the current account: the wallet in chain mode; in mock mode the
+ * selected role, with a placeholder signature (the mock store checks none).
+ */
+export function useMessageSigner(): MessageSigner | null {
+  const { account, mode } = useApi();
+  const wallet = useWallet();
+  if (!account) return null;
+  if (mode === "chain") return { address: account, signMessage: (m) => wallet.signMessage(m) };
+  return { address: account, signMessage: async () => "mock-signature" };
 }
 
 /**

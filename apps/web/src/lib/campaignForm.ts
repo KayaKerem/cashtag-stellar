@@ -37,7 +37,7 @@ const MAX_BUDGET = 1_000_000_000_000_000n;
 const DEFAULT_PLATFORMS = (process.env.NEXT_PUBLIC_PLATFORMS ?? "demo")
   .split(",")
   .map((s) => s.trim())
-  .filter((s): s is Platform => s === "youtube" || s === "demo");
+  .filter((s): s is Platform => s === "youtube" || s === "demo" || s === "instagram");
 
 export function demoPreset(arbiter: string): CampaignForm {
   return {
@@ -152,6 +152,9 @@ export function buildParams(
   else if (rules.arbiters && !rules.arbiters.includes(f.arbiter)) e.arbiter = "Pick an arbiter from the curated list.";
 
   if (!f.platforms.length) e.platforms = "Pick at least one platform.";
+  // Instagram admits organiser-approved participants only; the approval is the humanity registration
+  if (f.platforms.includes("instagram") && !f.require_humanity)
+    e.require_humanity = "Instagram campaigns admit approved participants only, so this must stay on.";
 
   if (Object.keys(e).length) return { params: null, errors: e };
 

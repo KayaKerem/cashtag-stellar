@@ -29,9 +29,10 @@ import { useApi } from "@/lib/api/ApiProvider";
 import { errorMessage } from "@/lib/api/errors";
 import { useCampaign, useClips, useDisputes, useEpochs, useWrite } from "@/lib/api/hooks";
 import { formatDuration, useNow } from "@/lib/hooks/useNow";
-import { PLATFORM_LABEL, videoUrl } from "@/lib/video";
+import { PLATFORM_LABEL, isInstagram, videoUrl } from "@/lib/video";
 import { TryRampButton } from "@/components/anchor/TryRampDialog";
 import { ChallengeDialog } from "./ChallengeDialog";
+import { InstagramPanel } from "./InstagramPanel";
 
 function Stat({ k, v, hint }: { k: string; v: React.ReactNode; hint?: string }) {
   return (
@@ -128,6 +129,8 @@ export function BrandPanel({ id }: { id: bigint }) {
       <div className="mb-8">
         <PhaseTimeline params={p} now={now} />
       </div>
+
+      {isInstagram(p.platforms) && <InstagramPanel campaignId={id} isBrand={isBrand} />}
 
       <section className="mb-10">
         <h2 className="display mb-4 text-2xl">Epochs</h2>

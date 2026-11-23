@@ -2,9 +2,11 @@
 
 import { isCliprailError } from "@cliprail/client";
 import { useEffect, useState } from "react";
+import { CopyButton } from "@/components/common/CopyButton";
 import { TxButton } from "@/components/common/TxButton";
 import { TxLink } from "@/components/common/TxLink";
 import { CheckDot } from "@/components/ui/Chip";
+import { useApi } from "@/lib/api/ApiProvider";
 import { errorMessage } from "@/lib/api/errors";
 import { useWrite } from "@/lib/api/hooks";
 
@@ -174,6 +176,59 @@ export function HumanStep({ campaignId, onZkDone }: { campaignId: bigint; onZkDo
           Demo registration
         </TxButton>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Step 2 for Instagram campaigns: there is no self-service verification; the organiser approves
+ * the wallet (which registers it in humanity for this campaign), then joining works as usual.
+ */
+export function InstagramApprovalStep({
+  campaignId,
+  address,
+  checking,
+  onCheck,
+}: {
+  campaignId: bigint;
+  address: string;
+  checking: boolean;
+  onCheck: () => void;
+}) {
+  const { mode } = useApi();
+  const demo = useWrite((a) => a.registerHuman(campaignId), { campaignId });
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-border-strong p-4">
+        <p className="text-sm font-medium">This campaign admits participants approved by the organiser.</p>
+        <p className="mt-1 text-xs text-muted">Send your wallet address to the organiser. Once they approve it, you can join.</p>
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-border bg-surface p-3">
+          <p className="min-w-0 flex-1 break-all font-mono text-xs">{address}</p>
+          <CopyButton text={address} />
+        </div>
+        <button
+          type="button"
+          onClick={onCheck}
+          disabled={checking}
+          className="label-mono mt-3 inline-flex h-10 items-center rounded-full border border-border-strong px-5 text-[12px] hover:bg-surface-2 disabled:opacity-40"
+        >
+          {checking ? "Checking…" : "I was approved, check again"}
+        </button>
+      </div>
+      {mode === "mock" && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+          Mock mode:
+          <TxButton
+            variant="outline"
+            className="h-8 px-3 text-[10px]"
+            action={() => demo.mutateAsync(undefined)}
+            successTitle="Approval simulated"
+            successBody={() => "This wallet is now approved for the campaign."}
+          >
+            Simulate approval
+          </TxButton>
+        </div>
+      )}
     </div>
   );
 }

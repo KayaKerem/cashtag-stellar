@@ -37,7 +37,7 @@ export function ClipsTable({ clips, epochs, me }: { clips: ClipView[]; epochs: n
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 hover:underline"
                 >
-                  <span className={`size-1.5 rounded-full ${clip.platform === "youtube" ? "bg-danger" : "bg-info"}`} aria-hidden />
+                  <span className={`size-1.5 rounded-full ${clip.platform === "youtube" ? "bg-danger" : clip.platform === "instagram" ? "bg-warning" : "bg-info"}`} aria-hidden />
                   <span className="text-muted">#{clip.id.toString()}</span>
                   {PLATFORM_LABEL[clip.platform] ?? clip.platform}
                   <span className="max-w-[9rem] truncate font-mono text-xs text-muted">{clip.video_id}</span>

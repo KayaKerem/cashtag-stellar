@@ -3,7 +3,7 @@ import { Amount } from "@/components/common/Amount";
 import { AddressChip } from "@/components/common/AddressChip";
 import { CHAIN_CONFIG } from "@/lib/api/config";
 import { formatDuration } from "@/lib/hooks/useNow";
-import { PLATFORM_LABEL } from "@/lib/video";
+import { PLATFORM_LABEL, isInstagram, metricLabel } from "@/lib/video";
 
 const n = (v: bigint) => v.toLocaleString("en-US");
 
@@ -20,6 +20,8 @@ function Row({ k, v, hint }: { k: string; v: React.ReactNode; hint?: string }) {
 
 /** Campaign rules: fixed in the contract and unchangeable afterwards. */
 export function RulesCard({ params }: { params: CampaignParams }) {
+  const unit = metricLabel(params.platforms);
+  const approvalOnly = isInstagram(params.platforms) && params.require_humanity;
   return (
     <section className="rounded-[20px] border border-border bg-surface p-5 shadow-card">
       <div className="flex items-start justify-between gap-3">
@@ -55,15 +57,15 @@ export function RulesCard({ params }: { params: CampaignParams }) {
           v={
             <>
               <span className="text-muted">up to</span> <Amount value={params.rate_max_per_1k} />{" "}
-              <span className="text-muted">/ 1,000 views</span>
+              <span className="text-muted">/ 1,000 {unit}</span>
               <span className="mt-0.5 block text-xs text-muted">If reach exceeds the epoch budget, it is shared pro-rata</span>
             </>
           }
           hint="A cap, not a fixed price: r_eff = min(cap, 1000 × epoch budget / W), where W is the epoch's eligible weight"
         />
-        <Row k="Cap per clip" v={<span className="font-mono">{n(params.cap_views_clip)} views / epoch</span>} />
-        <Row k="Cap per human" v={<span className="font-mono">{n(params.cap_views_human)} views / epoch</span>} />
-        <Row k="Minimum views" v={<span className="font-mono">{n(params.min_views)}</span>} hint="A clip-epoch below this counts as weight 0 and earns nothing" />
+        <Row k="Cap per clip" v={<span className="font-mono">{n(params.cap_views_clip)} {unit} / epoch</span>} />
+        <Row k="Cap per human" v={<span className="font-mono">{n(params.cap_views_human)} {unit} / epoch</span>} />
+        <Row k={`Minimum ${unit}`} v={<span className="font-mono">{n(params.min_views)}</span>} hint="A clip-epoch below this counts as weight 0 and earns nothing" />
         <Row k="Epochs" v={<span className="font-mono">{params.epochs} × {formatDuration(params.epoch_len)}</span>} />
         <Row
           k="Windows"
@@ -78,7 +80,17 @@ export function RulesCard({ params }: { params: CampaignParams }) {
         <Row k="Challenge bond" v={<Amount value={params.bond} />} />
         <Row k="Arbiter" v={<AddressChip address={params.arbiter} />} />
         <Row k="Platforms" v={params.platforms.map((p) => PLATFORM_LABEL[p] ?? p).join(", ")} />
-        <Row k="Human verification" v={params.require_humanity ? "Required" : "Not required"} />
+        {isInstagram(params.platforms) && (
+          <Row
+            k="Engagement"
+            v="Likes + comments, confirmed by the organiser"
+            hint="Instagram posts are scored on likes + comments that the organiser confirms; the payout is shared pro rata on that score"
+          />
+        )}
+        <Row
+          k={approvalOnly ? "Participants" : "Human verification"}
+          v={approvalOnly ? "Approved by the organiser" : params.require_humanity ? "Required" : "Not required"}
+        />
       </dl>
     </section>
   );

@@ -18,6 +18,8 @@ export interface WalletState {
   disconnect(): Promise<void>;
   /** Same signature as the @cliprail/client Signer */
   signTransaction(xdr: string, opts: { networkPassphrase: string; address?: string }): Promise<{ signedTxXdr: string }>;
+  /** SEP-53 message signature (base64) by the connected wallet */
+  signMessage(message: string): Promise<string>;
   getAddress(): Promise<string>;
 }
 
@@ -103,6 +105,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const signMessage = useCallback(
+    async (message: string) => {
+      const kit = await getKit();
+      const { signedMessage } = await kit.signMessage(message, {
+        address: address ?? undefined,
+        networkPassphrase: networkPassphrase ?? TESTNET_PASSPHRASE,
+      });
+      if (!signedMessage) throw new Error("The wallet returned no signature");
+      return signedMessage;
+    },
+    [address, networkPassphrase],
+  );
+
   const getAddress = useCallback(async () => {
     const kit = await getKit();
     const { address: a } = await kit.getAddress();
@@ -120,9 +135,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       connect,
       disconnect,
       signTransaction,
+      signMessage,
       getAddress,
     }),
-    [ready, address, networkPassphrase, connect, disconnect, signTransaction, getAddress],
+    [ready, address, networkPassphrase, connect, disconnect, signTransaction, signMessage, getAddress],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

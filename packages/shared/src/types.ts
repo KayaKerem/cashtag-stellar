@@ -1,7 +1,7 @@
 // Mirrors contracts/cliprail/src/types.rs (authoritative) and docs/INTERFACES.md v2 §2.1 / §5.
 // Mapping: u64/i128 → bigint, u32 → number, Address/Symbol/String → string, Option<T> → T | null.
 
-export type Platform = "youtube" | "demo";
+export type Platform = "youtube" | "demo" | "instagram";
 
 export interface CampaignParams {
   token: string;

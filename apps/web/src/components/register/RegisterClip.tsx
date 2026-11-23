@@ -13,13 +13,15 @@ import { useApi } from "@/lib/api/ApiProvider";
 import { bumpDemoVideo, demoDescription, suggestDemoId } from "@/lib/api/demo";
 import { useWallet } from "@/lib/wallet/WalletProvider";
 import { errorMessage } from "@/lib/api/errors";
-import { useCampaign, useClips, useParticipant, useWrite } from "@/lib/api/hooks";
+import { useCampaign, useClips, useMessageSigner, useParticipant, useWrite } from "@/lib/api/hooks";
+import { submitIgPost } from "@/lib/api/instagram";
 import { useNow } from "@/lib/hooks/useNow";
-import { PLATFORM_LABEL, videoUrl } from "@/lib/video";
+import { PLATFORM_LABEL, metricLabel, parseInstagramPost, videoUrl } from "@/lib/video";
 
 const PLACEHOLDER: Record<string, string> = {
   youtube: "https://youtube.com/shorts/… or https://youtu.be/…",
   demo: "demo-video-01",
+  instagram: "https://www.instagram.com/p/…",
 };
 
 // Proof generation takes 5–30s; the stages are approximated from the elapsed time
@@ -69,7 +71,8 @@ function Progress({ startedAt }: { startedAt: number }) {
 }
 
 export function RegisterClip({ id }: { id: bigint }) {
-  const { account, mode } = useApi();
+  const { api, account, mode } = useApi();
+  const signer = useMessageSigner();
   const wallet = useWallet();
   const toast = useToast();
   const now = useNow();
@@ -89,11 +92,16 @@ export function RegisterClip({ id }: { id: bigint }) {
   // Demo platform: the video ID whose description already carries the code
   const [prepared, setPrepared] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
+  // Instagram: the post is submitted to the verifier (signed message) before the proof
+  const [submittingPost, setSubmittingPost] = useState(false);
 
   const c = campaign.data;
   const platforms = (c?.params.platforms ?? []) as Platform[];
   const current = platform ?? platforms[0] ?? "youtube";
-  const parsed = useMemo(() => (link.trim() ? parseVideoLink(current, link) : null), [current, link]);
+  const parsed = useMemo(
+    () => (link.trim() ? (current === "instagram" ? parseInstagramPost(link) : parseVideoLink(current, link)) : null),
+    [current, link],
+  );
 
   if (campaign.isLoading || participant.isLoading) return <Skeleton className="mx-auto h-96 max-w-2xl" />;
   if (!c) {
@@ -138,8 +146,10 @@ export function RegisterClip({ id }: { id: bigint }) {
   const open = canJoin(c.params, now) && !c.refunded;
   const registered = result ? clips.data?.find((v) => v.clip.id === result.clipId)?.clip : undefined;
   const isDemo = current === "demo";
+  const isIg = current === "instagram";
   const demoReady = !isDemo || (parsed?.ok && prepared === parsed.id);
-  const canSubmit = open && parsed?.ok && confirmed && demoReady && startedAt === null;
+  const canSubmit = open && parsed?.ok && confirmed && demoReady && startedAt === null && !submittingPost;
+  const where = isIg ? "post caption" : "video description";
 
   async function prepareDemo() {
     if (!parsed?.ok || !me) return;
@@ -159,6 +169,18 @@ export function RegisterClip({ id }: { id: bigint }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!parsed?.ok || !canSubmit) return;
+    if (isIg) {
+      if (!signer) return;
+      setSubmittingPost(true);
+      try {
+        await submitIgPost(signer, id, parsed.id, api);
+      } catch (err) {
+        toast.error(err, "Couldn't submit the post");
+        return;
+      } finally {
+        setSubmittingPost(false);
+      }
+    }
     setStartedAt(Date.now());
     try {
       const res = await register.mutateAsync({ platform: current, videoId: parsed.id });
@@ -182,7 +204,7 @@ export function RegisterClip({ id }: { id: bigint }) {
           </div>
           <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
             <div>
-              <dt className="text-xs text-muted">Baseline views</dt>
+              <dt className="text-xs text-muted">Baseline {metricLabel([current])}</dt>
               <dd className="font-mono text-2xl tabular">
                 {registered ? registered.baseline.toLocaleString("en-US") : <Skeleton className="mt-1 h-7 w-24" />}
               </dd>
@@ -194,8 +216,13 @@ export function RegisterClip({ id }: { id: bigint }) {
               </dd>
             </div>
           </dl>
+          {isIg && (
+            <p className="mt-4 text-sm text-muted">
+              Your post&apos;s likes and comments count once the organiser confirms them; until then its score is 0.
+            </p>
+          )}
           <p className="mt-4 text-sm text-muted">
-            Earnings are calculated from the views proven at the end of each epoch above this baseline, paid at the epoch&apos;s rate, up
+            Earnings are calculated from the {metricLabel([current])} proven at the end of each epoch above this baseline, paid at the epoch&apos;s rate, up
             to the campaign&apos;s rate cap.
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
@@ -259,7 +286,9 @@ export function RegisterClip({ id }: { id: bigint }) {
           </div>
 
           <label className="block">
-            <span className="text-sm font-medium">{current === "demo" ? "Demo video ID or link" : "Video link"}</span>
+            <span className="text-sm font-medium">
+              {current === "demo" ? "Demo video ID or link" : isIg ? "Instagram post link" : "Video link"}
+            </span>
             <input
               value={link}
               onChange={(e) => setLink(e.target.value)}
@@ -274,7 +303,7 @@ export function RegisterClip({ id }: { id: bigint }) {
             {parsed &&
               (parsed.ok ? (
                 <span className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-                  Video ID <code className="rounded bg-row px-1.5 py-0.5 font-mono text-fg">{parsed.id}</code>
+                  {isIg ? "Post" : "Video ID"} <code className="rounded bg-row px-1.5 py-0.5 font-mono text-fg">{parsed.id}</code>
                   <a href={videoUrl(current, parsed.id)} target="_blank" rel="noreferrer" className="underline underline-offset-4">
                     open ↗
                   </a>
@@ -321,8 +350,12 @@ export function RegisterClip({ id }: { id: bigint }) {
           )}
 
           <div className="rounded-2xl bg-panel p-4">
-            <p className="text-sm font-medium">Is this code in your description?</p>
-            <p className="mt-1 text-xs text-muted">The proof looks for your code in the video description; without it the registration is rejected.</p>
+            <p className="text-sm font-medium">Is this code in your {isIg ? "caption" : "description"}?</p>
+            <p className="mt-1 text-xs text-muted">
+              {isIg
+                ? "Your participant code must be in the post caption. The organiser checks it before confirming your likes and comments."
+                : "The proof looks for your code in the video description; without it the registration is rejected."}
+            </p>
             <div className="mt-3">
               <CodeBadge code={me.code} size="sm" />
             </div>
@@ -333,7 +366,7 @@ export function RegisterClip({ id }: { id: bigint }) {
                 onChange={(e) => setConfirmed(e.target.checked)}
                 className="mt-0.5 size-4 accent-[var(--lime)]"
               />
-              Yes, <span className="font-mono">{me.code}</span> is in the video description.
+              Yes, <span className="font-mono">{me.code}</span> is in the {where}.
             </label>
           </div>
 
@@ -342,7 +375,7 @@ export function RegisterClip({ id }: { id: bigint }) {
             disabled={!canSubmit}
             className="label-mono inline-flex h-12 w-full items-center justify-center rounded-full bg-ink text-sm text-ink-fg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Prove and register
+            {submittingPost ? "Submitting the post (sign the message)…" : "Prove and register"}
           </button>
           {isDemo && parsed?.ok && !demoReady && (
             <p className="text-center text-xs text-muted">Finish the &quot;Prepare the demo video&quot; step first.</p>
