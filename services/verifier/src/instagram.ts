@@ -8,6 +8,8 @@ import { Keypair, StrKey, hash } from "@stellar/stellar-sdk";
 /** Instagram shortcode (the id in instagram.com/p/<code>/ or /reel/<code>/). */
 export const IG_CODE_RE = /^[A-Za-z0-9_-]{5,40}$/;
 export const MAX_POSTS = 2000;
+/** Per participant and campaign, so one wallet cannot fill the store. */
+export const MAX_POSTS_PER_WALLET = 20;
 export const MAX_COUNT = 100_000_000;
 /** Signed requests are accepted for this long after their `ts`. */
 export const SIGNED_MAX_AGE_S = 600;
@@ -77,6 +79,8 @@ export class IgStore {
       return cur;
     }
     if (Object.keys(this.posts).length >= MAX_POSTS) throw new Error(`post limit reached (${MAX_POSTS})`);
+    const mine = Object.values(this.posts).filter((p) => p.campaignId === i.campaignId && p.wallet === i.wallet).length;
+    if (mine >= MAX_POSTS_PER_WALLET) throw new Error(`at most ${MAX_POSTS_PER_WALLET} posts per participant`);
     const p: IgPost = { ...i, likes: 0, comments: 0, approved: false, submittedAt: Math.floor(now / 1000) };
     this.posts[i.code] = p;
     this.save();
@@ -91,6 +95,15 @@ export class IgStore {
     Object.assign(p, { likes, comments, approved: true, approvedAt: Math.floor(now / 1000) });
     this.save();
     return p;
+  }
+
+  /** Organiser removes a submission that is not theirs to pay (e.g. someone else's post). Approved posts stay. */
+  reject(code: string, campaignId: string): void {
+    const p = this.posts[code];
+    if (!p || p.campaignId !== campaignId) throw new Error("post not found in this campaign");
+    if (p.approved) throw new Error("approved posts cannot be removed");
+    delete this.posts[code];
+    this.save();
   }
 
   isApproved(code: string): boolean {

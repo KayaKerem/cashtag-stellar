@@ -148,6 +148,33 @@ describe("instagram flow", () => {
     expect(ops.demoRegister).not.toHaveBeenCalled();
   });
 
+  it("brand can reject an unconfirmed post, which frees it for its owner", async () => {
+    const { app, ig } = mk();
+    await post(app, "/ig/submit", signedBody(alice, { action: "cashtag:ig-submit", campaignId: 7, post: POST }));
+    expect((await post(app, "/ig/reject", signedBody(alice, { action: "cashtag:ig-reject", campaignId: 7, post: POST }))).status).toBe(403);
+    expect((await post(app, "/ig/reject", signedBody(brand, { action: "cashtag:ig-reject", campaignId: 7, post: POST }))).status).toBe(200);
+    expect(ig.get(POST)).toBeUndefined();
+    ig.submit({ code: POST, campaignId: "7", wallet: alice.publicKey(), participantCode: "CR-ALICE00001" });
+    ig.approve(POST, "7", 1, 1);
+    expect(() => ig.reject(POST, "7")).toThrow(/approved/);
+  });
+
+  it("caps posts per participant", () => {
+    const ig = new IgStore(null);
+    for (let i = 0; i < 20; i++) ig.submit({ code: `Post_${i}x`, campaignId: "1", wallet: "GA", participantCode: "CR-A" });
+    expect(() => ig.submit({ code: "Post_20x", campaignId: "1", wallet: "GA", participantCode: "CR-A" })).toThrow(/at most/);
+    ig.submit({ code: "Post_20x", campaignId: "2", wallet: "GA", participantCode: "CR-A" });
+  });
+
+  it("participant approval needs DEMO_MODE, like demo-register", async () => {
+    const ig = new IgStore(null);
+    const ops = { submitClose: vi.fn(), demoRegister: vi.fn(), campaignInfo: vi.fn(async () => ({ brand: brand.publicKey(), platforms: ["instagram"] })), participantCode: vi.fn() };
+    const app = createApp({ cfg: { ...cfg, demoMode: false }, demo: new DemoStore(null), proofs: new ProofService(cfg, () => {}, new DemoStore(null)), ops: ops as any, ig });
+    const r = await post(app, "/ig/participants/approve", signedBody(brand, { action: "cashtag:ig-approve-participant", campaignId: 7, wallet: bob.publicKey() }));
+    expect(r.status).toBe(403);
+    expect(ops.demoRegister).not.toHaveBeenCalled();
+  });
+
   it("persists across restarts", () => {
     const path = join(tmp, "persist.json");
     const a = new IgStore(path);

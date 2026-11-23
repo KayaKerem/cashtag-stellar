@@ -245,8 +245,23 @@ export function createApp({ cfg, demo, proofs, ops, aadhaar, health, ig }: Deps)
       return c.json({ post });
     });
 
+    // Organiser removes a submission it will not pay (only while unconfirmed).
+    app.post("/ig/reject", async (c) => {
+      const { msg, signer } = await signed(c, "cashtag:ig-reject");
+      const campaignId = parseId(msg.campaignId, "campaignId");
+      const code = postOf(msg.post);
+      asBrand(signer, (await instagramCampaign(campaignId)).brand);
+      try {
+        ig.reject(code, String(campaignId));
+      } catch (e) {
+        storeErr(e);
+      }
+      return c.json({ ok: true });
+    });
+
     // Organiser approves a participant: registers the wallet in humanity for this campaign only.
     app.post("/ig/participants/approve", async (c) => {
+      if (!cfg.demoMode) throw new HttpError(403, "participant registration disabled (DEMO_MODE!=1)", "disabled");
       const { msg, signer } = await signed(c, "cashtag:ig-approve-participant");
       const campaignId = parseId(msg.campaignId, "campaignId");
       if (typeof msg.wallet !== "string" || !msg.wallet) throw new HttpError(400, "wallet required", "bad_request");
