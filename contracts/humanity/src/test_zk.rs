@@ -394,6 +394,17 @@ fn aadhaar_config_admin_only() {
     env.mock_all_auths();
     c.set_aadhaar_config(&cfg);
     assert_eq!(env.auths()[0].0, admin);
+    let ev = env.events().all().events().last().unwrap().clone();
+    assert_eq!(
+        ev,
+        soroban_sdk::Event::to_xdr(
+            &AadhaarConfigSet {
+                admin: admin.clone()
+            },
+            &env,
+            &c.address
+        )
+    );
     assert_eq!(c.aadhaar_config(), Some(cfg));
 }
 

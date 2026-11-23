@@ -19,6 +19,8 @@ use crate::types::*;
 pub const MAX_EVIDENCE: u32 = 200;
 /// Share of the challenger's bond paid to the arbiter on every closed dispute.
 pub const DISPUTE_FEE_BPS: i128 = 1_000;
+/// Cap on disputes per campaign, so the `CampaignDisputes` id list stays one bounded entry (TM-14).
+pub const MAX_DISPUTES_PER_CAMPAIGN: u32 = 500;
 
 /// Arbiter fee for `bond` (rounded up, so any positive bond pays at least 1 unit).
 /// Overflow-free for any non-negative bond.
@@ -57,6 +59,10 @@ pub fn challenge(
         // nothing would be excluded
         return Err(Error::NothingToClaim);
     }
+    let list_key = DataKey::CampaignDisputes(campaign_id);
+    if storage::id_list(env, &list_key).len() >= MAX_DISPUTES_PER_CAMPAIGN {
+        return Err(Error::ListFull);
+    }
     let active_key = DataKey::ActiveDispute(clip_id, e);
     if storage::has(env, &active_key) || ce.status != ClipEpochStatus::Active {
         return Err(Error::AlreadyDisputed);
@@ -81,7 +87,7 @@ pub fn challenge(
     };
     storage::set_dispute(env, &d);
     storage::put(env, &active_key, &id);
-    storage::push_id(env, &DataKey::CampaignDisputes(campaign_id), id);
+    storage::push_id(env, &list_key, id);
     ce.status = ClipEpochStatus::Challenged;
     storage::set_clip_epoch(env, clip_id, e, &ce);
     let mut st = storage::epoch(env, campaign_id, e);
@@ -161,8 +167,16 @@ pub fn withdraw(env: &Env, who: Address, token_id: Address) -> Result<i128, Erro
     if amount <= 0 {
         return Err(Error::NothingToClaim);
     }
-    env.storage().persistent().remove(&DataKey::Owed(who.clone(), token_id.clone()));
+    env.storage()
+        .persistent()
+        .remove(&DataKey::Owed(who.clone(), token_id.clone()));
     token::Client::new(env, &token_id).transfer(&env.current_contract_address(), &who, &amount);
+    events::Withdrawn {
+        who,
+        token: token_id,
+        amount,
+    }
+    .publish(env);
     Ok(amount)
 }
 

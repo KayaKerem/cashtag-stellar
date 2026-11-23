@@ -1,8 +1,9 @@
 extern crate std;
 
 use super::*;
+use soroban_sdk::testutils::Events as _;
 use soroban_sdk::testutils::{Address as _, MockAuth, MockAuthInvoke};
-use soroban_sdk::IntoVal;
+use soroban_sdk::{Event as _, IntoVal};
 
 fn setup() -> (Env, HumanityClient<'static>, Address, Address) {
     let env = Env::default();
@@ -148,4 +149,49 @@ fn admin_transfer_is_two_step() {
     c.accept_admin();
     assert_eq!(env.auths()[0].0, next);
     assert_eq!(c.admin(), next);
+}
+
+#[test]
+fn admin_actions_emit_events() {
+    let (env, c, _admin, _relayer) = setup();
+    env.mock_all_auths();
+    let last = || env.events().all().events().last().unwrap().clone();
+
+    let r2 = Address::generate(&env);
+    c.set_relayer(&r2);
+    assert_eq!(
+        last(),
+        RelayerSet {
+            relayer: r2.clone()
+        }
+        .to_xdr(&env, &c.address)
+    );
+
+    let w = Address::generate(&env);
+    c.register(&3, &n(&env, 3), &w);
+    c.revoke(&3, &w);
+    let expected = Revoked {
+        campaign_id: 3,
+        wallet: w.clone(),
+    }
+    .to_xdr(&env, &c.address);
+    assert_eq!(last(), expected);
+
+    let next = Address::generate(&env);
+    c.propose_admin(&next);
+    assert_eq!(
+        last(),
+        AdminProposed {
+            pending: next.clone()
+        }
+        .to_xdr(&env, &c.address)
+    );
+    c.accept_admin();
+    assert_eq!(
+        last(),
+        AdminChanged {
+            admin: next.clone()
+        }
+        .to_xdr(&env, &c.address)
+    );
 }

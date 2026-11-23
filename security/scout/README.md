@@ -14,8 +14,8 @@ The three Soroban contracts (`cliprail`, `humanity`, `reclaim-verify`) as deploy
 
 **Result:** every finding was triaged by hand. Two are real:
 
-- Unbounded per-campaign id lists, Medium, already tracked as TM-14.
-- Missing events on `withdraw` and the admin setters, Low, added to TM-21.
+- Unbounded per-campaign id lists, Medium, tracked as TM-14. Fixed 2026-11-23: per-campaign caps and paged reads.
+- Missing events on `withdraw` and the admin setters, Low, added to TM-21. Fixed 2026-11-23: both contracts now emit them.
 
 All other findings are false positives or accepted by design. No finding allows funds to be taken or miscounted.
 

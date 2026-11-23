@@ -51,4 +51,7 @@ pub enum Error {
     ArbiterNotAllowed = 40,
     /// `accept_admin` without a pending `propose_admin`.
     NoPendingAdmin = 41,
+    /// `register_clip` / `challenge`: the campaign reached `MAX_CLIPS_PER_CAMPAIGN` /
+    /// `MAX_DISPUTES_PER_CAMPAIGN` (TM-14).
+    ListFull = 42,
 }

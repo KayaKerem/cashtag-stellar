@@ -87,6 +87,38 @@ pub struct HumanZkEvent {
     pub nullifier: BytesN<32>,
 }
 
+/// `propose_admin`: step 1 of an admin transfer.
+#[contractevent(topics = ["adminprop"], data_format = "vec")]
+pub struct AdminProposed {
+    pub pending: Address,
+}
+
+/// `accept_admin`: the admin changed.
+#[contractevent(topics = ["admin"], data_format = "vec")]
+pub struct AdminChanged {
+    pub admin: Address,
+}
+
+/// `set_relayer`.
+#[contractevent(topics = ["relayer"], data_format = "vec")]
+pub struct RelayerSet {
+    pub relayer: Address,
+}
+
+/// `set_aadhaar_config`: the Anon Aadhaar verification parameters changed.
+#[contractevent(topics = ["aadhaarcfg"], data_format = "vec")]
+pub struct AadhaarConfigSet {
+    pub admin: Address,
+}
+
+/// `revoke`: a wallet's registration for a campaign was removed.
+#[contractevent(topics = ["revoked"], data_format = "vec")]
+pub struct Revoked {
+    #[topic]
+    pub campaign_id: u64,
+    pub wallet: Address,
+}
+
 #[contract]
 pub struct Humanity;
 
@@ -176,8 +208,11 @@ impl Humanity {
     /// Step 1 of an admin transfer; the new admin must call `accept_admin`.
     pub fn propose_admin(env: Env, new_admin: Address) {
         admin(&env).require_auth();
-        env.storage().instance().set(&DataKey::PendingAdmin, &new_admin);
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingAdmin, &new_admin);
         bump_instance(&env);
+        AdminProposed { pending: new_admin }.publish(&env);
     }
 
     pub fn accept_admin(env: Env) -> Result<(), Error> {
@@ -190,6 +225,7 @@ impl Humanity {
         env.storage().instance().set(&DataKey::Admin, &new_admin);
         env.storage().instance().remove(&DataKey::PendingAdmin);
         bump_instance(&env);
+        AdminChanged { admin: new_admin }.publish(&env);
         Ok(())
     }
 
@@ -201,6 +237,7 @@ impl Humanity {
         admin(&env).require_auth();
         env.storage().instance().set(&DataKey::Relayer, &relayer);
         bump_instance(&env);
+        RelayerSet { relayer }.publish(&env);
     }
 
     /// Admin removes a wallet's registration for a campaign. The nullifier stays marked as used,
@@ -210,7 +247,12 @@ impl Humanity {
         bump_instance(&env);
         env.storage()
             .persistent()
-            .remove(&DataKey::Wallet(campaign_id, wallet));
+            .remove(&DataKey::Wallet(campaign_id, wallet.clone()));
+        Revoked {
+            campaign_id,
+            wallet,
+        }
+        .publish(&env);
     }
 
     pub fn register(
@@ -239,11 +281,13 @@ impl Humanity {
 
     /// Admin sets the Anon Aadhaar verification parameters (enables `register_zk`).
     pub fn set_aadhaar_config(env: Env, config: AadhaarConfig) -> Result<(), Error> {
-        admin(&env).require_auth();
+        let admin = admin(&env);
+        admin.require_auth();
         env.storage()
             .instance()
             .set(&DataKey::AadhaarConfig, &config);
         bump_instance(&env);
+        AadhaarConfigSet { admin }.publish(&env);
         Ok(())
     }
 

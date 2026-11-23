@@ -96,6 +96,10 @@ fn pay_out(env: &Env, c: &mut Campaign, to: &Address, amount: i128) -> i128 {
 /// Base36 characters after "CR-". 36^10 is about 2^51.7, so grinding an address onto a given
 /// code is impractical; `join` additionally rejects a code already taken in the campaign.
 const CODE_LEN: usize = 10;
+/// Cap on clips per campaign, so the `CampaignClips` id list stays one bounded entry (TM-14).
+pub const MAX_CLIPS_PER_CAMPAIGN: u32 = 500;
+/// Largest page `get_clips_page` / `list_disputes_page` return.
+pub const MAX_PAGE: u32 = 50;
 const CODE_SPACE: u64 = 3_656_158_440_062_976; // 36^10
 
 fn participant_code(env: &Env, campaign_id: u64, who: &Address) -> String {
@@ -200,6 +204,7 @@ impl Cliprail {
         storage::admin(&env)?.require_auth();
         storage::inst_set(&env, &DataKey::PendingAdmin, &new_admin);
         storage::bump_instance(&env);
+        events::AdminProposed { pending: new_admin }.publish(&env);
         Ok(())
     }
 
@@ -220,9 +225,11 @@ impl Cliprail {
 
     /// Curated neutral arbiters a new campaign may name (TM-6). Existing campaigns keep theirs.
     pub fn set_arbiters(env: Env, arbiters: Vec<Address>) -> Result<(), Error> {
-        storage::admin(&env)?.require_auth();
+        let admin = storage::admin(&env)?;
+        admin.require_auth();
         storage::inst_set(&env, &DataKey::Arbiters, &arbiters);
         storage::bump_instance(&env);
+        config_set(&env, "arbiters", admin);
         Ok(())
     }
 
@@ -232,9 +239,11 @@ impl Cliprail {
 
     /// Lower bound (seconds) on the clipper's response time, checked at campaign creation.
     pub fn set_min_response_window(env: Env, seconds: u64) -> Result<(), Error> {
-        storage::admin(&env)?.require_auth();
+        let admin = storage::admin(&env)?;
+        admin.require_auth();
         storage::inst_set(&env, &DataKey::MinResponseWindow, &seconds);
         storage::bump_instance(&env);
+        config_set(&env, "minresp", admin);
         Ok(())
     }
 
@@ -243,16 +252,20 @@ impl Cliprail {
     }
 
     pub fn set_attestors(env: Env, attestors: Vec<BytesN<20>>) -> Result<(), Error> {
-        storage::admin(&env)?.require_auth();
+        let admin = storage::admin(&env)?;
+        admin.require_auth();
         storage::inst_set(&env, &DataKey::Attestors, &attestors);
         storage::bump_instance(&env);
+        config_set(&env, "attestors", admin);
         Ok(())
     }
 
     pub fn set_owners(env: Env, owners: Vec<Bytes>) -> Result<(), Error> {
-        storage::admin(&env)?.require_auth();
+        let admin = storage::admin(&env)?;
+        admin.require_auth();
         storage::inst_set(&env, &DataKey::Owners, &owners);
         storage::bump_instance(&env);
+        config_set(&env, "owners", admin);
         Ok(())
     }
 
@@ -265,20 +278,28 @@ impl Cliprail {
     ) -> Result<(), Error> {
         storage::admin(&env)?.require_auth();
         let cfg = PlatformConfig {
-            url_prefix,
-            url_suffix,
+            url_prefix: url_prefix.clone(),
+            url_suffix: url_suffix.clone(),
             required,
         };
-        storage::inst_set(&env, &DataKey::Platform(platform), &cfg);
+        storage::inst_set(&env, &DataKey::Platform(platform.clone()), &cfg);
         storage::bump_instance(&env);
+        events::PlatformSet {
+            platform,
+            url_prefix,
+            url_suffix,
+        }
+        .publish(&env);
         Ok(())
     }
 
     /// Soroswap router used by `create_campaign_with_swap`.
     pub fn set_router(env: Env, router: Address) -> Result<(), Error> {
-        storage::admin(&env)?.require_auth();
+        let admin = storage::admin(&env)?;
+        admin.require_auth();
         storage::inst_set(&env, &DataKey::Router, &router);
         storage::bump_instance(&env);
+        config_set(&env, "router", admin);
         Ok(())
     }
 
@@ -419,6 +440,9 @@ impl Cliprail {
             return Err(Error::WrongPhase);
         }
         let part = storage::participant(&env, campaign_id, &participant).ok_or(Error::NotJoined)?;
+        if c.clips >= MAX_CLIPS_PER_CAMPAIGN {
+            return Err(Error::ListFull);
+        }
         if !p.platforms.contains(&platform) {
             return Err(Error::PlatformNotAllowed);
         }
@@ -432,7 +456,8 @@ impl Cliprail {
         {
             return Err(Error::ProofExpired);
         }
-        let views = proof::verify_and_consume(&env, campaign_id, &proof, &platform, &vid, &part.code)?;
+        let views =
+            proof::verify_and_consume(&env, campaign_id, &proof, &platform, &vid, &part.code)?;
 
         let clip_id = storage::next_id(&env, &DataKey::ClipCount);
         let clip = Clip {
@@ -516,7 +541,8 @@ impl Cliprail {
         }
         let part = storage::participant(&env, campaign_id, &clip.owner).ok_or(Error::NotJoined)?;
         let vid = clip.video_id.to_bytes();
-        let views = proof::verify_and_consume(&env, campaign_id, &proof, &clip.platform, &vid, &part.code)?;
+        let views =
+            proof::verify_and_consume(&env, campaign_id, &proof, &clip.platform, &vid, &part.code)?;
 
         // never decrease within the window
         if views > ce.views {
@@ -755,36 +781,72 @@ impl Cliprail {
     }
 
     /// All clips of a campaign (registration order) with their per-epoch state.
-    /// Unpaginated: reads clips × epochs entries, so the practical limit is a few hundred clips
-    /// per campaign before simulation hits the read budget (fine at hackathon scale).
+    /// Reads clips × epochs entries; the list is capped at `MAX_CLIPS_PER_CAMPAIGN`, but large
+    /// campaigns should page with `get_clips_page` to stay inside the simulation read budget.
     pub fn get_clips(env: Env, campaign_id: u64) -> Vec<ClipView> {
-        let c = storage::campaign_or_panic(&env, campaign_id);
-        let mut out = Vec::new(&env);
-        for clip_id in storage::id_list(&env, &DataKey::CampaignClips(campaign_id)).iter() {
-            let clip: Clip = storage::get(&env, &DataKey::Clip(clip_id))
-                .unwrap_or_else(|| panic_with_error!(&env, Error::ClipNotFound));
-            let mut epochs = Vec::new(&env);
-            for e in 0..c.params.epochs {
-                epochs.push_back(storage::get(&env, &DataKey::ClipEpoch(clip_id, e)));
-            }
-            out.push_back(ClipView { clip, epochs });
-        }
-        out
+        clips_page(&env, campaign_id, 0, MAX_CLIPS_PER_CAMPAIGN)
+    }
+
+    /// `limit` clips (at most `MAX_PAGE`) starting at index `start` in registration order (TM-14).
+    pub fn get_clips_page(env: Env, campaign_id: u64, start: u32, limit: u32) -> Vec<ClipView> {
+        clips_page(&env, campaign_id, start, limit.min(MAX_PAGE))
     }
 
     pub fn list_disputes(env: Env, campaign_id: u64) -> Vec<Dispute> {
-        let mut out = Vec::new(&env);
-        for id in storage::id_list(&env, &DataKey::CampaignDisputes(campaign_id)).iter() {
-            if let Ok(d) = storage::dispute(&env, id) {
-                out.push_back(d);
-            }
-        }
-        out
+        disputes_page(&env, campaign_id, 0, dispute::MAX_DISPUTES_PER_CAMPAIGN)
+    }
+
+    /// `limit` disputes (at most `MAX_PAGE`) starting at index `start`, oldest first (TM-14).
+    pub fn list_disputes_page(env: Env, campaign_id: u64, start: u32, limit: u32) -> Vec<Dispute> {
+        disputes_page(&env, campaign_id, start, limit.min(MAX_PAGE))
     }
 
     pub fn campaign_count(env: Env) -> u64 {
         storage::inst_get(&env, &DataKey::CampaignCount).unwrap_or(0)
     }
+}
+
+/// Index range `[start, start + limit)` of an id list, clamped to its length.
+fn page_ids(env: &Env, key: &DataKey, start: u32, limit: u32) -> Vec<u64> {
+    let ids = storage::id_list(env, key);
+    let end = start.saturating_add(limit).min(ids.len());
+    if start >= end {
+        return Vec::new(env);
+    }
+    ids.slice(start..end)
+}
+
+fn config_set(env: &Env, key: &str, admin: Address) {
+    events::ConfigSet {
+        key: Symbol::new(env, key),
+        admin,
+    }
+    .publish(env);
+}
+
+fn clips_page(env: &Env, campaign_id: u64, start: u32, limit: u32) -> Vec<ClipView> {
+    let c = storage::campaign_or_panic(env, campaign_id);
+    let mut out = Vec::new(env);
+    for clip_id in page_ids(env, &DataKey::CampaignClips(campaign_id), start, limit).iter() {
+        let clip: Clip = storage::get(env, &DataKey::Clip(clip_id))
+            .unwrap_or_else(|| panic_with_error!(env, Error::ClipNotFound));
+        let mut epochs = Vec::new(env);
+        for e in 0..c.params.epochs {
+            epochs.push_back(storage::get(env, &DataKey::ClipEpoch(clip_id, e)));
+        }
+        out.push_back(ClipView { clip, epochs });
+    }
+    out
+}
+
+fn disputes_page(env: &Env, campaign_id: u64, start: u32, limit: u32) -> Vec<Dispute> {
+    let mut out = Vec::new(env);
+    for id in page_ids(env, &DataKey::CampaignDisputes(campaign_id), start, limit).iter() {
+        if let Ok(d) = storage::dispute(env, id) {
+            out.push_back(d);
+        }
+    }
+    out
 }
 
 #[cfg(test)]

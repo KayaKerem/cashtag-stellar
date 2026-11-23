@@ -1,6 +1,6 @@
 //! Events per docs/INTERFACES.md §2.4: topics = (Symbol, campaign_id), data = vec of fields.
 
-use soroban_sdk::{contractevent, Address, String, Symbol};
+use soroban_sdk::{contractevent, Address, Bytes, String, Symbol};
 
 #[contractevent(topics = ["campaign"], data_format = "vec")]
 pub struct CampaignCreated {
@@ -116,4 +116,38 @@ pub struct SwapFunded {
 #[contractevent(topics = ["admin"], data_format = "vec")]
 pub struct AdminChanged {
     pub admin: Address,
+}
+
+/// `propose_admin`: step 1 of an admin transfer (TM-21).
+#[contractevent(topics = ["adminprop"], data_format = "vec")]
+pub struct AdminProposed {
+    pub pending: Address,
+}
+
+/// An admin setter changed instance config (TM-21). `key` names the setting:
+/// `arbiters`, `minresp`, `attestors`, `owners` or `router`. Only campaigns created
+/// afterwards see the change.
+#[contractevent(topics = ["config"], data_format = "vec")]
+pub struct ConfigSet {
+    #[topic]
+    pub key: Symbol,
+    pub admin: Address,
+}
+
+/// `set_platform` (TM-21).
+#[contractevent(topics = ["platform"], data_format = "vec")]
+pub struct PlatformSet {
+    #[topic]
+    pub platform: Symbol,
+    pub url_prefix: Bytes,
+    pub url_suffix: Bytes,
+}
+
+/// `withdraw`: dispute payouts or arbiter fees paid out (TM-21).
+#[contractevent(topics = ["withdraw"], data_format = "vec")]
+pub struct Withdrawn {
+    #[topic]
+    pub who: Address,
+    pub token: Address,
+    pub amount: i128,
 }
