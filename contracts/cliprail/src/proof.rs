@@ -97,7 +97,10 @@ pub fn verify_and_consume(
 ) -> Result<u64, Error> {
     // the campaign's frozen config, never the live admin config (TM-1)
     let snap = campaign_config(env, campaign_id)?;
-    let cfg = snap.platforms.get(platform_sym.clone()).ok_or(Error::PlatformNotAllowed)?;
+    let cfg = snap
+        .platforms
+        .get(platform_sym.clone())
+        .ok_or(Error::PlatformNotAllowed)?;
     let mut url = cfg.url_prefix.clone();
     url.append(video_id);
     url.append(&cfg.url_suffix);

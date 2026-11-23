@@ -18,7 +18,7 @@ use soroban_sdk::{Address, Bytes, BytesN, Env, IntoVal, InvokeError, Symbol};
 use super::setup::*;
 use crate::dispute::dispute_fee;
 use crate::epoch::{self, MAX_BUDGET, MAX_CAP_VIEWS, MAX_EPOCHS, MAX_RATE};
-use crate::{CampaignParams, ClipEpochStatus, Error, EpochState, ParticipantEpoch};
+use crate::{CampaignParams, ClipEpochStatus, EpochState, Error, ParticipantEpoch};
 
 fn cfg(cases: u32) -> Config {
     Config {
@@ -100,8 +100,16 @@ fn econ() -> impl Strategy<Value = Econ> {
             (MAX_BUDGET - 1_000)..=MAX_BUDGET
         ],
         prop_oneof![1i128..=10, 1i128..=10 * USDC, (MAX_RATE - 10)..=MAX_RATE],
-        prop_oneof![0u64..=200, 0u64..=200_000, (MAX_CAP_VIEWS - 10)..=MAX_CAP_VIEWS],
-        prop_oneof![0u64..=200, 0u64..=300_000, (MAX_CAP_VIEWS - 10)..=MAX_CAP_VIEWS],
+        prop_oneof![
+            0u64..=200,
+            0u64..=200_000,
+            (MAX_CAP_VIEWS - 10)..=MAX_CAP_VIEWS
+        ],
+        prop_oneof![
+            0u64..=200,
+            0u64..=300_000,
+            (MAX_CAP_VIEWS - 10)..=MAX_CAP_VIEWS
+        ],
         prop_oneof![Just(0u64), 0u64..=300],
         prop_oneof![Just(0u32), Just(10_000u32), 0u32..=10_000],
         1i128..=10 * USDC,
@@ -318,7 +326,11 @@ fn run_conservation(ec: &Econ, n_part: usize, plans: &[ClipPlan]) {
                 *bonds_to_owner.entry(plans[*i].owner).or_default() += p.bond - dispute_fee(p.bond);
             } else {
                 m[*i][e].excluded = true;
-                assert_eq!(t.paid(ch), p.bond - dispute_fee(p.bond), "bond back to challenger, minus fee");
+                assert_eq!(
+                    t.paid(ch),
+                    p.bond - dispute_fee(p.bond),
+                    "bond back to challenger, minus fee"
+                );
             }
         }
         t.check_invariant();
@@ -427,8 +439,14 @@ fn run_conservation(ec: &Econ, n_part: usize, plans: &[ClipPlan]) {
         let sum_pay: i128 = (0..plans.len()).map(|i| pay[i][e]).sum();
         assert!(sum_pay <= m_epochs[e].spent, "Σ pay > spent (epoch {e})");
         if e < last {
-            let surv: i128 = (0..plans.len()).filter(|&i| alive[i][e]).map(|i| held[i][e]).sum();
-            assert_eq!(m_epochs[e].held_survived, 0, "held_survived read before final");
+            let surv: i128 = (0..plans.len())
+                .filter(|&i| alive[i][e])
+                .map(|i| held[i][e])
+                .sum();
+            assert_eq!(
+                m_epochs[e].held_survived, 0,
+                "held_survived read before final"
+            );
             let got = t.c.get_epoch(&id, &(e as u32));
             assert_eq!(got.held_survived, surv, "epoch {e} held_survived");
             // Σ immediate + Σ survivor shares ≤ spent
@@ -522,14 +540,21 @@ fn run_conservation(ec: &Econ, n_part: usize, plans: &[ClipPlan]) {
                 let before = t.token.balance(&who);
                 assert_eq!(t.c.withdraw(&who, &t.token.address), owed);
                 assert_eq!(t.token.balance(&who), before + owed);
-                assert_eq!(flat(t.c.try_withdraw(&who, &t.token.address)), Err(Some(Error::NothingToClaim)));
+                assert_eq!(
+                    flat(t.c.try_withdraw(&who, &t.token.address)),
+                    Err(Some(Error::NothingToClaim))
+                );
             }
         }
     }
     assert_eq!(t.token.balance(&t.c.address), 0, "contract drained");
-    assert_eq!(t.token.balance(&t.brand), brand_before - p.budget + refunded);
+    assert_eq!(
+        t.token.balance(&t.brand),
+        brand_before - p.budget + refunded
+    );
     for (k, (who, _)) in parts.iter().enumerate() {
-        let exp = paid_to.get(&k).copied().unwrap_or(0) + bonds_to_owner.get(&k).copied().unwrap_or(0);
+        let exp =
+            paid_to.get(&k).copied().unwrap_or(0) + bonds_to_owner.get(&k).copied().unwrap_or(0);
         assert_eq!(t.paid(who), exp, "participant {k} balance");
     }
     // nothing more can leave
@@ -706,7 +731,14 @@ fn extreme_i128() -> impl Strategy<Value = i128> {
     ]
 }
 fn extreme_u64() -> impl Strategy<Value = u64> {
-    prop_oneof![Just(0u64), Just(1u64), Just(u64::MAX), Just(u64::MAX - 1), any::<u64>(), 0u64..=1_000]
+    prop_oneof![
+        Just(0u64),
+        Just(1u64),
+        Just(u64::MAX),
+        Just(u64::MAX - 1),
+        any::<u64>(),
+        0u64..=1_000
+    ]
 }
 
 proptest! {
@@ -1069,7 +1101,8 @@ fn permissionless_calls_pay_only_rightful_recipient() {
     t.c.submit_proof(&id, &clip, &1, &pr);
     t.set_time(t.settle_at(id, 1));
     t.c.settle_epoch(&id, &1);
-    let got = t.c.claim(&id, &clip, &0) + t.c.claim(&id, &clip, &1) + t.c.claim_holdback(&id, &clip, &0);
+    let got =
+        t.c.claim(&id, &clip, &0) + t.c.claim(&id, &clip, &1) + t.c.claim_holdback(&id, &clip, &0);
     assert_eq!(t.token.balance(&a), got);
     assert!(t.env.auths().is_empty());
     t.set_time(t.refund_at(id));
@@ -1104,7 +1137,11 @@ fn timeline_near_u64_max_traps_in_register_clip() {
     let v = yt("max");
     let pr = t.yt_proof(&v, &ca, 0);
     let r = flat(t.c.try_register_clip(&id, &a, &t.sym("youtube"), &t.s(&v), &pr));
-    assert_ne!(r, Err(None), "host trap (arithmetic overflow) instead of a contract error");
+    assert_ne!(
+        r,
+        Err(None),
+        "host trap (arithmetic overflow) instead of a contract error"
+    );
 }
 
 // =============================================================================================
@@ -1122,7 +1159,10 @@ fn account_xdr(key: &[u8; 32]) -> [u8; 44] {
 
 fn account(env: &Env, key: &[u8; 32]) -> Address {
     use soroban_sdk::address_payload::AddressPayload;
-    Address::from_payload(env, AddressPayload::AccountIdPublicKeyEd25519(BytesN::from_array(env, key)))
+    Address::from_payload(
+        env,
+        AddressPayload::AccountIdPublicKeyEd25519(BytesN::from_array(env, key)),
+    )
 }
 
 /// Off-chain replica of `participant_code` ("CR-" + 10 base36 chars of u64(sha256[0..8]) mod 36^10).
@@ -1133,7 +1173,8 @@ fn code_of(campaign_id: u64, key: &[u8; 32]) -> StdString {
     h.update(campaign_id.to_be_bytes());
     h.update(account_xdr(key));
     let d = h.finalize();
-    let mut n = u64::from_be_bytes([d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]]) % 3_656_158_440_062_976;
+    let mut n = u64::from_be_bytes([d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]])
+        % 3_656_158_440_062_976;
     let mut out = *b"CR-0000000000";
     for i in (3..13).rev() {
         out[i] = ALPHABET[(n % 36) as usize];
@@ -1162,7 +1203,8 @@ fn participant_code_is_ten_chars_and_matches_replica() {
             who.clone().to_xdr(&t.env),
             Bytes::from_slice(&t.env, &account_xdr(&k))
         );
-        t.hum.register(&id, &BytesN::from_array(&t.env, &[i as u8 + 1; 32]), &who);
+        t.hum
+            .register(&id, &BytesN::from_array(&t.env, &[i as u8 + 1; 32]), &who);
         let code = to_std(&t.c.join(&id, &who));
         assert_eq!(code.len(), 13);
         assert_eq!(code, code_of(id, &k));
@@ -1178,15 +1220,21 @@ fn participant_code_collision_rejected() {
     let id = t.create(&t.params());
     let kb = key_of(7);
     let b = account(&t.env, &kb);
-    t.hum.register(&id, &BytesN::from_array(&t.env, &[2; 32]), &b);
+    t.hum
+        .register(&id, &BytesN::from_array(&t.env, &[2; 32]), &b);
     let victim = Address::generate(&t.env);
     let taken = soroban_sdk::String::from_str(&t.env, &code_of(id, &kb));
     t.env.as_contract(&t.c.address, || {
-        crate::storage::put(&t.env, &crate::storage::DataKey::Code(id, taken.clone()), &victim)
+        crate::storage::put(
+            &t.env,
+            &crate::storage::DataKey::Code(id, taken.clone()),
+            &victim,
+        )
     });
     assert_eq!(flat(t.c.try_join(&id, &b)), Err(Some(Error::CodeTaken)));
     // the same address still joins a campaign where its code is free
     let id2 = t.create(&t.params());
-    t.hum.register(&id2, &BytesN::from_array(&t.env, &[3; 32]), &b);
+    t.hum
+        .register(&id2, &BytesN::from_array(&t.env, &[3; 32]), &b);
     assert_eq!(to_std(&t.c.join(&id2, &b)), code_of(id2, &kb));
 }

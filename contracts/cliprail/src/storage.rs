@@ -113,7 +113,9 @@ pub fn campaign(env: &Env, id: u64) -> Result<Campaign, Error> {
     let c = get_live(env, &DataKey::Campaign(id)).ok_or(Error::CampaignNotFound)?;
     let cfg = DataKey::CampaignConfig(id);
     if has(env, &cfg) {
-        env.storage().persistent().extend_ttl(&cfg, TTL_THRESHOLD, TTL_EXTEND);
+        env.storage()
+            .persistent()
+            .extend_ttl(&cfg, TTL_THRESHOLD, TTL_EXTEND);
     }
     Ok(c)
 }

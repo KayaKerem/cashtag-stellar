@@ -80,7 +80,8 @@ impl T {
 
         let sa = env.register_stellar_asset_contract_v2(admin.clone());
         // lets tests deauthorize a holder (a recipient that cannot receive the token)
-        sa.issuer().set_flag(soroban_sdk::testutils::IssuerFlags::RevocableFlag);
+        sa.issuer()
+            .set_flag(soroban_sdk::testutils::IssuerFlags::RevocableFlag);
         let token = TokenClient::new(&env, &sa.address());
         let sac = StellarAssetClient::new(&env, &sa.address());
         sac.mint(&brand, &(1_000_000 * USDC));

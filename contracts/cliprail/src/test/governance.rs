@@ -35,16 +35,34 @@ fn live_campaign_keeps_its_config_after_admin_changes() {
         &t.sym("youtube"),
         &Bytes::from_slice(&t.env, evil.as_bytes()),
         &Bytes::new(&t.env),
-        &vec![&t.env, Bytes::from_slice(&t.env, match_entry(RE_VIEWS).as_bytes())],
+        &vec![
+            &t.env,
+            Bytes::from_slice(&t.env, match_entry(RE_VIEWS).as_bytes()),
+        ],
     );
     assert_eq!(t.c.get_campaign_config(&id), before);
 
     // The rogue attestor cannot mint weight in the existing campaign …
     t.set_time(t.content_end(id, 0));
     let desc = format!("code {code}");
-    let forged = t.sign(&ROGUE_SK, &T::params_json(YT_PREFIX, &v), &T::context_json(&desc, "9999999"), OWNER, t.now());
-    assert_eq!(flat(t.c.try_submit_proof(&id, &clip, &0, &forged)), Err(Error::UnknownAttestor));
-    let forged = t.sign(&ROGUE_SK, &T::params_json(evil, &v), &T::context_json(&desc, "9999999"), OWNER, t.now());
+    let forged = t.sign(
+        &ROGUE_SK,
+        &T::params_json(YT_PREFIX, &v),
+        &T::context_json(&desc, "9999999"),
+        OWNER,
+        t.now(),
+    );
+    assert_eq!(
+        flat(t.c.try_submit_proof(&id, &clip, &0, &forged)),
+        Err(Error::UnknownAttestor)
+    );
+    let forged = t.sign(
+        &ROGUE_SK,
+        &T::params_json(evil, &v),
+        &T::context_json(&desc, "9999999"),
+        OWNER,
+        t.now(),
+    );
     assert!(flat(t.c.try_submit_proof(&id, &clip, &0, &forged)).is_err());
     // … while honest proofs keep working there.
     t.c.submit_proof(&id, &clip, &0, &t.yt_proof(&v, &code, 5_000));
@@ -53,7 +71,10 @@ fn live_campaign_keeps_its_config_after_admin_changes() {
     // Only campaigns created afterwards (which the brand can inspect first) see the new config.
     let id2 = t.create(&t.params());
     let cfg2 = t.c.get_campaign_config(&id2);
-    assert_eq!(cfg2.attestors, vec![&t.env, attestor_address(&t.env, &ROGUE_SK)]);
+    assert_eq!(
+        cfg2.attestors,
+        vec![&t.env, attestor_address(&t.env, &ROGUE_SK)]
+    );
     assert_eq!(
         cfg2.platforms.get(t.sym("youtube")).unwrap().url_prefix,
         Bytes::from_slice(&t.env, evil.as_bytes())
@@ -72,17 +93,26 @@ fn arbiter_must_be_curated_and_not_the_brand() {
     let t = T::new();
     let mut p = t.params();
     p.arbiter = Address::generate(&t.env); // a brand's second wallet
-    assert_eq!(flat(t.c.try_create_campaign(&t.brand, &p)), Err(Error::ArbiterNotAllowed));
+    assert_eq!(
+        flat(t.c.try_create_campaign(&t.brand, &p)),
+        Err(Error::ArbiterNotAllowed)
+    );
     // even if listed, the brand itself can never be its own arbiter
     t.c.set_arbiters(&vec![&t.env, t.arbiter.clone(), t.brand.clone()]);
     p.arbiter = t.brand.clone();
-    assert_eq!(flat(t.c.try_create_campaign(&t.brand, &p)), Err(Error::InvalidParams));
+    assert_eq!(
+        flat(t.c.try_create_campaign(&t.brand, &p)),
+        Err(Error::InvalidParams)
+    );
     assert_eq!(t.c.arbiters().len(), 2);
     // delisting an arbiter does not affect campaigns that already named it
     let id = t.create(&t.params());
     t.c.set_arbiters(&vec![&t.env]);
     assert_eq!(t.campaign(id).params.arbiter, t.arbiter);
-    assert_eq!(flat(t.c.try_create_campaign(&t.brand, &t.params())), Err(Error::ArbiterNotAllowed));
+    assert_eq!(
+        flat(t.c.try_create_campaign(&t.brand, &t.params())),
+        Err(Error::ArbiterNotAllowed)
+    );
 }
 
 #[test]
@@ -92,7 +122,10 @@ fn min_response_window_is_enforced_at_creation() {
     t.c.set_min_response_window(&60);
     let mut p = t.params();
     p.dispute_window = 90; // 45 s to respond after a last-second challenge
-    assert_eq!(flat(t.c.try_create_campaign(&t.brand, &p)), Err(Error::InvalidParams));
+    assert_eq!(
+        flat(t.c.try_create_campaign(&t.brand, &p)),
+        Err(Error::InvalidParams)
+    );
     p.dispute_window = 120;
     p.epoch_len = 400;
     p.claim_grace = 400;
@@ -130,7 +163,10 @@ fn dispute_fee_is_never_zero() {
 fn arbiter_cannot_join_or_challenge() {
     let t = T::new();
     let id = t.create(&t.params());
-    assert_eq!(flat(t.c.try_join(&id, &t.arbiter)), Err(Error::InvalidParams));
+    assert_eq!(
+        flat(t.c.try_join(&id, &t.arbiter)),
+        Err(Error::InvalidParams)
+    );
     let (a, code) = t.join(id);
     let clip = t.register(id, &a, &yt("arb"), &code, 1_000);
     t.set_time(t.content_end(id, 0));
@@ -147,5 +183,8 @@ fn arbiter_cannot_join_or_challenge() {
 fn creation_needs_attestors_and_owners() {
     let t = T::new();
     t.c.set_owners(&vec![&t.env]);
-    assert_eq!(flat(t.c.try_create_campaign(&t.brand, &t.params())), Err(Error::NotInitialized));
+    assert_eq!(
+        flat(t.c.try_create_campaign(&t.brand, &t.params())),
+        Err(Error::NotInitialized)
+    );
 }

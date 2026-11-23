@@ -13,7 +13,10 @@ use soroban_sdk::{Address, Bytes, BytesN, Env, IntoVal, InvokeError, U256};
 
 fn cfg(cases: u32) -> Config {
     Config {
-        cases: std::env::var("PROPTEST_CASES").ok().and_then(|s| s.parse().ok()).unwrap_or(cases),
+        cases: std::env::var("PROPTEST_CASES")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(cases),
         failure_persistence: None,
         ..Config::default()
     }
@@ -49,7 +52,12 @@ fn setup() -> S {
     let relayer = Address::generate(&env);
     let id = env.register(Humanity, (admin.clone(), relayer.clone()));
     let c = HumanityClient::new(&env, &id);
-    S { env, c, admin, relayer }
+    S {
+        env,
+        c,
+        admin,
+        relayer,
+    }
 }
 
 // =============================================================================================
@@ -58,8 +66,15 @@ fn setup() -> S {
 
 #[derive(Clone, Debug)]
 enum Op {
-    Register { campaign: u64, nullifier: u8, wallet: usize },
-    Revoke { campaign: u64, wallet: usize },
+    Register {
+        campaign: u64,
+        nullifier: u8,
+        wallet: usize,
+    },
+    Revoke {
+        campaign: u64,
+        wallet: usize,
+    },
 }
 
 fn op() -> impl Strategy<Value = Op> {
@@ -213,7 +228,12 @@ fn load() -> Fx {
         a: hex(p["a"].as_str().unwrap()),
         b: hex(p["b"].as_str().unwrap()),
         c: hex(p["c"].as_str().unwrap()),
-        signals: p["public_signals"].as_array().unwrap().iter().map(|v| dec(v.as_str().unwrap())).collect(),
+        signals: p["public_signals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| dec(v.as_str().unwrap()))
+            .collect(),
         campaign: m["campaign_id"].as_u64().unwrap(),
         wallet: m["wallet"].as_str().unwrap().to_string(),
     }
@@ -248,7 +268,16 @@ fn zk() -> Zk {
 }
 
 impl Zk {
-    fn call(&self, campaign: u64, wallet: &Address, a: &[u8; 64], b: &[u8; 128], c: &[u8; 64], sig: &[[u8; 32]], ts: u64) -> Out {
+    fn call(
+        &self,
+        campaign: u64,
+        wallet: &Address,
+        a: &[u8; 64],
+        b: &[u8; 128],
+        c: &[u8; 64],
+        sig: &[[u8; 32]],
+        ts: u64,
+    ) -> Out {
         let env = &self.s.env;
         let proof = Groth16Proof {
             a: BytesN::from_array(env, a),
@@ -269,7 +298,15 @@ impl Zk {
     }
     fn honest(&self) -> Out {
         let f = &self.fx;
-        self.call(f.campaign, &self.wallet, &f.a, &f.b, &f.c, &f.signals, ts_of(f))
+        self.call(
+            f.campaign,
+            &self.wallet,
+            &f.a,
+            &f.b,
+            &f.c,
+            &f.signals,
+            ts_of(f),
+        )
     }
 }
 
@@ -300,7 +337,11 @@ fn pmut() -> impl Strategy<Value = PMut> {
 
 fn mutate(fx: &Fx, m: &PMut) -> ([u8; 64], [u8; 128], [u8; 64]) {
     let (mut a, mut b, mut c) = (fx.a, fx.b, fx.c);
-    let pick = |w: u8, a: &mut [u8; 64], b: &mut [u8; 128], c: &mut [u8; 64], f: &mut dyn FnMut(&mut [u8])| match w {
+    let pick = |w: u8,
+                a: &mut [u8; 64],
+                b: &mut [u8; 128],
+                c: &mut [u8; 64],
+                f: &mut dyn FnMut(&mut [u8])| match w {
         0 => f(a),
         1 => f(b),
         _ => f(c),
@@ -402,7 +443,15 @@ fn malformed_points_are_clean_errors() {
     .enumerate()
     {
         let (a, b, c) = mutate(&z.fx, m);
-        let r = z.call(z.fx.campaign, &z.wallet, &a, &b, &c, &z.fx.signals, ts_of(&z.fx));
+        let r = z.call(
+            z.fx.campaign,
+            &z.wallet,
+            &a,
+            &b,
+            &c,
+            &z.fx.signals,
+            ts_of(&z.fx),
+        );
         assert_ne!(r, Out::Ok);
         if r == Out::Trap {
             traps.push(k);
